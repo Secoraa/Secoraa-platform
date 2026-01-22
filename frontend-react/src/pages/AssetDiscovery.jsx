@@ -1,0 +1,1192 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  getDomains,
+  createDomain,
+  getSubdomains,
+  createSubdomain,
+  getDomainById,
+  getIPAddresses,
+  getUrls,
+  createIPAddress,
+  createUrl,
+  getAllFindings,
+} from '../api/apiClient';
+import './AssetDiscovery.css';
+import DomainHoverModal from '../components/DomainHoverModal';
+
+// TagsDisplay component to show tags with "+X" functionality
+const TagsDisplay = ({ tags, itemId, expandedTags, setExpandedTags }) => {
+  if (!tags || tags.length === 0) {
+    return <span className="no-tags">-</span>;
+  }
+
+  const isExpanded = expandedTags[itemId] || false;
+  const maxVisible = 2;
+  const hasMore = tags.length > maxVisible;
+  const visibleTags = isExpanded ? tags : tags.slice(0, maxVisible);
+  const remainingCount = tags.length - maxVisible;
+
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    setExpandedTags(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
+  return (
+    <div className="tags-container">
+      {visibleTags.map((tag, idx) => (
+        <span key={idx} className="tag-badge">
+          {tag}
+        </span>
+      ))}
+      {hasMore && (
+        <span 
+          className="tag-more-link" 
+          onClick={handleToggle}
+          title={isExpanded ? 'Show less' : `Show ${remainingCount} more tag${remainingCount > 1 ? 's' : ''}`}
+        >
+          {isExpanded ? 'Show less' : `+${remainingCount}`}
+        </span>
+      )}
+    </div>
+  );
+};
+
+const AssetDiscovery = ({ onOpenDomain }) => {
+  const [domains, setDomains] = useState([]);
+  const [subdomains, setSubdomains] = useState([]);
+  const [ipAddresses, setIpAddresses] = useState([]);
+  const [urls, setUrls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [subdomainLoading, setSubdomainLoading] = useState(false);
+  const [ipLoading, setIpLoading] = useState(false);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('domains');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [labelsFilter, setLabelsFilter] = useState('All Labels');
+  const [subdomainDomainFilter, setSubdomainDomainFilter] = useState('All Domains');
+  const [ipDomainFilter, setIpDomainFilter] = useState('All Domains');
+  const [urlDomainFilter, setUrlDomainFilter] = useState('All Domains');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddSubdomainModal, setShowAddSubdomainModal] = useState(false);
+  const [showAddIpModal, setShowAddIpModal] = useState(false);
+  const [showAddUrlModal, setShowAddUrlModal] = useState(false);
+  const [newDomain, setNewDomain] = useState({ name: '', tags: '' });
+  const [newSubdomain, setNewSubdomain] = useState({ domainId: '', name: '', tags: '' });
+  const [newIpAddress, setNewIpAddress] = useState({ domainId: '', ip: '', tags: '' });
+  const [newUrl, setNewUrl] = useState({ domainId: '', url: '', tags: '' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [subdomainCurrentPage, setSubdomainCurrentPage] = useState(1);
+  const [ipCurrentPage, setIpCurrentPage] = useState(1);
+  const [urlCurrentPage, setUrlCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [expandedTags, setExpandedTags] = useState({});
+  const [hoverDomain, setHoverDomain] = useState(null);
+  const [hoverPos, setHoverPos] = useState({ x: 10, y: 10 });
+  const [allFindings, setAllFindings] = useState([]);
+  const hoverTimerRef = React.useRef(null);
+
+  useEffect(() => {
+    // Prefetch counts so tab badges don't show 0 before user clicks into tabs
+    loadDomains();
+    loadIPAddresses();
+    loadUrls();
+    // Load findings once for hover modal + other quick insights
+    getAllFindings()
+      .then((resp) => setAllFindings(resp?.data || []))
+      .catch(() => setAllFindings([]));
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'subdomains') {
+      loadSubdomains();
+    }
+    if (activeTab === 'ip-addresses') {
+      // Lazy-load fallback (in case prefetch failed)
+      if (!ipAddresses || ipAddresses.length === 0) loadIPAddresses();
+    }
+    if (activeTab === 'url') {
+      // Lazy-load fallback (in case prefetch failed)
+      if (!urls || urls.length === 0) loadUrls();
+    }
+  }, [activeTab]);
+
+  const loadDomains = async () => {
+    try {
+      setLoading(true);
+      const data = await getDomains();
+      setDomains(Array.isArray(data) ? data : data.data || []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const scheduleHoverOpen = (domain, e) => {
+    if (!domain) return;
+    const x = (e?.clientX || 10) + 14;
+    const y = (e?.clientY || 10) + 14;
+    setHoverPos({ x, y });
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoverDomain(domain);
+    }, 120);
+  };
+
+  const closeHover = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoverDomain(null);
+  };
+
+  const loadSubdomains = async () => {
+    try {
+      setSubdomainLoading(true);
+      const data = await getSubdomains();
+      setSubdomains(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubdomainLoading(false);
+    }
+  };
+
+  const loadIPAddresses = async () => {
+    try {
+      setIpLoading(true);
+      const data = await getIPAddresses();
+      setIpAddresses(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIpLoading(false);
+    }
+  };
+
+  const loadUrls = async () => {
+    try {
+      setUrlLoading(true);
+      const data = await getUrls();
+      setUrls(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUrlLoading(false);
+    }
+  };
+
+  const domainNameOptions = useMemo(() => {
+    const names = (domains || []).map((d) => d.domain_name).filter(Boolean);
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [domains]);
+
+  const handleAddDomain = async (e) => {
+    e.preventDefault();
+    try {
+      const tags = newDomain.tags
+        ? newDomain.tags.split(',').map((t) => t.trim()).filter(t => t)
+        : [];
+      await createDomain(newDomain.name, tags);
+      setShowAddModal(false);
+      setNewDomain({ name: '', tags: '' });
+      loadDomains();
+    } catch (err) {
+      alert(`Failed to add domain: ${err.message}`);
+    }
+  };
+
+  const handleAddSubdomain = async (e) => {
+    e.preventDefault();
+    try {
+      if (!newSubdomain.domainId) {
+        alert('Please select a domain');
+        return;
+      }
+      const tags = newSubdomain.tags
+        ? newSubdomain.tags.split(',').map((t) => t.trim()).filter(t => t)
+        : [];
+      await createSubdomain(newSubdomain.domainId, newSubdomain.name, tags);
+      setShowAddSubdomainModal(false);
+      setNewSubdomain({ domainId: '', name: '', tags: '' });
+      loadSubdomains();
+      loadDomains(); // Refresh domains to update subdomain count
+    } catch (err) {
+      alert(`Failed to add subdomain: ${err.message}`);
+    }
+  };
+
+  const handleAddIpAddress = async (e) => {
+    e.preventDefault();
+    try {
+      if (!newIpAddress.domainId) {
+        alert('Please select a domain');
+        return;
+      }
+      const tags = newIpAddress.tags
+        ? newIpAddress.tags.split(',').map((t) => t.trim()).filter(t => t)
+        : [];
+      await createIPAddress(newIpAddress.domainId, newIpAddress.ip, tags);
+      setShowAddIpModal(false);
+      setNewIpAddress({ domainId: '', ip: '', tags: '' });
+      setIpCurrentPage(1);
+      loadIPAddresses();
+    } catch (err) {
+      alert(`Failed to add IP address: ${err.message}`);
+    }
+  };
+
+  const handleAddUrl = async (e) => {
+    e.preventDefault();
+    try {
+      if (!newUrl.domainId) {
+        alert('Please select a domain');
+        return;
+      }
+      const tags = newUrl.tags
+        ? newUrl.tags.split(',').map((t) => t.trim()).filter(t => t)
+        : [];
+      await createUrl(newUrl.domainId, newUrl.url, tags);
+      setShowAddUrlModal(false);
+      setNewUrl({ domainId: '', url: '', tags: '' });
+      setUrlCurrentPage(1);
+      loadUrls();
+    } catch (err) {
+      alert(`Failed to add URL: ${err.message}`);
+    }
+  };
+
+  // Filter domains
+  let filteredDomains = domains;
+  if (searchQuery) {
+    filteredDomains = filteredDomains.filter((domain) =>
+      domain.domain_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+
+  // Active/Inactive filter
+  if (activeFilter === 'Active') {
+    filteredDomains = filteredDomains.filter((d) => (d.is_active ?? true) === true && (d.is_archived ?? false) === false);
+  } else if (activeFilter === 'Inactive') {
+    filteredDomains = filteredDomains.filter((d) => (d.is_active ?? true) === false || (d.is_archived ?? false) === true);
+  }
+
+  // Labels filter (maps to tags)
+  if (labelsFilter && labelsFilter !== 'All Labels') {
+    const label = labelsFilter.toLowerCase();
+    filteredDomains = filteredDomains.filter((d) =>
+      Array.isArray(d.tags) && d.tags.some((t) => String(t).toLowerCase() === label)
+    );
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(filteredDomains.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const paginatedDomains = filteredDomains.slice(startIndex, endIndex);
+
+  const totalSubdomains = domains.reduce(
+    (sum, d) => sum + (d.subdomains?.length || 0),
+    0
+  );
+
+  // Filter subdomains
+  let filteredSubdomains = subdomains;
+  if (activeTab === 'subdomains' && subdomainDomainFilter !== 'All Domains') {
+    filteredSubdomains = filteredSubdomains.filter((s) => s.domain_name === subdomainDomainFilter);
+  }
+  if (searchQuery && activeTab === 'subdomains') {
+    filteredSubdomains = subdomains.filter((subdomain) =>
+      subdomain.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subdomain.domain_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+
+  // Pagination for subdomains
+  const subdomainTotalPages = Math.ceil(filteredSubdomains.length / rowsPerPage);
+  const subdomainStartIndex = (subdomainCurrentPage - 1) * rowsPerPage;
+  const subdomainEndIndex = subdomainStartIndex + rowsPerPage;
+  const paginatedSubdomains = filteredSubdomains.slice(subdomainStartIndex, subdomainEndIndex);
+
+  // Filter IP addresses
+  let filteredIPs = ipAddresses;
+  if (activeTab === 'ip-addresses' && ipDomainFilter !== 'All Domains') {
+    filteredIPs = filteredIPs.filter((ip) => ip.domain_name === ipDomainFilter);
+  }
+  if (searchQuery && activeTab === 'ip-addresses') {
+    const q = searchQuery.toLowerCase();
+    filteredIPs = filteredIPs.filter((ip) =>
+      String(ip.ipaddress_name || '').toLowerCase().includes(q) ||
+      String(ip.domain_name || '').toLowerCase().includes(q)
+    );
+  }
+  const ipTotalPages = Math.ceil(filteredIPs.length / rowsPerPage);
+  const ipStartIndex = (ipCurrentPage - 1) * rowsPerPage;
+  const ipEndIndex = ipStartIndex + rowsPerPage;
+  const paginatedIPs = filteredIPs.slice(ipStartIndex, ipEndIndex);
+
+  // Filter URLs
+  let filteredUrls = urls;
+  if (activeTab === 'url' && urlDomainFilter !== 'All Domains') {
+    filteredUrls = filteredUrls.filter((u) => u.domain_name === urlDomainFilter);
+  }
+  if (searchQuery && activeTab === 'url') {
+    const q = searchQuery.toLowerCase();
+    filteredUrls = filteredUrls.filter((u) =>
+      String(u.url_name || '').toLowerCase().includes(q) ||
+      String(u.domain_name || '').toLowerCase().includes(q)
+    );
+  }
+  const urlTotalPages = Math.ceil(filteredUrls.length / rowsPerPage);
+  const urlStartIndex = (urlCurrentPage - 1) * rowsPerPage;
+  const urlEndIndex = urlStartIndex + rowsPerPage;
+  const paginatedUrls = filteredUrls.slice(urlStartIndex, urlEndIndex);
+
+  const tabs = [
+    { id: 'domains', label: 'Domains', count: domains.length },
+    { id: 'subdomains', label: 'Subdomains', count: totalSubdomains > 999 ? '999+' : totalSubdomains },
+    { id: 'ip-addresses', label: 'IP Addresses', count: ipAddresses.length },
+    { id: 'url', label: 'URL', count: urls.length },
+    { id: 'ip-blocks', label: 'IP Blocks', count: 0 },
+    { id: 'asset-groups', label: 'Asset Groups', count: 5 },
+  ];
+
+  return (
+    <div className="asset-discovery">
+      <div className="page-header">
+        <h1 className="page-title">ASSET DISCOVERY</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="asset-tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`asset-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            <span className="tab-label">{tab.label}</span>
+            <span className="tab-count">{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'domains' && (
+        <>
+          {/* Filters */}
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search Name"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+            />
+            <select 
+              className="filter-select"
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value)}
+            >
+              <option>All</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+            <select 
+              className="filter-select"
+              value={labelsFilter}
+              onChange={(e) => setLabelsFilter(e.target.value)}
+            >
+              <option>All Labels</option>
+              <option>Production</option>
+              <option>External</option>
+              <option>Internal</option>
+            </select>
+            <button 
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddModal(true)}
+            >
+              ➕ Add Domain
+            </button>
+          </div>
+
+          {/* Table */}
+          {loading ? (
+            <div className="loading">Loading domains...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>NAME</th>
+                      <th>ASSET LABELS</th>
+                      <th>TAGS</th>
+                      <th>SUBDOMAIN COUNT</th>
+                      <th>ASN COUNT</th>
+                      <th>VULNERABILITY COUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {paginatedDomains.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-state">
+                        No domains found
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedDomains.map((domain) => (
+                      <tr
+                        key={domain.id}
+                        className={onOpenDomain ? 'domain-row-clickable' : undefined}
+                        onClick={() => onOpenDomain && onOpenDomain(domain.id)}
+                        title={onOpenDomain ? 'Open domain graph' : undefined}
+                      >
+                        <td
+                          className="domain-name"
+                          title={onOpenDomain ? 'Click to open domain graph' : undefined}
+                          onMouseEnter={(e) => scheduleHoverOpen(domain, e)}
+                          onMouseMove={(e) => setHoverPos({ x: e.clientX + 14, y: e.clientY + 14 })}
+                          onMouseLeave={() => {
+                            // small delay so users can move into modal
+                            setTimeout(() => closeHover(), 120);
+                          }}
+                        >
+                          {domain.domain_name}
+                        </td>
+                        <td>
+                          {domain.discovery_source === 'manual'
+                            ? 'Manually Added'
+                            : 'Auto Discovered'}
+                        </td>
+                        <td>
+                          <TagsDisplay 
+                            tags={domain.tags} 
+                            itemId={domain.id}
+                            expandedTags={expandedTags}
+                            setExpandedTags={setExpandedTags}
+                          />
+                        </td>
+                        <td>{domain.subdomains?.length || 0}</td>
+                        <td>0</td>
+                        <td>0</td>
+                      </tr>
+                    ))
+                  )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select 
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {startIndex + 1}-{Math.min(endIndex, filteredDomains.length)} of {filteredDomains.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {hoverDomain && (
+        <DomainHoverModal
+          domain={hoverDomain}
+          position={hoverPos}
+          ipAddresses={ipAddresses}
+          findings={allFindings}
+          onClose={closeHover}
+        />
+      )}
+
+      {/* Subdomains Tab */}
+      {activeTab === 'subdomains' && (
+        <>
+          {/* Filters */}
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search Name"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSubdomainCurrentPage(1);
+              }}
+            />
+            <select
+              className="filter-select"
+              value={subdomainDomainFilter}
+              onChange={(e) => {
+                setSubdomainDomainFilter(e.target.value);
+                setSubdomainCurrentPage(1);
+              }}
+            >
+              <option>All Domains</option>
+              {domainNameOptions.map((dn) => (
+                <option key={dn} value={dn}>{dn}</option>
+              ))}
+            </select>
+            <select 
+              className="filter-select"
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value)}
+            >
+              <option>All</option>
+              <option>Active</option>
+              <option>Inactive</option>
+            </select>
+            <select 
+              className="filter-select"
+              value={labelsFilter}
+              onChange={(e) => setLabelsFilter(e.target.value)}
+            >
+              <option>All Labels</option>
+              <option>Production</option>
+              <option>External</option>
+              <option>Internal</option>
+            </select>
+            <button 
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddSubdomainModal(true)}
+            >
+              ➕ Add Subdomain
+            </button>
+          </div>
+
+          {/* Table */}
+          {subdomainLoading ? (
+            <div className="loading">Loading subdomains...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>NAME</th>
+                      <th>DOMAIN NAME</th>
+                      <th>TAGS</th>
+                      <th>CREATED BY</th>
+                      <th>UPDATED BY</th>
+                      <th>CREATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {paginatedSubdomains.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-state">
+                        No subdomains found
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedSubdomains.map((subdomain) => (
+                      <tr key={subdomain.id}>
+                        <td className="domain-name">{subdomain.name || subdomain.subdomain_name}</td>
+                        <td>{subdomain.domain_name || '-'}</td>
+                        <td>
+                          <TagsDisplay 
+                            tags={subdomain.tags} 
+                            itemId={subdomain.id}
+                            expandedTags={expandedTags}
+                            setExpandedTags={setExpandedTags}
+                          />
+                        </td>
+                        <td>{subdomain.created_by || '-'}</td>
+                        <td>{subdomain.updated_by || '-'}</td>
+                        <td>
+                          {subdomain.created_at 
+                            ? new Date(subdomain.created_at).toLocaleDateString()
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select 
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setSubdomainCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {subdomainStartIndex + 1}-{Math.min(subdomainEndIndex, filteredSubdomains.length)} of {filteredSubdomains.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setSubdomainCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={subdomainCurrentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setSubdomainCurrentPage(prev => Math.min(subdomainTotalPages, prev + 1))}
+                      disabled={subdomainCurrentPage === subdomainTotalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* IP Addresses Tab */}
+      {activeTab === 'ip-addresses' && (
+        <>
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search Name"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIpCurrentPage(1);
+              }}
+            />
+            <select
+              className="filter-select"
+              value={ipDomainFilter}
+              onChange={(e) => {
+                setIpDomainFilter(e.target.value);
+                setIpCurrentPage(1);
+              }}
+            >
+              <option>All Domains</option>
+              {domainNameOptions.map((dn) => (
+                <option key={dn} value={dn}>{dn}</option>
+              ))}
+            </select>
+            <button
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddIpModal(true)}
+            >
+              ➕ Add IP Address
+            </button>
+          </div>
+
+          {ipLoading ? (
+            <div className="loading">Loading IP addresses...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>IP ADDRESS</th>
+                      <th>DOMAIN NAME</th>
+                      <th>TAGS</th>
+                      <th>CREATED BY</th>
+                      <th>UPDATED BY</th>
+                      <th>CREATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedIPs.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="empty-state">No IP addresses found</td>
+                      </tr>
+                    ) : (
+                      paginatedIPs.map((ip) => (
+                        <tr key={ip.id}>
+                          <td className="domain-name">{ip.ipaddress_name}</td>
+                          <td>{ip.domain_name || '-'}</td>
+                          <td>
+                            <TagsDisplay
+                              tags={ip.tags}
+                              itemId={ip.id}
+                              expandedTags={expandedTags}
+                              setExpandedTags={setExpandedTags}
+                            />
+                          </td>
+                          <td>{ip.created_by || '-'}</td>
+                          <td>{ip.updated_by || '-'}</td>
+                          <td>{ip.created_at ? new Date(ip.created_at).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setIpCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {ipStartIndex + 1}-{Math.min(ipEndIndex, filteredIPs.length)} of {filteredIPs.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setIpCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={ipCurrentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setIpCurrentPage(prev => Math.min(ipTotalPages, prev + 1))}
+                      disabled={ipCurrentPage === ipTotalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* URL Tab */}
+      {activeTab === 'url' && (
+        <>
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search Name"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setUrlCurrentPage(1);
+              }}
+            />
+            <select
+              className="filter-select"
+              value={urlDomainFilter}
+              onChange={(e) => {
+                setUrlDomainFilter(e.target.value);
+                setUrlCurrentPage(1);
+              }}
+            >
+              <option>All Domains</option>
+              {domainNameOptions.map((dn) => (
+                <option key={dn} value={dn}>{dn}</option>
+              ))}
+            </select>
+            <button
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddUrlModal(true)}
+            >
+              ➕ Add URL
+            </button>
+          </div>
+
+          {urlLoading ? (
+            <div className="loading">Loading URLs...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>URL</th>
+                      <th>DOMAIN NAME</th>
+                      <th>TAGS</th>
+                      <th>CREATED BY</th>
+                      <th>UPDATED BY</th>
+                      <th>CREATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedUrls.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="empty-state">No URLs found</td>
+                      </tr>
+                    ) : (
+                      paginatedUrls.map((u) => (
+                        <tr key={u.id}>
+                          <td className="domain-name">{u.url_name}</td>
+                          <td>{u.domain_name || '-'}</td>
+                          <td>
+                            <TagsDisplay
+                              tags={u.tags}
+                              itemId={u.id}
+                              expandedTags={expandedTags}
+                              setExpandedTags={setExpandedTags}
+                            />
+                          </td>
+                          <td>{u.created_by || '-'}</td>
+                          <td>{u.updated_by || '-'}</td>
+                          <td>{u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setUrlCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {urlStartIndex + 1}-{Math.min(urlEndIndex, filteredUrls.length)} of {filteredUrls.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setUrlCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={urlCurrentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setUrlCurrentPage(prev => Math.min(urlTotalPages, prev + 1))}
+                      disabled={urlCurrentPage === urlTotalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Other tabs placeholder */}
+      {activeTab !== 'domains' && activeTab !== 'subdomains' && activeTab !== 'ip-addresses' && activeTab !== 'url' && (
+        <div className="coming-soon">Coming soon</div>
+      )}
+
+      {/* Add Domain Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add New Domain</h2>
+            <form onSubmit={handleAddDomain}>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={newDomain.name}
+                  onChange={(e) =>
+                    setNewDomain({ ...newDomain, name: e.target.value })
+                  }
+                  placeholder="example.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Tags</label>
+                <input
+                  type="text"
+                  value={newDomain.tags}
+                  onChange={(e) =>
+                    setNewDomain({ ...newDomain, tags: e.target.value })
+                  }
+                  placeholder="production, external"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add Domain
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Subdomain Modal */}
+      {showAddSubdomainModal && (
+        <div className="modal-overlay" onClick={() => setShowAddSubdomainModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add New Subdomain</h2>
+            <form onSubmit={handleAddSubdomain}>
+              <div className="form-group">
+                <label>Domain</label>
+                <select
+                  value={newSubdomain.domainId}
+                  onChange={(e) =>
+                    setNewSubdomain({ ...newSubdomain, domainId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select a domain</option>
+                  {domains.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Subdomain Name</label>
+                <input
+                  type="text"
+                  value={newSubdomain.name}
+                  onChange={(e) =>
+                    setNewSubdomain({ ...newSubdomain, name: e.target.value })
+                  }
+                  placeholder="api.example.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Tags </label>
+                <input
+                  type="text"
+                  value={newSubdomain.tags}
+                  onChange={(e) =>
+                    setNewSubdomain({ ...newSubdomain, tags: e.target.value })
+                  }
+                  placeholder="production, external"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add Subdomain
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddSubdomainModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add IP Address Modal */}
+      {showAddIpModal && (
+        <div className="modal-overlay" onClick={() => setShowAddIpModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add IP Address</h2>
+            <form onSubmit={handleAddIpAddress}>
+              <div className="form-group">
+                <label>Domain</label>
+                <select
+                  value={newIpAddress.domainId}
+                  onChange={(e) =>
+                    setNewIpAddress({ ...newIpAddress, domainId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select a domain</option>
+                  {domains.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>IP Address</label>
+                <input
+                  type="text"
+                  value={newIpAddress.ip}
+                  onChange={(e) =>
+                    setNewIpAddress({ ...newIpAddress, ip: e.target.value })
+                  }
+                  placeholder="93.184.216.34"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Tags</label>
+                <input
+                  type="text"
+                  value={newIpAddress.tags}
+                  onChange={(e) =>
+                    setNewIpAddress({ ...newIpAddress, tags: e.target.value })
+                  }
+                  placeholder="production, external"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add IP Address
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddIpModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add URL Modal */}
+      {showAddUrlModal && (
+        <div className="modal-overlay" onClick={() => setShowAddUrlModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add URL</h2>
+            <form onSubmit={handleAddUrl}>
+              <div className="form-group">
+                <label>Domain</label>
+                <select
+                  value={newUrl.domainId}
+                  onChange={(e) =>
+                    setNewUrl({ ...newUrl, domainId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select a domain</option>
+                  {domains.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>URL</label>
+                <input
+                  type="text"
+                  value={newUrl.url}
+                  onChange={(e) =>
+                    setNewUrl({ ...newUrl, url: e.target.value })
+                  }
+                  placeholder="https://example.com/login"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Tags</label>
+                <input
+                  type="text"
+                  value={newUrl.tags}
+                  onChange={(e) =>
+                    setNewUrl({ ...newUrl, tags: e.target.value })
+                  }
+                  placeholder="login, production"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add URL
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddUrlModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AssetDiscovery;

@@ -1,0 +1,36 @@
+# =========================
+# Environment & Secrets
+# =========================
+.env
+.env.*
+.envrc
+
+# =========================
+# Python
+# =========================
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+dist/
+build/
+.next/
+coverage/
+
+# =========================
+# Scan Outputs (CRITICAL)
+# =========================
+scan_results/
+
+# =========================
+# IDE / Tools
+# ==========
