@@ -24,6 +24,14 @@ const Dashboard = () => {
   const [ips, setIps] = useState([]);
   const [urls, setUrls] = useState([]);
   const [findings, setFindings] = useState([]);
+  const [showAssetBreakdown, setShowAssetBreakdown] = useState(false);
+  const [visibleSeverities, setVisibleSeverities] = useState({
+    CRITICAL: true,
+    HIGH: true,
+    MEDIUM: true,
+    LOW: true,
+    INFO: true,
+  });
 
   const load = async () => {
     try {
@@ -126,6 +134,59 @@ const Dashboard = () => {
     return points;
   }, [domains, subdomains, ips, urls]);
 
+  const assetTypeCounts = useMemo(() => {
+    return {
+      DOMAINS: domains?.length || 0,
+      SUBDOMAINS: subdomains?.length || 0,
+      IPS: ips?.length || 0,
+      URLS: urls?.length || 0,
+    };
+  }, [domains, subdomains, ips, urls]);
+
+  const vulnTrendSeries = useMemo(() => {
+    const year = new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+    const initCounts = () => Object.fromEntries(months.map((m) => [m, 0]));
+    const bySev = {
+      CRITICAL: initCounts(),
+      HIGH: initCounts(),
+      MEDIUM: initCounts(),
+      LOW: initCounts(),
+      INFO: initCounts(),
+    };
+
+    for (const f of findings || []) {
+      const sev = String(f.severity || 'INFO').toUpperCase();
+      const k = monthKey(f.created_at);
+      if (!k) continue;
+      if (!String(k).startsWith(String(year))) continue;
+      const bucket = bySev[sev] ? sev : 'INFO';
+      bySev[bucket][k] = (bySev[bucket][k] || 0) + 1;
+    }
+
+    const colors = {
+      CRITICAL: '#ef4444',
+      HIGH: '#fb7185',
+      MEDIUM: '#f59e0b',
+      LOW: '#38bdf8',
+      INFO: '#94a3b8',
+    };
+
+    return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].map((sev) => ({
+      key: sev,
+      color: colors[sev],
+      points: months.map((m) => ({ month: m, value: bySev[sev][m] || 0 })),
+    }));
+  }, [findings]);
+
+  const toggleSeverity = (sev) => {
+    setVisibleSeverities((prev) => ({ ...prev, [sev]: !prev[sev] }));
+  };
+
+  const anySeverityVisible = useMemo(() => {
+    return Object.values(visibleSeverities || {}).some(Boolean);
+  }, [visibleSeverities]);
+
   return (
     <div className="dash-page">
       {notification && (
@@ -156,7 +217,7 @@ const Dashboard = () => {
             <div className="dash-kpi-value">{totals.totalAssets.toLocaleString()}</div>
             <div className="dash-kpi-label">TOTAL ASSETS</div>
           </div>
-          <MiniTrend points={assetTrend} />
+          <MiniAssetDonut counts={assetTypeCounts} onClick={() => setShowAssetBreakdown(true)} />
         </div>
 
         <div className="dash-card">
@@ -165,6 +226,7 @@ const Dashboard = () => {
             <div className="dash-kpi-label">VULNERABILITIES</div>
           </div>
           <div className="dash-mini-note">From scans + stored findings</div>
+          <StackedSeverityBar counts={sevCounts} />
         </div>
 
         <div className="dash-card">
@@ -176,18 +238,65 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {showAssetBreakdown && (
+        <div className="dash-modal-overlay" onMouseDown={() => setShowAssetBreakdown(false)}>
+          <div className="dash-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="dash-modal-header">
+              <div className="dash-modal-title">Asset Breakdown</div>
+              <button className="dash-icon-btn" type="button" onClick={() => setShowAssetBreakdown(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="dash-modal-body">
+              <div className="dash-breakdown-total">
+                <div className="dash-breakdown-total-label">Total Assets</div>
+                <div className="dash-breakdown-total-value">{totals.totalAssets.toLocaleString()}</div>
+              </div>
+
+              <div className="dash-breakdown-grid">
+                <BreakdownRow label="Domains" value={assetTypeCounts.DOMAINS} color="#60a5fa" />
+                <BreakdownRow label="Subdomains" value={assetTypeCounts.SUBDOMAINS} color="#38bdf8" />
+                <BreakdownRow label="IP Addresses" value={assetTypeCounts.IPS} color="#22c55e" />
+                <BreakdownRow label="URLs" value={assetTypeCounts.URLS} color="#f59e0b" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="dash-grid-mid">
         <div className="dash-card dash-card-wide">
           <div className="dash-section-title">
-            Asset Risk Trend <span className="dash-muted">{new Date().getFullYear()}</span>
+            Vulnerability Trend <span className="dash-muted">{new Date().getFullYear()}</span>
           </div>
-          <TrendChart points={assetTrend} />
+          <MultiLineTrendChart
+            series={vulnTrendSeries}
+            visible={visibleSeverities}
+            emptyLabel="No vulnerability trend data yet."
+          />
           <div className="dash-legend">
-            <span className="pill critical">Critical</span>
-            <span className="pill high">High</span>
-            <span className="pill medium">Medium</span>
-            <span className="pill low">Low</span>
-            <span className="pill info">Informational</span>
+            {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']).map((sev) => {
+              const cls =
+                sev === 'CRITICAL' ? 'critical' :
+                sev === 'HIGH' ? 'high' :
+                sev === 'MEDIUM' ? 'medium' :
+                sev === 'LOW' ? 'low' : 'info';
+              const label = sev === 'INFO' ? 'Informational' : (sev[0] + sev.slice(1).toLowerCase());
+              const isOn = !!visibleSeverities?.[sev];
+              // Keep at least 1 series visible
+              const canToggleOff = isOn ? (Object.values(visibleSeverities || {}).filter(Boolean).length > 1) : true;
+              return (
+                <button
+                  key={sev}
+                  type="button"
+                  className={`pill pill-btn ${cls} ${isOn ? 'active' : 'inactive'}`}
+                  onClick={() => (canToggleOff ? toggleSeverity(sev) : null)}
+                  title={isOn ? 'Click to hide' : 'Click to show'}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -254,6 +363,18 @@ const Dashboard = () => {
   );
 };
 
+const BreakdownRow = ({ label, value, color }) => {
+  return (
+    <div className="dash-breakdown-row">
+      <div className="dash-breakdown-left">
+        <span className="dash-breakdown-dot" style={{ background: color }} />
+        <span className="dash-breakdown-label">{label}</span>
+      </div>
+      <div className="dash-breakdown-value">{Number(value || 0).toLocaleString()}</div>
+    </div>
+  );
+};
+
 const SeverityPill = ({ weight }) => {
   const sev =
     weight >= 100 ? 'critical' :
@@ -302,24 +423,43 @@ const arcPath = (cx, cy, r, a0, a1) => {
   return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
 };
 
-const MiniTrend = ({ points }) => {
-  const pts = Array.isArray(points) ? points : [];
-  const values = pts.map((p) => p.value);
-  const max = Math.max(1, ...values);
-  const min = Math.min(0, ...values);
-  const w = 220;
-  const h = 70;
-  const pad = 10;
-  const toXY = (i) => {
-    const x = pad + (i * (w - pad * 2)) / Math.max(1, pts.length - 1);
-    const y = pad + (h - pad * 2) * (1 - (pts[i].value - min) / Math.max(1, max - min));
-    return { x, y };
-  };
-  const d = pts.map((_, i) => toXY(i)).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+const MiniAssetDonut = ({ counts, onClick }) => {
+  const c = counts || {};
+  const total =
+    Number(c.DOMAINS || 0) +
+    Number(c.SUBDOMAINS || 0) +
+    Number(c.IPS || 0) +
+    Number(c.URLS || 0);
+
+  const size = 120;
+  const stroke = 12;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+
   return (
-    <svg width="100%" height="70" viewBox={`0 0 ${w} ${h}`} className="dash-mini-trend">
-      <path d={d} fill="none" stroke="#f59e0b" strokeWidth="2.5" />
-    </svg>
+    <button
+      type="button"
+      className="dash-mini-donut-wrap dash-mini-donut-btn"
+      aria-label="Asset mix (click for details)"
+      onClick={onClick}
+    >
+      <svg width="100%" height="92" viewBox={`0 0 ${size} ${size}`} className="dash-mini-donut">
+        {/* track */}
+        <circle cx={cx} cy={cy} r={r} stroke="rgba(148,163,184,0.22)" strokeWidth={stroke} fill="none" />
+        {/* single-color ring (details are shown on click) */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          stroke={total > 0 ? '#f59e0b' : 'rgba(148,163,184,0.35)'}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+      </svg>
+    </button>
   );
 };
 
@@ -361,6 +501,76 @@ const TrendChart = ({ points }) => {
   );
 };
 
+const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
+  const s = Array.isArray(series) ? series : [];
+  const enabledKeys = Object.entries(visible || {}).filter(([, v]) => !!v).map(([k]) => k);
+  const enabled = s.filter((x) => enabledKeys.includes(x.key));
+
+  const allPoints = enabled.flatMap((x) => x.points || []);
+  const values = allPoints.map((p) => Number(p.value || 0));
+  const max = Math.max(1, ...values);
+
+  const w = 800;
+  const h = 220;
+  const padL = 42;
+  const padB = 34;
+  const padT = 12;
+  const padR = 12;
+
+  // Use 12 months from the first series (all are aligned)
+  const pts = (s[0]?.points || []);
+  const xFor = (i) => padL + (i * (w - padL - padR)) / Math.max(1, pts.length - 1);
+  const yFor = (v) => padT + (h - padT - padB) * (1 - v / max);
+
+  const pathFor = (points) => {
+    if (!Array.isArray(points) || points.length === 0) return '';
+    const coords = points.map((p, i) => ({ x: xFor(i), y: yFor(Number(p.value || 0)) }));
+    if (coords.length < 2) return `M ${coords[0].x} ${coords[0].y}`;
+    // Straight line segments (reads more accurately for sparse / spiky data)
+    return coords.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  };
+
+  const hasData = values.some((v) => v > 0);
+
+  return (
+    <div className="dash-trend-wrap">
+      <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-trend">
+        {/* grid */}
+        {[0.25, 0.5, 0.75, 1].map((t) => (
+          <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(148,163,184,0.15)" />
+        ))}
+
+        {!hasData ? (
+          <text x={w / 2} y={h / 2} textAnchor="middle" className="dash-empty">
+            {emptyLabel || 'No data yet.'}
+          </text>
+        ) : (
+          enabled.map((line) => (
+            <g key={line.key}>
+              <path d={pathFor(line.points)} fill="none" stroke={line.color} strokeWidth="2.5" />
+              {(line.points || []).map((p, i) => (
+                <circle key={`${line.key}-${p.month}`} cx={xFor(i)} cy={yFor(Number(p.value || 0))} r="2.8" fill="#e2e8f0" />
+              ))}
+            </g>
+          ))
+        )}
+
+        {/* x labels */}
+        {(pts || []).map((p, i) => {
+          const m = p.month.split('-')[1];
+          const label = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(m) - 1] || m;
+          if (i % 2 !== 0) return null;
+          return (
+            <text key={p.month} x={xFor(i)} y={h - 10} textAnchor="middle" className="dash-axis">
+              {label}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
+
 const BarChart = ({ bars }) => {
   const items = Array.isArray(bars) ? bars : [];
   const max = Math.max(1, ...items.map((b) => b.value));
@@ -390,6 +600,45 @@ const BarChart = ({ bars }) => {
       })}
       <text x={padL} y={h - 10} textAnchor="start" className="dash-axis">RISKS</text>
     </svg>
+  );
+};
+
+const StackedSeverityBar = ({ counts }) => {
+  const c = counts || {};
+  const parts = [
+    { key: 'CRITICAL', value: Number(c.CRITICAL || 0), color: '#ef4444' },
+    { key: 'HIGH', value: Number(c.HIGH || 0), color: '#fb7185' },
+    { key: 'MEDIUM', value: Number(c.MEDIUM || 0), color: '#f59e0b' },
+    { key: 'LOW', value: Number(c.LOW || 0), color: '#38bdf8' },
+    { key: 'INFO', value: Number(c.INFO || 0), color: '#94a3b8' },
+  ];
+  const total = parts.reduce((a, b) => a + b.value, 0);
+  return (
+    <div className="dash-stacked-wrap" aria-label="Vulnerability severity distribution">
+      <div className="dash-stacked">
+        {total === 0 ? (
+          <div className="dash-stacked-empty" />
+        ) : (
+          parts.filter((p) => p.value > 0).map((p) => (
+            <div
+              key={p.key}
+              className="dash-stacked-seg"
+              style={{ width: `${(p.value / total) * 100}%`, background: p.color }}
+              title={`${p.key}: ${p.value}`}
+            />
+          ))
+        )}
+      </div>
+      <div className="dash-stacked-legend">
+        {parts.map((p) => (
+          <div key={p.key} className="dash-stacked-item">
+            <span className="dash-stacked-dot" style={{ background: p.color }} />
+            <span className="dash-stacked-key">{p.key}</span>
+            <span className="dash-stacked-val">{p.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 

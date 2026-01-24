@@ -103,6 +103,22 @@ export const getTokenClaims = async () => {
 };
 
 // ==========================================
+// Help Center (User Flows Q&A)
+// ==========================================
+
+export const askHelpCenter = async (question, maxSources = 3) => {
+  try {
+    const response = await apiClient.post('/help/qa', { question, max_sources: maxSources });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Help Center failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Help Center failed: ${error.message}`);
+  }
+};
+
+// ==========================================
 // API Scanner
 // ==========================================
 
@@ -177,13 +193,16 @@ export const listReports = async (limit = 50, offset = 0) => {
   }
 };
 
-export const createReport = async ({ reportName, reportType, description, domainName }) => {
+export const createReport = async ({ reportName, reportType, description, domainName, assessmentType, subdomainName, scanId }) => {
   try {
     const response = await apiClient.post('/reports', {
       report_name: reportName,
       report_type: reportType,
       description: description || undefined,
       domain_name: domainName || undefined,
+      assessment_type: assessmentType || undefined,
+      subdomain_name: subdomainName || undefined,
+      scan_id: scanId || undefined,
     });
     return response.data;
   } catch (error) {
@@ -451,3 +470,47 @@ export const terminateScan = async (scanId) => {
   }
 };
 
+// ==========================================
+// Scheduled Scans
+// ==========================================
+
+export const createScheduledScan = async ({ scanName, scanType, scheduledFor, payload }) => {
+  try {
+    const response = await apiClient.post('/scans/schedule', {
+      scan_name: scanName,
+      scan_type: scanType,
+      scheduled_for: scheduledFor, // ISO string
+      payload: payload || {},
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Failed to schedule scan: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to schedule scan: ${error.message}`);
+  }
+};
+
+export const listScheduledScans = async (limit = 50, offset = 0) => {
+  try {
+    const response = await apiClient.get('/scans/schedule', { params: { limit, offset } });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Failed to load scheduled scans: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to load scheduled scans: ${error.message}`);
+  }
+};
+
+export const cancelScheduledScan = async (scheduleId) => {
+  try {
+    const response = await apiClient.post(`/scans/schedule/${scheduleId}/cancel`);
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Failed to cancel scheduled scan: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to cancel scheduled scan: ${error.message}`);
+  }
+};

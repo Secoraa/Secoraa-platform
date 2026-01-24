@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { getDomains, getSubdomains, createScan, createScanWithPayload, getAllScans, pauseScan, resumeScan, terminateScan, runApiTestingScan, getUrls } from '../api/apiClient';
+import {
+  getDomains,
+  getSubdomains,
+  createScan,
+  createScanWithPayload,
+  getAllScans,
+  pauseScan,
+  resumeScan,
+  terminateScan,
+  runApiTestingScan,
+  getUrls,
+  createScheduledScan,
+  listScheduledScans,
+  cancelScheduledScan,
+} from '../api/apiClient';
 import Notification from '../components/Notification';
 import ScanIcon from '../components/ScanIcon';
 import ReportIcon from '../components/ReportIcon';
+import ScheduleScanIcon from '../components/ScheduleScanIcon';
 import './Scan.css';
 
 const Scan = ({ onViewResults }) => {
@@ -23,6 +38,18 @@ const Scan = ({ onViewResults }) => {
     docType: 'POSTMAN', // OPENAPI | POSTMAN | CUSTOM
     subdomainId: '',
   });
+  const [scheduleForm, setScheduleForm] = useState({
+    name: '',
+    type: 'dd',
+    scheduledFor: '',
+    domain: '',
+    assetUrl: '',
+    docType: 'POSTMAN',
+    subdomainId: '',
+  });
+  const [scheduledScans, setScheduledScans] = useState([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [lastScheduledId, setLastScheduledId] = useState(null);
   const [notification, setNotification] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [apiScanResult, setApiScanResult] = useState(null);
@@ -39,6 +66,8 @@ const Scan = ({ onViewResults }) => {
     if (activeTab === 'history') {
       loadScans();
       setHistoryPage(1);
+    } else if (activeTab === 'schedule-history') {
+      loadScheduled();
     } else {
       // Reset wizard when entering Run tab
       setRunStep(1);
@@ -51,6 +80,15 @@ const Scan = ({ onViewResults }) => {
       loadDomains();
     }
   }, [activeTab, runStep]);
+
+  useEffect(() => {
+    // For Schedule tab: load assets needed for selected scan type
+    if (activeTab !== 'schedule') return;
+    if (scheduleForm.type === 'dd') loadDomains();
+    if (scheduleForm.type === 'api') loadUrlAssets();
+    if (scheduleForm.type === 'subdomain') loadSubdomains();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, scheduleForm.type]);
 
   useEffect(() => {
     if (activeTab === 'run' && runStep === 2 && scanForm.type === 'api') {
@@ -76,6 +114,40 @@ const Scan = ({ onViewResults }) => {
       loadSubdomains();
     }
   }, [activeTab, runStep, scanForm.type]);
+
+  const loadScheduled = async () => {
+    try {
+      setScheduleLoading(true);
+      const resp = await listScheduledScans(50, 0);
+      setScheduledScans(resp?.data || []);
+
+      // If a schedule we created has triggered, auto-switch to history
+      if (lastScheduledId) {
+        const row = (resp?.data || []).find((r) => String(r.id) === String(lastScheduledId));
+        if (row && row.triggered_scan_id) {
+          await loadScans();
+          setActiveTab('history');
+          setLastScheduledId(null);
+          setNotification({ message: `Scheduled scan triggered. Redirected to scan history.`, type: 'success' });
+        }
+      }
+    } catch (err) {
+      setScheduledScans([]);
+      setNotification({ message: `Failed to load scheduled scans: ${err.message}`, type: 'error' });
+    } finally {
+      setScheduleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'schedule' && activeTab !== 'schedule-history') return undefined;
+    loadScheduled();
+    const t = setInterval(() => {
+      loadScheduled();
+    }, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, lastScheduledId]);
   
   const filteredSubdomainData = (() => {
     const q = subdomainQuery.trim().toLowerCase();
@@ -106,6 +178,10 @@ const Scan = ({ onViewResults }) => {
 
   const selectedSubdomain = scanForm.subdomainId
     ? allSubdomains.find((s) => String(s.id) === String(scanForm.subdomainId))
+    : null;
+
+  const selectedScheduledSubdomain = scheduleForm.subdomainId
+    ? allSubdomains.find((s) => String(s.id) === String(scheduleForm.subdomainId))
     : null;
 
   const loadDomains = async () => {
@@ -441,6 +517,73 @@ const Scan = ({ onViewResults }) => {
     }
   };
 
+  const handleScheduleScan = async (e) => {
+    e.preventDefault();
+    if (!scheduleForm.name) {
+      setNotification({ message: 'Please enter a scan name', type: 'error' });
+      return;
+    }
+    if (!scheduleForm.scheduledFor) {
+      setNotification({ message: 'Please select schedule time', type: 'error' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const scheduledIso = new Date(scheduleForm.scheduledFor).toISOString();
+      let payload = {};
+
+      if (scheduleForm.type === 'dd') {
+        if (!scheduleForm.domain) {
+          setNotification({ message: 'Please select a domain', type: 'error' });
+          return;
+        }
+        payload = { domain: scheduleForm.domain };
+      } else if (scheduleForm.type === 'subdomain') {
+        if (!selectedScheduledSubdomain) {
+          setNotification({ message: 'Please select a subdomain', type: 'error' });
+          return;
+        }
+        const subName = String(selectedScheduledSubdomain.subdomain_name || selectedScheduledSubdomain.name || '').trim();
+        const derivedDomain = subName.split('.').slice(-2).join('.');
+        payload = { domain: derivedDomain, subdomains: [subName] };
+      } else if (scheduleForm.type === 'api') {
+        if (!scheduleForm.assetUrl) {
+          setNotification({ message: 'Please select Asset Base URL', type: 'error' });
+          return;
+        }
+        if (!apiEndpoints.length) {
+          setNotification({ message: 'Please upload documentation file first', type: 'error' });
+          return;
+        }
+        const selected = apiEndpoints.filter((ep) => selectedEndpointKeys.has(endpointKey(ep)));
+        if (!selected.length) {
+          setNotification({ message: 'Please select at least one endpoint', type: 'error' });
+          return;
+        }
+        payload = { asset_url: scheduleForm.assetUrl, endpoints: selected };
+      }
+
+      const resp = await createScheduledScan({
+        scanName: scheduleForm.name,
+        scanType: scheduleForm.type,
+        scheduledFor: scheduledIso,
+        payload,
+      });
+
+      setLastScheduledId(resp?.id);
+      setNotification({ message: `Scan scheduled successfully! It will run at the selected time.`, type: 'success' });
+      setScheduleForm({ name: '', type: 'dd', scheduledFor: '', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '' });
+      await loadScheduled();
+      // After scheduling, go to Schedule Scan History tab
+      setActiveTab('schedule-history');
+    } catch (err) {
+      setNotification({ message: `Failed to schedule scan: ${err.message}`, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleNextStep = () => {
     if (!scanForm.name) {
       setNotification({
@@ -533,10 +676,22 @@ const Scan = ({ onViewResults }) => {
           Run Scan
         </button>
         <button
+          className={`scan-tab ${activeTab === 'schedule' ? 'active' : ''}`}
+          onClick={() => setActiveTab('schedule')}
+        >
+          Schedule Scan
+        </button>
+        <button
           className={`scan-tab ${activeTab === 'history' ? 'active' : ''}`}
           onClick={() => setActiveTab('history')}
         >
           Scan History
+        </button>
+        <button
+          className={`scan-tab ${activeTab === 'schedule-history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('schedule-history')}
+        >
+          Schedule Scan History
         </button>
       </div>
 
@@ -874,6 +1029,158 @@ const Scan = ({ onViewResults }) => {
         </div>
       )}
 
+      {activeTab === 'schedule' && (
+        <div className="run-scan-section">
+          <h2>
+            <span className="scan-icon-header">
+              <ScheduleScanIcon size={24} />
+            </span>
+            Schedule Scan
+          </h2>
+
+          <form onSubmit={handleScheduleScan} className="scan-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Scan Name</label>
+                <input
+                  type="text"
+                  value={scheduleForm.name}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, name: e.target.value })}
+                  placeholder="Scheduled Scan Name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Scan Type</label>
+                <select
+                  value={scheduleForm.type}
+                  onChange={(e) =>
+                    setScheduleForm({
+                      ...scheduleForm,
+                      type: e.target.value,
+                      domain: '',
+                      subdomainId: '',
+                    })
+                  }
+                >
+                  <option value="dd">Domain Discovery (DD)</option>
+                  <option value="subdomain">Subdomain Scan</option>
+                  <option value="api" disabled>API Scan (coming soon)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Schedule Time</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleForm.scheduledFor}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledFor: e.target.value })}
+                  required
+                />
+                <div className="helper-text">Uses your local time; it will be stored and executed in UTC on the backend.</div>
+              </div>
+              <div className="form-group">
+                <label> </label>
+                <div />
+              </div>
+            </div>
+
+            {scheduleForm.type === 'dd' && (
+              <div className="form-group">
+                <label>Select Domain</label>
+                <select
+                  value={scheduleForm.domain}
+                  onChange={(e) => setScheduleForm({ ...scheduleForm, domain: e.target.value })}
+                  required
+                >
+                  <option value="">Select Domain</option>
+                  {domains.map((d) => (
+                    <option key={d.id} value={d.domain_name}>
+                      {d.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {scheduleForm.type === 'subdomain' && (
+              <div className="form-group">
+                <label>Select Subdomain</label>
+                <input
+                  type="text"
+                  className="scan-search-input"
+                  placeholder="Search subdomain..."
+                  value={subdomainQuery}
+                  onChange={(e) => setSubdomainQuery(e.target.value)}
+                />
+
+                {subdomainLoading ? (
+                  <div className="loading">Loading subdomains...</div>
+                ) : (
+                  <div className="api-endpoints">
+                    <div className="api-endpoints-header">
+                      <span>Subdomains</span>
+                      <span className="scan-count">{filteredSubdomainData.total}</span>
+                    </div>
+                    <div className="api-endpoints-list">
+                      {filteredSubdomainData.items.map((s) => (
+                        <button
+                          type="button"
+                          key={s.id}
+                          className={`subdomain-option-row ${String(scheduleForm.subdomainId) === String(s.id) ? 'selected' : ''}`}
+                          onClick={() => setScheduleForm({ ...scheduleForm, subdomainId: String(s.id) })}
+                        >
+                          <div className="subdomain-option-name">{s.subdomain_name || s.name}</div>
+                          <div className="subdomain-option-domain"> </div>
+                        </button>
+                      ))}
+                      {filteredSubdomainData.items.length === 0 && (
+                        <div style={{ padding: '12px', color: 'var(--text-secondary)' }}>No subdomains found</div>
+                      )}
+                    </div>
+                    <div className="scan-pagination">
+                      <div className="scan-pagination-left">
+                        <span>
+                          {filteredSubdomainData.start + 1}-{filteredSubdomainData.end} of {filteredSubdomainData.total}
+                        </span>
+                      </div>
+                      <div className="scan-pagination-right">
+                        <div className="scan-pagination-arrows">
+                          <button
+                            type="button"
+                            className="scan-pagination-btn"
+                            onClick={() => setSubdomainPage((p) => Math.max(1, p - 1))}
+                            disabled={filteredSubdomainData.page === 1}
+                          >
+                            ←
+                          </button>
+                          <button
+                            type="button"
+                            className="scan-pagination-btn"
+                            onClick={() => setSubdomainPage((p) => Math.min(filteredSubdomainData.totalPages, p + 1))}
+                            disabled={filteredSubdomainData.page === filteredSubdomainData.totalPages}
+                          >
+                            →
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="wizard-actions wizard-actions-right">
+              <button type="submit" className="btn-primary" disabled={loading}>
+                Schedule Scan
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {activeTab === 'history' && (
         <div className="scan-history-section">
           <h2>
@@ -1051,6 +1358,102 @@ const Scan = ({ onViewResults }) => {
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {activeTab === 'schedule-history' && (
+        <div className="scan-history-section">
+          <h2>
+            <span className="scan-icon-header">
+              <ScheduleScanIcon size={24} />
+            </span>
+            Schedule Scan History
+          </h2>
+
+          <div className="schedule-history-header">
+            <div />
+            <button
+              type="button"
+              className="btn-secondary btn-small"
+              onClick={loadScheduled}
+              disabled={scheduleLoading}
+            >
+              {scheduleLoading ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+
+          {scheduleLoading ? (
+            <div className="loading">Loading scheduled scans...</div>
+          ) : (
+            <div className="scans-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>NAME</th>
+                    <th>TYPE</th>
+                    <th>SCHEDULED FOR</th>
+                    <th>STATUS</th>
+                    <th>SCAN ID</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scheduledScans.length === 0 ? (
+                    <tr>
+                      <td colSpan="6">No scheduled scans</td>
+                    </tr>
+                  ) : (
+                    [...scheduledScans]
+                      .sort((a, b) => new Date(b.created_at || b.scheduled_for || 0).getTime() - new Date(a.created_at || a.scheduled_for || 0).getTime())
+                      .map((s) => (
+                        <tr key={s.id}>
+                          <td>{s.scan_name}</td>
+                          <td>{String(s.scan_type).toUpperCase()}</td>
+                          <td>{s.scheduled_for ? new Date(s.scheduled_for).toLocaleString() : '-'}</td>
+                          <td>
+                            <span className={`status-badge ${s.status === 'COMPLETED' ? 'success' : s.status === 'FAILED' ? 'error' : s.status === 'CANCELLED' ? 'error' : 'pending'}`}>
+                              {s.status === 'IN_PROGRESS' ? 'IN PROGRESS' : s.status}
+                            </span>
+                          </td>
+                          <td>{s.triggered_scan_id || '-'}</td>
+                          <td>
+                            <div className="scan-actions">
+                              {s.triggered_scan_id ? (
+                                <button
+                                  type="button"
+                                  className="btn-small"
+                                  onClick={() => handleViewResults(s.triggered_scan_id)}
+                                >
+                                  View Results
+                                </button>
+                              ) : s.status === 'PENDING' ? (
+                                <button
+                                  type="button"
+                                  className="btn-small btn-terminate"
+                                  onClick={async () => {
+                                    try {
+                                      await cancelScheduledScan(s.id);
+                                      setNotification({ message: 'Scheduled scan cancelled', type: 'success' });
+                                      await loadScheduled();
+                                    } catch (err) {
+                                      setNotification({ message: `Failed to cancel: ${err.message}`, type: 'error' });
+                                    }
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              ) : (
+                                <span style={{ color: 'var(--text-secondary)' }}>-</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>

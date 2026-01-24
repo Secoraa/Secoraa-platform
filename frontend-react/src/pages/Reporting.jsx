@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createReport, downloadReportPdf, getDomains, listReports } from '../api/apiClient';
+import { createReport, downloadReportPdf, getAllScans, getDomains, getSubdomains, listReports } from '../api/apiClient';
 import Notification from '../components/Notification';
 import './Reporting.css';
 
@@ -12,14 +12,29 @@ const Reporting = () => {
   const [showModal, setShowModal] = useState(false);
 
   const [reportName, setReportName] = useState('');
-  const [reportType, setReportType] = useState('ASM');
+  const [reportType, setReportType] = useState('EXEC_SUMMARY');
   const [description, setDescription] = useState('');
   const [domainName, setDomainName] = useState('');
+  const [assessmentType, setAssessmentType] = useState('DOMAIN');
+  const [subdomains, setSubdomains] = useState([]);
+  const [subdomainName, setSubdomainName] = useState('');
+  const [scans, setScans] = useState([]);
+  const [scanId, setScanId] = useState('');
 
   useEffect(() => {
     getDomains()
       .then((data) => setDomains(Array.isArray(data) ? data : data?.data || []))
       .catch(() => setDomains([]));
+  }, []);
+
+  useEffect(() => {
+    // Needed for WEBSCAN and API_TESTING selection. Safe to load once.
+    getSubdomains()
+      .then((data) => setSubdomains(Array.isArray(data) ? data : data?.data || []))
+      .catch(() => setSubdomains([]));
+    getAllScans()
+      .then((res) => setScans(Array.isArray(res?.data) ? res.data : []))
+      .catch(() => setScans([]));
   }, []);
 
   const loadReports = async () => {
@@ -40,17 +55,21 @@ const Reporting = () => {
 
   const resetModal = () => {
     setReportName('');
-    setReportType('ASM');
+    setReportType('EXEC_SUMMARY');
     setDescription('');
     setDomainName('');
+    setAssessmentType('DOMAIN');
+    setSubdomainName('');
+    setScanId('');
   };
 
   const canGenerate = useMemo(() => {
     if (!reportName.trim()) return false;
-    if (reportType !== 'ASM') return false; // only ASM for now
     if (!domainName) return false;
+    if (assessmentType === 'WEBSCAN' && !subdomainName) return false;
+    if (assessmentType === 'API_TESTING' && !scanId) return false;
     return true;
-  }, [reportName, reportType, domainName]);
+  }, [reportName, reportType, domainName, assessmentType, subdomainName, scanId]);
 
   const downloadBlob = (blob, filename) => {
     const url = window.URL.createObjectURL(blob);
@@ -73,6 +92,9 @@ const Reporting = () => {
         reportType,
         description: description.trim(),
         domainName,
+        assessmentType,
+        subdomainName,
+        scanId,
       });
 
       const reportId = created?.id;
@@ -154,7 +176,31 @@ const Reporting = () => {
                 reports.map((r) => (
                   <tr key={r.id}>
                     <td className="mono">{r.report_name}</td>
-                    <td>{r.report_type === 'ASM' ? `ASM report (${r.domain_name || '-'})` : r.report_type}</td>
+                    <td>
+                      {(() => {
+                        const rt = String(r.report_type || '').toUpperCase();
+                        const scope = r.domain_name || '-';
+                        // New format: <ASSESSMENT>_<VARIANT>
+                        if (rt.includes('_')) {
+                          const parts = rt.split('_');
+                          const assessment = parts[0] || 'DOMAIN';
+                          const variant = parts.slice(1).join('_') || '';
+                          const assessmentLabel =
+                            assessment === 'DOMAIN' ? 'Domain' :
+                            assessment === 'WEBSCAN' ? 'Webscan (Subdomain)' :
+                            assessment === 'API' || assessment === 'API_TESTING' ? 'API Testing' :
+                            assessment;
+                          const variantLabel =
+                            variant === 'EXEC_SUMMARY' ? 'Executive Summary' :
+                            variant === 'DETAILS_REPORT' || variant === 'DETAILS_SUMMARY' ? 'Details Report' :
+                            variant;
+                          return `${variantLabel} - ${assessmentLabel} (${scope})`;
+                        }
+                        if (rt === 'EXEC_SUMMARY' || rt === 'EXECUTIVE_SUMMARY' || rt === 'EXPOSURE_STORIES') return `Executive Summary - Domain (${scope})`;
+                        if (rt === 'DETAILS_SUMMARY' || rt === 'DETAIL_SUMMARY' || rt === 'ASM') return `Details Report - Domain (${scope})`;
+                        return rt || '-';
+                      })()}
+                    </td>
                     <td>{r.created_by || '-'}</td>
                     <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
                     <td>
@@ -187,11 +233,27 @@ const Reporting = () => {
               </div>
 
               <div className="modal-field">
-                <label>Type</label>
+                <label>Assessment</label>
+                <select
+                  value={assessmentType}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setAssessmentType(next);
+                    setSubdomainName('');
+                    setScanId('');
+                  }}
+                >
+                  <option value="DOMAIN">Domain</option>
+                  <option value="WEBSCAN">Webscan (Subdomain)</option>
+                  <option value="API_TESTING">API Testing</option>
+                </select>
+              </div>
+
+              <div className="modal-field">
+                <label>Summary type</label>
                 <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
-                  <option value="ASM">ASM report</option>
-                  <option value="WEB">Web Report (coming soon)</option>
-                  <option value="API">API Report (coming soon)</option>
+                  <option value="EXEC_SUMMARY">Executive Summary</option>
+                  <option value="DETAILS_SUMMARY">Details Report</option>
                 </select>
               </div>
 
@@ -202,7 +264,7 @@ const Reporting = () => {
 
               <div className="modal-field">
                 <label>Domain name</label>
-                <select value={domainName} onChange={(e) => setDomainName(e.target.value)} disabled={reportType !== 'ASM'}>
+                <select value={domainName} onChange={(e) => setDomainName(e.target.value)}>
                   <option value="">Select domain</option>
                   {domains.map((d) => (
                     <option key={d.id} value={d.domain_name}>
@@ -210,8 +272,40 @@ const Reporting = () => {
                     </option>
                   ))}
                 </select>
-                {reportType !== 'ASM' && <div className="helper-text">Domain selection is only for ASM right now.</div>}
               </div>
+
+              {assessmentType === 'WEBSCAN' && (
+                <div className="modal-field">
+                  <label>Subdomain</label>
+                  <select value={subdomainName} onChange={(e) => setSubdomainName(e.target.value)} disabled={!domainName}>
+                    <option value="">{domainName ? 'Select subdomain' : 'Select domain first'}</option>
+                    {(subdomains || [])
+                      .filter((s) => String(s.domain_id) === String(domains.find((d) => d.domain_name === domainName)?.id))
+                      .map((s) => (
+                        <option key={s.id} value={s.subdomain_name}>
+                          {s.subdomain_name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              {assessmentType === 'API_TESTING' && (
+                <div className="modal-field">
+                  <label>API Scan</label>
+                  <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
+                    <option value="">Select API scan</option>
+                    {(scans || [])
+                      .filter((s) => String(s.scan_type || '').toLowerCase() === 'api')
+                      .slice(0, 200)
+                      .map((s) => (
+                        <option key={s.scan_id} value={s.scan_id}>
+                          {s.scan_name} ({s.status})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">

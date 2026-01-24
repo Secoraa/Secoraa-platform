@@ -1,0 +1,126 @@
+.help-page {
+  padding: 2rem;
+  min-height: calc(100vh - 64px);
+}
+
+.help-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.help-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.help-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.help-chat {
+  padding: 16px;
+  max-height: 62vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-msg {
+  display: flex;
+}
+
+.help-msg.user {
+  justify-content: flex-end;
+}
+
+.help-msg.assistant {
+  justify-content: flex-start;
+}
+
+.help-bubble {
+  max-width: 760px;
+  border-radius: 12px;
+  padding: 12px 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.help-msg.user .help-bubble {
+  background: rgba(59, 130, 246, 0.10);
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
+.help-text {
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.help-sources {
+  margin-top: 10px;
+}
+
+.help-sources summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.help-sources-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-source {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.help-source-title {
+  font-weight: 800;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.help-source-excerpt {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.help-input-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 12px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.help-input {
+  flex: 1;
+  padding: 0.75rem 0.9rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.help-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+

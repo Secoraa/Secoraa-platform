@@ -6,14 +6,15 @@ import ReportIcon from './ReportIcon';
 import SettingsIcon from './SettingsIcon';
 import HelpIcon from './HelpIcon';
 import DashboardIcon from './DashboardIcon';
+import AssetDiscoveryIcon from './AssetDiscoveryIcon';
 import './Sidebar.css';
 
-const Sidebar = ({ activePage, setActivePage }) => {
+const Sidebar = ({ activePage, setActivePage, tenant, username }) => {
   const [asmExpanded, setAsmExpanded] = useState(true);
 
   const asmItems = [
     { id: 'dashboard', label: 'Dashboard', icon: null, isSvg: true, SvgComponent: DashboardIcon },
-    { id: 'asset-discovery', label: 'Asset Discovery', icon: '🔍', isSvg: false },
+    { id: 'asset-discovery', label: 'Asset Discovery', icon: null, isSvg: true, SvgComponent: AssetDiscoveryIcon },
     { id: 'scan', label: 'Scan', icon: null, isSvg: true, SvgComponent: ScanIcon },
     { id: 'vulnerability', label: 'Vulnerability', icon: null, isSvg: true, SvgComponent: BugIcon },
   ];
@@ -112,8 +113,7 @@ const Sidebar = ({ activePage, setActivePage }) => {
 
       <div className="sidebar-footer">
         <div className="user-info">
-          <div className="user-name">Jane Smith</div>
-          <div className="user-org">Demo Org</div>
+          <div className="user-org">{tenant || '-'}</div>
         </div>
       </div>
     </div>

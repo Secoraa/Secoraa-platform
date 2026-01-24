@@ -36,6 +36,22 @@ const Auth = ({ onAuthed }) => {
 
   return (
     <div className="auth-page">
+      {/* Decorative animation (kept subtle, disabled for reduce-motion users via CSS) */}
+      <div className="auth-sky" aria-hidden="true">
+        <svg className="auth-bird auth-bird1" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
+          <path className="auth-wing auth-left" d="M32 16 C20 5, 5 5, 0 16" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path className="auth-wing auth-right" d="M32 16 C44 5, 59 5, 64 16" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+        <svg className="auth-bird auth-bird2" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
+          <path className="auth-wing auth-left" d="M32 16 C20 5, 5 5, 0 16" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path className="auth-wing auth-right" d="M32 16 C44 5, 59 5, 64 16" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+        <svg className="auth-bird auth-bird3" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
+          <path className="auth-wing auth-left" d="M32 16 C20 5, 5 5, 0 16" fill="none" stroke="currentColor" strokeWidth="2" />
+          <path className="auth-wing auth-right" d="M32 16 C44 5, 59 5, 64 16" fill="none" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </div>
+
       <div className="auth-brand">
         <div className="auth-logo">
           <img src="/images/secoraa-logo.jpg" alt="Secoraa" onError={(e) => { e.target.style.display = 'none'; }} />

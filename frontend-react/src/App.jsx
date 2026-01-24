@@ -4,11 +4,12 @@ import Header from './components/Header';
 import AssetDiscovery from './pages/AssetDiscovery';
 import Scan from './pages/Scan';
 import ScanResults from './pages/ScanResults';
-import DomainGraph from './pages/DomainGraph';
 import Auth from './pages/Auth';
 import Vulnerability from './pages/Vulnerability';
 import Reporting from './pages/Reporting';
 import Dashboard from './pages/Dashboard';
+import DomainDetails from './pages/DomainDetails';
+import HelpCenter from './pages/HelpCenter';
 import './styles/theme.css';
 import './App.css';
 import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient';
@@ -36,18 +37,36 @@ function App() {
       });
   }, [token]);
 
+  useEffect(() => {
+    // Support opening domain details in a NEW BROWSER TAB via query param: ?domain=<uuid>
+    if (!token) return;
+    try {
+      const url = new URL(window.location.href);
+      const domainId = url.searchParams.get('domain');
+      if (domainId) {
+        setSelectedDomainId(domainId);
+        setActivePage('domain-details');
+      }
+    } catch {
+      // ignore
+    }
+  }, [token]);
+
   const handleBackToScan = () => {
     setSelectedScanId(null);
     setActivePage('scan');
   };
 
-  const handleOpenDomainGraph = (domainId) => {
-    setSelectedDomainId(domainId);
-    setActivePage('domain-graph');
-  };
-
-  const handleBackToAssetDiscovery = () => {
+  const handleCloseDomainDetails = () => {
     setSelectedDomainId(null);
+    // Clear query param so refresh doesn't reopen domain details
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('domain');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore
+    }
     setActivePage('asset-discovery');
   };
 
@@ -56,9 +75,9 @@ function App() {
       case 'dashboard':
         return <Dashboard />;
       case 'asset-discovery':
-        return <AssetDiscovery onOpenDomain={handleOpenDomainGraph} />;
-      case 'domain-graph':
-        return <DomainGraph domainId={selectedDomainId} onBack={handleBackToAssetDiscovery} />;
+        return <AssetDiscovery />;
+      case 'domain-details':
+        return <DomainDetails domainId={selectedDomainId} onBack={handleCloseDomainDetails} />;
       case 'scan':
         return <Scan onViewResults={(scanId) => {
           setSelectedScanId(scanId);
@@ -78,12 +97,7 @@ function App() {
           </div>
         );
       case 'help':
-        return (
-          <div style={{ marginLeft: '260px', padding: '2rem' }}>
-            <h1>HELP CENTER</h1>
-            <p>Help Center - Coming soon</p>
-          </div>
-        );
+        return <HelpCenter />;
       default:
         return <Dashboard />;
     }
@@ -105,6 +119,8 @@ function App() {
       <Sidebar 
         activePage={activePage} 
         setActivePage={setActivePage}
+        tenant={userClaims?.tenant}
+        username={userClaims?.sub}
       />
       <Header
         tenant={userClaims?.tenant}

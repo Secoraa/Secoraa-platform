@@ -5,26 +5,29 @@ const ScanIcon = ({ size = 24 }) => {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox="0 0 48 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{ display: 'inline-block', verticalAlign: 'middle' }}
-      color="currentColor"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     >
-      {/* Outer radar circle */}
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" fill="none" />
-      <circle cx="12" cy="12" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
-      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-      
-      {/* Scanning lines */}
-      <line x1="12" y1="12" x2="21" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="12" y1="12" x2="17.5" y2="6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="12" y1="12" x2="17.5" y2="17.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      
-      {/* Eye in the center */}
-      <ellipse cx="12" cy="12" rx="4" ry="5" stroke="currentColor" strokeWidth="1.2" fill="currentColor" />
-      <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.2" fill="white" />
+      {/* Top-left corner */}
+      <path d="M6 14 V6 H14" />
+
+      {/* Top-right corner */}
+      <path d="M34 6 H42 V14" />
+
+      {/* Bottom-right corner */}
+      <path d="M42 34 V42 H34" />
+
+      {/* Bottom-left corner */}
+      <path d="M14 42 H6 V34" />
+
+      {/* Center square */}
+      <rect x="20" y="20" width="8" height="8" rx="1" />
     </svg>
   );
 };

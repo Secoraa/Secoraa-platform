@@ -4,15 +4,12 @@ import {
   createDomain,
   getSubdomains,
   createSubdomain,
-  getDomainById,
   getIPAddresses,
   getUrls,
   createIPAddress,
   createUrl,
-  getAllFindings,
 } from '../api/apiClient';
 import './AssetDiscovery.css';
-import DomainHoverModal from '../components/DomainHoverModal';
 
 // TagsDisplay component to show tags with "+X" functionality
 const TagsDisplay = ({ tags, itemId, expandedTags, setExpandedTags }) => {
@@ -54,7 +51,7 @@ const TagsDisplay = ({ tags, itemId, expandedTags, setExpandedTags }) => {
   );
 };
 
-const AssetDiscovery = ({ onOpenDomain }) => {
+const AssetDiscovery = () => {
   const [domains, setDomains] = useState([]);
   const [subdomains, setSubdomains] = useState([]);
   const [ipAddresses, setIpAddresses] = useState([]);
@@ -85,20 +82,12 @@ const AssetDiscovery = ({ onOpenDomain }) => {
   const [urlCurrentPage, setUrlCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedTags, setExpandedTags] = useState({});
-  const [hoverDomain, setHoverDomain] = useState(null);
-  const [hoverPos, setHoverPos] = useState({ x: 10, y: 10 });
-  const [allFindings, setAllFindings] = useState([]);
-  const hoverTimerRef = React.useRef(null);
 
   useEffect(() => {
     // Prefetch counts so tab badges don't show 0 before user clicks into tabs
     loadDomains();
     loadIPAddresses();
     loadUrls();
-    // Load findings once for hover modal + other quick insights
-    getAllFindings()
-      .then((resp) => setAllFindings(resp?.data || []))
-      .catch(() => setAllFindings([]));
   }, []);
 
   useEffect(() => {
@@ -128,20 +117,11 @@ const AssetDiscovery = ({ onOpenDomain }) => {
     }
   };
 
-  const scheduleHoverOpen = (domain, e) => {
-    if (!domain) return;
-    const x = (e?.clientX || 10) + 14;
-    const y = (e?.clientY || 10) + 14;
-    setHoverPos({ x, y });
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setHoverDomain(domain);
-    }, 120);
-  };
-
-  const closeHover = () => {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    setHoverDomain(null);
+  const openDomainDetailsInNewTab = (domain) => {
+    const id = domain?.id;
+    if (!id) return;
+    const url = `${window.location.origin}${window.location.pathname}?domain=${encodeURIComponent(id)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const loadSubdomains = async () => {
@@ -449,19 +429,13 @@ const AssetDiscovery = ({ onOpenDomain }) => {
                     paginatedDomains.map((domain) => (
                       <tr
                         key={domain.id}
-                        className={onOpenDomain ? 'domain-row-clickable' : undefined}
-                        onClick={() => onOpenDomain && onOpenDomain(domain.id)}
-                        title={onOpenDomain ? 'Open domain graph' : undefined}
+                        className="domain-row-clickable"
+                        onClick={() => openDomainDetailsInNewTab(domain)}
+                        title="Open domain details in a new tab"
                       >
                         <td
                           className="domain-name"
-                          title={onOpenDomain ? 'Click to open domain graph' : undefined}
-                          onMouseEnter={(e) => scheduleHoverOpen(domain, e)}
-                          onMouseMove={(e) => setHoverPos({ x: e.clientX + 14, y: e.clientY + 14 })}
-                          onMouseLeave={() => {
-                            // small delay so users can move into modal
-                            setTimeout(() => closeHover(), 120);
-                          }}
+                          title="Click to open domain details in a new tab"
                         >
                           {domain.domain_name}
                         </td>
@@ -531,16 +505,6 @@ const AssetDiscovery = ({ onOpenDomain }) => {
             </div>
           )}
         </>
-      )}
-
-      {hoverDomain && (
-        <DomainHoverModal
-          domain={hoverDomain}
-          position={hoverPos}
-          ipAddresses={ipAddresses}
-          findings={allFindings}
-          onClose={closeHover}
-        />
       )}
 
       {/* Subdomains Tab */}
