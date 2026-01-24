@@ -1,0 +1,508 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Length 735 >>
+stream
+0.02 0.06 0.10 rg
+0 0 595.28 841.89 re f
+1 1 1 rg
+BT
+/F1 28 Tf
+1 0 0 1 48.00 785.89 Tm (SECORAA) Tj
+/F1 28 Tf
+1 0 0 1 48.00 751.89 Tm (ASM PLATFORM) Tj
+/F1 28 Tf
+1 0 0 1 48.00 717.89 Tm (USER FLOWS) Tj
+/F1 12 Tf
+1 0 0 1 48.00 683.89 Tm () Tj
+/F1 12 Tf
+1 0 0 1 48.00 665.89 Tm (This document describes how to navigate and complete key workflows in) Tj
+1 0 0 1 48.00 647.89 Tm (the Secoraa ASM Platform.) Tj
+/F1 12 Tf
+1 0 0 1 48.00 629.89 Tm (It is written as a quick operational guide for users.) Tj
+/F1 12 Tf
+1 0 0 1 48.00 611.89 Tm () Tj
+/F1 12 Tf
+1 0 0 1 48.00 593.89 Tm (Generated on 2026-01-23) Tj
+/F1 8 Tf
+0.78 0.78 0.78 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 1 / 10) Tj
+ET
+
+endstream
+endobj
+2 0 obj
+<< /Length 730 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (How to Read These Flows) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Each flow uses the same breadcrumb style used in the product. Example: ASM > Scan > Run Scan.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 11 Tf
+1 0 0 1 48.00 725.89 Tm (- Breadcrumbs show where to click in the left navigation and within pages.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 708.89 Tm (- Steps are action-oriented and avoid deep technical details.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 691.89 Tm (- Where a workflow produces output \(results or reports\), the flow includes where to find it.) Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 2 / 10) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Length 1151 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Login and Session) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Starting and ending a user session.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Sign in) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: Auth > Sign in) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Open the platform login page.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Enter your username/email and password.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Click Sign In to access the platform.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 622.89 Tm (View profile and log out) Tj
+/F1 10 Tf
+1 0 0 1 48.00 603.89 Tm (Path: Header \(top-right\) > Profile menu) Tj
+/F1 11 Tf
+1 0 0 1 48.00 587.89 Tm (- Click the profile icon in the top header.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 570.89 Tm (- Confirm you are signed in as the expected user \(email/username shown\).) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm (- Click Logout to end the session.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 536.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 3 / 10) Tj
+ET
+
+endstream
+endobj
+4 0 obj
+<< /Length 1260 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Dashboard) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (High-level posture view: KPIs, trends, and top items.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Open Dashboard) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Dashboard) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Click Dashboard in the ASM section of the sidebar.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Review KPI cards: Total Assets, Vulnerabilities, and other tiles as available.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Use the trend charts to understand changes over time.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 622.89 Tm (View asset breakdown from Total Assets donut) Tj
+/F1 10 Tf
+1 0 0 1 48.00 603.89 Tm (Path: ASM > Dashboard > Total Assets tile) Tj
+/F1 11 Tf
+1 0 0 1 48.00 587.89 Tm (- Click the Total Assets donut chart.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 570.89 Tm (- Review counts for Domains, Subdomains, IP Addresses, and URLs.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm (- Close the modal to return to the dashboard.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 536.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 4 / 10) Tj
+ET
+
+endstream
+endobj
+5 0 obj
+<< /Length 1183 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Asset Discovery and Domain Details) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Explore assets and drill into a domain.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (View discovered assets) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Asset Discovery) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Click Asset Discovery in the ASM section of the sidebar.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Use search/filter options to find a domain of interest.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 639.89 Tm (Open Domain Details in a new tab) Tj
+/F1 10 Tf
+1 0 0 1 48.00 620.89 Tm (Path: ASM > Asset Discovery > Click a domain row) Tj
+/F1 11 Tf
+1 0 0 1 48.00 604.89 Tm (- Click on a domain row.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 587.89 Tm (- A new browser tab opens with Domain Details.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 570.89 Tm (- Use tabs inside Domain Details to switch between Subdomain, ASN, and Vulnerability views.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 5 / 10) Tj
+ET
+
+endstream
+endobj
+6 0 obj
+<< /Length 788 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Vulnerability) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Review vulnerabilities and expand details when needed.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (View vulnerabilities list) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Vulnerability) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Open the Vulnerability page from the ASM section.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Use pagination \(default 20\) to move through results.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Click a long description to expand and read more details.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 6 / 10) Tj
+ET
+
+endstream
+endobj
+7 0 obj
+<< /Length 2182 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Run Scan \(Live\)) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (How to run scans immediately.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Run Domain Discovery \(DD\) scan) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Scan > Run Scan) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Enter a Scan Name.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Select Scan Type: Domain Discovery.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Click Next, select a Target Domain, then click Run Scan.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm (- You will be redirected to Scan History to track status.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 622.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 605.89 Tm (Run Subdomain scan) Tj
+/F1 10 Tf
+1 0 0 1 48.00 586.89 Tm (Path: ASM > Scan > Run Scan) Tj
+/F1 11 Tf
+1 0 0 1 48.00 570.89 Tm (- Enter a Scan Name.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm (- Select Scan Type: Subdomain Scan.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 536.89 Tm (- Click Next and select a subdomain from the searchable list.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 519.89 Tm (- Click Run Scan. You will be redirected to Scan History.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 502.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 485.89 Tm (Run API Testing scan) Tj
+/F1 10 Tf
+1 0 0 1 48.00 466.89 Tm (Path: ASM > Scan > Run Scan) Tj
+/F1 11 Tf
+1 0 0 1 48.00 450.89 Tm (- Enter a Scan Name.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 433.89 Tm (- Select Scan Type: API Testing.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 416.89 Tm (- Click Next, select the Asset Base URL.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 399.89 Tm (- Choose Documentation Type \(OPENAPI, POSTMAN, or CUSTOM\) and upload the file.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 382.89 Tm (- Select endpoints \(default: all\), then click Run Scan.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 365.89 Tm (- After completion, find the record in Scan History and use View Results.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 348.89 Tm (Notes:) Tj
+/F1 11 Tf
+1 0 0 1 48.00 331.89 Tm (- The UI expects JSON for OPENAPI/POSTMAN, and XLS/XLSX for CUSTOM.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 314.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 7 / 10) Tj
+ET
+
+endstream
+endobj
+8 0 obj
+<< /Length 1496 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Schedule Scan) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (How to schedule scans for a future time.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Schedule a scan) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Scan > Schedule Scan) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Enter a Scan Name.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Select Scan Type \(Domain Discovery or Subdomain Scan\).) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Choose Schedule Time \(local time; stored/executed as UTC by the backend\).) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm (- Select the target \(domain or subdomain\) based on scan type.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 622.89 Tm (- Click Schedule Scan. You will be redirected to Schedule Scan History.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 605.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 588.89 Tm (Monitor scheduled scans and results) Tj
+/F1 10 Tf
+1 0 0 1 48.00 569.89 Tm (Path: ASM > Scan > Schedule Scan History) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm (- Open Schedule Scan History to view status.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 536.89 Tm (- Statuses progress through PENDING > IN PROGRESS > COMPLETED \(or FAILED/CANCELLED\).) Tj
+/F1 11 Tf
+1 0 0 1 48.00 519.89 Tm (- When Scan ID is available, click View Results to open the run scan results.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 502.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 8 / 10) Tj
+ET
+
+endstream
+endobj
+9 0 obj
+<< /Length 774 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Scan History) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Track live scans and view results.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Track scans and open results) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: ASM > Scan > Scan History) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Use the search bar to filter by scan name, type, or status.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Use pagination to control rows per page.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Click View Results on a completed scan to open its results.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 9 / 10) Tj
+ET
+
+endstream
+endobj
+10 0 obj
+<< /Length 2399 >>
+stream
+0 0 0 rg
+BT
+/F1 18 Tf
+1 0 0 1 48.00 785.89 Tm (Reporting \(PDF\)) Tj
+/F1 11 Tf
+1 0 0 1 48.00 759.89 Tm (Generate and download PDF reports.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 742.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 725.89 Tm (Generate a Domain report \(Executive Summary or Details Report\)) Tj
+/F1 10 Tf
+1 0 0 1 48.00 706.89 Tm (Path: Reporting > New Report) Tj
+/F1 11 Tf
+1 0 0 1 48.00 690.89 Tm (- Click New Report in Reporting.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 673.89 Tm (- Choose Assessment: Domain.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 656.89 Tm (- Choose Summary Type: Executive Summary or Details Report.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 639.89 Tm (- Select a domain, optionally add description, then click Generate report.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 622.89 Tm (- The PDF downloads and also appears in Report History.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 605.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 588.89 Tm (Generate a Webscan \(Subdomain\) report) Tj
+/F1 10 Tf
+1 0 0 1 48.00 569.89 Tm (Path: Reporting > New Report) Tj
+/F1 11 Tf
+1 0 0 1 48.00 553.89 Tm (- Choose Assessment: Webscan \(Subdomain\).) Tj
+/F1 11 Tf
+1 0 0 1 48.00 536.89 Tm (- Select domain, then select subdomain.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 519.89 Tm (- Choose Executive Summary or Details Report, then Generate report.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 502.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 485.89 Tm (Generate an API Testing report) Tj
+/F1 10 Tf
+1 0 0 1 48.00 466.89 Tm (Path: Reporting > New Report) Tj
+/F1 11 Tf
+1 0 0 1 48.00 450.89 Tm (- Choose Assessment: API Testing.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 433.89 Tm (- Select the API scan from the list.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 416.89 Tm (- Choose Executive Summary or Details Report, then Generate report.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 399.89 Tm (Notes:) Tj
+/F1 11 Tf
+1 0 0 1 48.00 382.89 Tm (- PDF reports intentionally avoid dumping raw endpoints/URLs. Use Scan Results for raw data) Tj
+1 0 0 1 48.00 365.89 Tm (when needed.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 348.89 Tm () Tj
+/F1 13 Tf
+1 0 0 1 48.00 331.89 Tm (Download an existing report) Tj
+/F1 10 Tf
+1 0 0 1 48.00 312.89 Tm (Path: Reporting > Report History) Tj
+/F1 11 Tf
+1 0 0 1 48.00 296.89 Tm (- Locate the report row in the table.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 279.89 Tm (- Click Download.) Tj
+/F1 11 Tf
+1 0 0 1 48.00 262.89 Tm () Tj
+/F1 8 Tf
+0.47 0.47 0.47 rg
+1 0 0 1 48.00 24.00 Tm (Secoraa ASM Platform - User Flows) Tj
+1 0 0 1 457.28 24.00 Tm (Page 10 / 10) Tj
+ET
+
+endstream
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+12 0 obj
+<< /Type /Pages /Kids [ 13 0 R 14 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R ] /Count 10 >>
+endobj
+13 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 1 0 R >>
+endobj
+14 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 2 0 R >>
+endobj
+15 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 3 0 R >>
+endobj
+16 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 4 0 R >>
+endobj
+17 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 5 0 R >>
+endobj
+18 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 6 0 R >>
+endobj
+19 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 7 0 R >>
+endobj
+20 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 8 0 R >>
+endobj
+21 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 9 0 R >>
+endobj
+22 0 obj
+<< /Type /Page /Parent 12 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 11 0 R >> >> /Contents 10 0 R >>
+endobj
+23 0 obj
+<< /Type /Catalog /Pages 12 0 R >>
+endobj
+xref
+0 24
+0000000000 65535 f 
+0000000015 00000 n 
+0000000801 00000 n 
+0000001582 00000 n 
+0000002785 00000 n 
+0000004097 00000 n 
+0000005332 00000 n 
+0000006171 00000 n 
+0000008405 00000 n 
+0000009953 00000 n 
+0000010778 00000 n 
+0000013230 00000 n 
+0000013301 00000 n 
+0000013426 00000 n 
+0000013561 00000 n 
+0000013696 00000 n 
+0000013831 00000 n 
+0000013966 00000 n 
+0000014101 00000 n 
+0000014236 00000 n 
+0000014371 00000 n 
+0000014506 00000 n 
+0000014641 00000 n 
+0000014777 00000 n 
+trailer
+<< /Size 24 /Root 23 0 R >>
+startxref
+14828
+%%EOF

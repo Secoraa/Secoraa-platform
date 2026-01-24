@@ -19,7 +19,7 @@ except ImportError:
 from sqlalchemy import text, inspect
 from sqlalchemy.exc import ProgrammingError
 from app.database.session import engine
-from app.database.models import Base, Domain, User, ApiScanReport, Report
+from app.database.models import Base, Domain, User, ApiScanReport, Report, ScheduledScan
 
 def add_missing_columns():
     """Add missing columns to existing tables based on model definitions"""
@@ -46,6 +46,18 @@ def add_missing_columns():
                 print("✅ Successfully added 'discovery_source' column to 'domains' table")
             except Exception as e:
                 print(f"⚠️  Warning: Could not add 'discovery_source' column: {e}")
+
+        if 'asn' not in existing_columns:
+            print("Adding missing 'asn' column to 'domains' table...")
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text("""
+                        ALTER TABLE domains
+                        ADD COLUMN asn VARCHAR;
+                    """))
+                print("✅ Successfully added 'asn' column to 'domains' table")
+            except Exception as e:
+                print(f"⚠️  Warning: Could not add 'asn' column: {e}")
 
     # Add missing columns to api_scan_reports if table already exists
     if inspector.has_table('api_scan_reports'):
@@ -110,6 +122,28 @@ def add_missing_columns():
                     print("✅ Added reports.minio_object_name")
                 except Exception as e:
                     print(f"⚠️  Warning: Could not add reports.minio_object_name: {e}")
+
+    # scheduled_scans table: if it exists, ensure newer columns exist (older DBs)
+    if inspector.has_table('scheduled_scans'):
+        existing_columns = [col['name'] for col in inspector.get_columns('scheduled_scans')]
+        with engine.begin() as conn:
+            def _add_sched(colname: str, ddl: str):
+                if colname in existing_columns:
+                    return
+                try:
+                    conn.execute(text(ddl))
+                    print(f"✅ Added scheduled_scans.{colname}")
+                except Exception as e:
+                    print(f"⚠️  Warning: Could not add scheduled_scans.{colname}: {e}")
+
+            _add_sched("payload_json", "ALTER TABLE scheduled_scans ADD COLUMN payload_json TEXT;")
+            _add_sched("scheduled_for", "ALTER TABLE scheduled_scans ADD COLUMN scheduled_for TIMESTAMP;")
+            _add_sched("status", "ALTER TABLE scheduled_scans ADD COLUMN status VARCHAR DEFAULT 'PENDING';")
+            _add_sched("triggered_scan_id", "ALTER TABLE scheduled_scans ADD COLUMN triggered_scan_id UUID;")
+            _add_sched("triggered_at", "ALTER TABLE scheduled_scans ADD COLUMN triggered_at TIMESTAMP;")
+            _add_sched("error", "ALTER TABLE scheduled_scans ADD COLUMN error TEXT;")
+            _add_sched("created_at", "ALTER TABLE scheduled_scans ADD COLUMN created_at TIMESTAMP;")
+            _add_sched("created_by", "ALTER TABLE scheduled_scans ADD COLUMN created_by VARCHAR;")
 
 # Create all tables
 Base.metadata.create_all(bind=engine)

@@ -9,13 +9,18 @@ class DomainRequestBody(BaseModel):
         example="example.com",
         min_length=3,
     )
+    asn: Optional[str] = Field(
+        default=None,
+        example="AS13335",
+    )
     tags: Optional[List[str]] = Field(
         default=None,
         example=["production", "external"],
     )
 
 class DomainUpdateRequestBody(BaseModel):
-    tags: List[str]
+    tags: Optional[List[str]] = None
+    asn: Optional[str] = None
     
 class SubdomainRequestBody(BaseModel):
     domain_id: UUID

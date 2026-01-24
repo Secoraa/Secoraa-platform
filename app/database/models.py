@@ -50,6 +50,31 @@ class Scan(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by = Column(String, nullable=True)  # Optional - table may not have this column yet
 
+
+class ScheduledScan(Base):
+    """
+    Scheduled scans (trigger scan at a specific time).
+    The scheduler worker will pick due rows and start actual scans.
+    """
+
+    __tablename__ = "scheduled_scans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    scan_name = Column(String, nullable=False)
+    scan_type = Column(String, nullable=False)  # "dd" | "subdomain" | "api" (etc.)
+    payload_json = Column(Text, nullable=False)  # JSON string
+
+    scheduled_for = Column(DateTime, nullable=False)
+    status = Column(String, nullable=False, default="PENDING")  # PENDING | TRIGGERING | TRIGGERED | CANCELLED | FAILED
+
+    triggered_scan_id = Column(UUID(as_uuid=True), nullable=True)
+    triggered_at = Column(DateTime, nullable=True)
+    error = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(String, nullable=True)
+
 class ScanResult(Base):
     __tablename__ = "scan_results"
 
@@ -107,6 +132,8 @@ class Domain(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     domain_name = Column(String, unique=True, nullable=False)
+    # ASN (Optional): Some older DBs won't have this column yet; migration adds it.
+    asn = Column(String, nullable=True)
     tags = Column(ARRAY(String), nullable=True)
     discovery_source = Column(String, default="manual")  # "manual" or "auto_discovered"
     is_reachable = Column(Boolean, default=True)

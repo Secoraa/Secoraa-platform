@@ -1,7 +1,7 @@
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from uuid import uuid4, UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import threading
 import subprocess
@@ -14,11 +14,18 @@ from app.storage.file_storage import save_scan_result
 from app.storage.minio_client import upload_file_to_minio
 from app.database.session import SessionLocal
 import json
+import asyncio
+from pydantic import BaseModel, Field
+from typing import Any, Dict, Optional, List
 
-from app.database.models import Scan, ScanResult, Domain, Subdomain, ApiScanReport, Vulnerability
+from app.database.models import Scan, ScanResult, Domain, Subdomain, ApiScanReport, Vulnerability, ScheduledScan
 from app.storage.minio_client import download_json, object_exists
 from sqlalchemy import Select
 from app.api.auth import get_token_claims
+from app.scanners.api_scanner.main import run_api_scan
+from app.storage.minio_client import MINIO_BUCKET
+from app.database.session import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter(
     prefix="/scans",
@@ -31,6 +38,273 @@ logger = logging.getLogger(__name__)
 # Format: {scan_id: {"thread": thread_obj, "pause_event": threading.Event(), "process": subprocess_obj}}
 running_scans = {}
 scan_lock = threading.Lock()
+
+
+class CreateScheduledScanRequest(BaseModel):
+    scan_name: str = Field(..., min_length=1)
+    scan_type: str = Field(..., min_length=1)
+    scheduled_for: datetime
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+def _create_scan_record_and_start_thread(db: SessionLocal, scan_name: str, scan_type: str, payload_dict: dict, created_by: str):
+    """
+    Shared helper used by both the HTTP endpoint and the scheduler worker.
+    Creates Scan row and starts background processing for dd/subdomain scans.
+    """
+    scanner = SCANNERS.get(scan_type)
+    if not scanner:
+        raise HTTPException(status_code=400, detail="Invalid scan type")
+
+    # Make scan_name unique if needed
+    try:
+        scan = Scan(
+            scan_name=scan_name,
+            scan_type=scan_type,
+            status="IN_PROGRESS",
+            created_at=datetime.utcnow(),
+            created_by=created_by,
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+    except Exception as db_error:
+        if "unique" in str(db_error).lower() or "duplicate" in str(db_error).lower():
+            scan_name = f"{scan_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            scan = Scan(
+                scan_name=scan_name,
+                scan_type=scan_type,
+                status="IN_PROGRESS",
+                created_at=datetime.utcnow(),
+                created_by=created_by,
+            )
+            db.add(scan)
+            db.commit()
+            db.refresh(scan)
+        else:
+            raise
+
+    thread = threading.Thread(
+        target=process_scan_background,
+        args=(str(scan.id), scan_name, scan_type, payload_dict, created_by),
+        daemon=True,
+    )
+    thread.start()
+    return scan, scan_name
+
+
+def _run_api_scan_and_persist(db: Session, scan_name: str, asset_url: str, endpoints: Optional[List[Dict[str, Any]]], created_by: str):
+    """
+    Run API scan synchronously (same behavior as /scanner/api) and persist to Scan + ApiScanReport.
+    Returns scan_id (uuid string).
+    """
+    scan = Scan(
+        scan_name=scan_name,
+        scan_type="api",
+        status="IN_PROGRESS",
+        created_at=datetime.utcnow(),
+        created_by=created_by or None,
+    )
+    db.add(scan)
+    try:
+        db.commit()
+        db.refresh(scan)
+    except Exception as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            scan.scan_name = f"{scan_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            db.add(scan)
+            db.commit()
+            db.refresh(scan)
+        else:
+            raise
+
+    try:
+        report = asyncio.run(
+            run_api_scan(
+                scan_name=scan.scan_name,
+                asset_url=asset_url,
+                postman_collection=None,
+                endpoints=endpoints,
+            )
+        )
+
+        final_result = {
+            "scan_id": str(scan.id),
+            "scan_name": scan.scan_name,
+            "scan_type": scan.scan_type,
+            "status": "completed",
+            "created_at": datetime.utcnow().isoformat(),
+            "asset_url": asset_url,
+            "result": report,
+        }
+        file_path = save_scan_result(
+            scan_name=scan.scan_name,
+            scan_id=str(scan.id),
+            scan_type="api",
+            data=final_result,
+        )
+
+        object_name = Path(file_path).name
+        try:
+            upload_file_to_minio(file_path, object_name)
+        except Exception:
+            object_name = None
+
+        api_report = ApiScanReport(
+            scan_id=scan.id,
+            asset_url=asset_url,
+            minio_bucket=MINIO_BUCKET if object_name else None,
+            minio_object_name=object_name,
+            report_json=json.dumps(report),
+        )
+        db.add(api_report)
+        scan.status = "COMPLETED"
+        db.commit()
+        return str(scan.id)
+    except Exception as e:
+        scan.status = "FAILED"
+        db.commit()
+        raise
+
+
+_schedule_worker_started = False
+_schedule_worker_stop = threading.Event()
+_schedule_worker_thread: Optional[threading.Thread] = None
+
+
+def start_schedule_worker():
+    """
+    Start a lightweight background worker that polls `scheduled_scans` and triggers due scans.
+    Safe to call multiple times (starts only once).
+    """
+    global _schedule_worker_started, _schedule_worker_thread
+    if _schedule_worker_started:
+        return
+    _schedule_worker_started = True
+
+    def _loop():
+        logger.info("🕒 Scheduled scan worker started")
+        while not _schedule_worker_stop.is_set():
+            db = SessionLocal()
+            try:
+                # 1) Update status of already-triggered schedules based on the underlying Scan status
+                in_progress = (
+                    db.query(ScheduledScan)
+                    .filter(
+                        ScheduledScan.triggered_scan_id.isnot(None),
+                        ScheduledScan.status.in_(["TRIGGERING", "TRIGGERED", "IN_PROGRESS"]),
+                    )
+                    .order_by(ScheduledScan.scheduled_for.asc())
+                    .limit(50)
+                    .all()
+                )
+                for sched in in_progress:
+                    try:
+                        scan = None
+                        try:
+                            scan = db.query(Scan).filter(Scan.id == sched.triggered_scan_id).first()
+                        except Exception:
+                            scan = None
+                        if not scan:
+                            continue
+                        st = str(getattr(scan, "status", "") or "").upper()
+                        if st == "COMPLETED":
+                            sched.status = "COMPLETED"
+                            db.commit()
+                        elif st in {"FAILED", "TERMINATED"}:
+                            sched.status = "FAILED"
+                            db.commit()
+                        elif st in {"IN_PROGRESS", "PAUSED"}:
+                            # Normalize legacy TRIGGERED/TRIGGERING to IN_PROGRESS while running.
+                            if sched.status != "IN_PROGRESS":
+                                sched.status = "IN_PROGRESS"
+                                db.commit()
+                    except Exception:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+
+                now = datetime.utcnow()
+                due = (
+                    db.query(ScheduledScan)
+                    .filter(ScheduledScan.status == "PENDING", ScheduledScan.scheduled_for <= now)
+                    .order_by(ScheduledScan.scheduled_for.asc())
+                    .limit(20)
+                    .all()
+                )
+                for sched in due:
+                    try:
+                        # Mark as TRIGGERING to avoid double-trigger
+                        sched.status = "TRIGGERING"
+                        db.commit()
+
+                        payload = {}
+                        try:
+                            payload = json.loads(sched.payload_json or "{}")
+                        except Exception:
+                            payload = {}
+
+                        created_by = sched.created_by or "scheduler"
+
+                        if sched.scan_type == "api":
+                            asset_url = payload.get("asset_url") or payload.get("assetUrl")
+                            endpoints = payload.get("endpoints")
+                            if not asset_url:
+                                raise ValueError("asset_url is required for api scheduled scan")
+                            if not isinstance(endpoints, list) or not endpoints:
+                                raise ValueError("endpoints list is required for api scheduled scan")
+                            scan_id = _run_api_scan_and_persist(db, sched.scan_name, asset_url, endpoints, created_by)
+                            # API scan is run synchronously here, so mark schedule as COMPLETED.
+                            sched.status = "COMPLETED"
+                        else:
+                            scan, _final_name = _create_scan_record_and_start_thread(
+                                db, sched.scan_name, sched.scan_type, payload, created_by
+                            )
+                            scan_id = str(scan.id)
+                            # DD/Subdomain scans run async; reflect that in schedule history.
+                            sched.status = "IN_PROGRESS"
+                        try:
+                            sched.triggered_scan_id = UUID(scan_id)
+                        except Exception:
+                            sched.triggered_scan_id = None
+                        sched.triggered_at = datetime.utcnow()
+                        sched.error = None
+                        db.commit()
+                    except Exception as e:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+                        try:
+                            sched.status = "FAILED"
+                            sched.error = str(e)
+                            db.commit()
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.error(f"Scheduled scan worker error: {e}", exc_info=True)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+            finally:
+                db.close()
+
+            _schedule_worker_stop.wait(2.0)
+
+        logger.info("🕒 Scheduled scan worker stopped")
+
+    _schedule_worker_thread = threading.Thread(target=_loop, daemon=True)
+    _schedule_worker_thread.start()
+
+
+def stop_schedule_worker():
+    _schedule_worker_stop.set()
 
 
 def run_scan_with_control(scan_id: str, scan_type: str, payload_dict: dict, pause_event: threading.Event):
@@ -551,62 +825,19 @@ def create_scan(request: CreateScanRequest):
 
     db = SessionLocal()
 
-    scanner = SCANNERS.get(request.scan_type)
-    if not scanner:
-        raise HTTPException(status_code=400, detail="Invalid scan type")
-
     scan_name = request.scan_name
     scan_type = request.scan_type
     created_by = "Pratik"
     payload_dict = request.payload.model_dump()
 
     try:
-        # 1️⃣ Create scan record with IN_PROGRESS status first
-        # Make scan_name unique by appending timestamp if needed
-        try:
-            scan = Scan(
-                scan_name=scan_name,
-                scan_type=scan_type,
-                status="IN_PROGRESS",
-                created_at=datetime.utcnow(),
-                created_by=created_by,
-            )
-            db.add(scan)
-            db.commit()
-            db.refresh(scan)
-            logger.info(f"Scan created with IN_PROGRESS status. ID: {scan.id}")
-        except Exception as db_error:
-            # If scan_name already exists, append timestamp
-            if "unique" in str(db_error).lower() or "duplicate" in str(db_error).lower():
-                logger.warning(f"Scan name '{scan_name}' already exists, appending timestamp")
-                scan_name = f"{scan_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-                scan = Scan(
-                    scan_name=scan_name,
-                    scan_type=scan_type,
-                    status="IN_PROGRESS",
-                    created_at=datetime.utcnow(),
-                    created_by=created_by,
-                )
-                db.add(scan)
-                db.commit()
-                db.refresh(scan)
-                logger.info(f"Scan created with IN_PROGRESS status. ID: {scan.id} (renamed to {scan_name})")
-            else:
-                raise
-
-        # 2️⃣ Start background thread to process scan
-        thread = threading.Thread(
-            target=process_scan_background,
-            args=(str(scan.id), scan_name, scan_type, payload_dict, created_by),
-            daemon=True
-        )
-        thread.start()
+        scan, final_scan_name = _create_scan_record_and_start_thread(db, scan_name, scan_type, payload_dict, created_by)
         logger.info(f"Started background thread for scan {scan.id}")
 
         # 3️⃣ Return immediately with scan info
         return {
             "scan_id": str(scan.id),
-            "scan_name": scan.scan_name,
+            "scan_name": final_scan_name,
             "status": "IN_PROGRESS",
             "message": "Scan started successfully"
         }
@@ -620,6 +851,97 @@ def create_scan(request: CreateScanRequest):
 
     finally:
         db.close()
+
+
+@router.post("/schedule")
+def create_scheduled_scan(
+    body: CreateScheduledScanRequest,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    created_by = str(claims.get("sub") or "") or None
+    # Normalize time: store UTC-naive datetime
+    scheduled_for = body.scheduled_for
+    if scheduled_for.tzinfo is not None:
+        scheduled_for = scheduled_for.astimezone(timezone.utc).replace(tzinfo=None)
+
+    if scheduled_for < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="scheduled_for must be in the future")
+
+    payload_json = json.dumps(body.payload or {}, default=str)
+    sched = ScheduledScan(
+        scan_name=body.scan_name,
+        scan_type=body.scan_type,
+        payload_json=payload_json,
+        scheduled_for=scheduled_for,
+        status="PENDING",
+        created_by=created_by,
+        created_at=datetime.utcnow(),
+    )
+    db.add(sched)
+    db.commit()
+    db.refresh(sched)
+    return {
+        "id": str(sched.id),
+        "scan_name": sched.scan_name,
+        "scan_type": sched.scan_type,
+        "scheduled_for": sched.scheduled_for,
+        "status": sched.status,
+    }
+
+
+@router.get("/schedule")
+def list_scheduled_scans(
+    limit: int = 50,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    q = db.query(ScheduledScan).order_by(ScheduledScan.scheduled_for.desc()).offset(offset).limit(limit)
+    rows = q.all()
+    return {
+        "total": len(rows),
+        "data": [
+            {
+                "id": str(r.id),
+                "scan_name": r.scan_name,
+                "scan_type": r.scan_type,
+                "scheduled_for": r.scheduled_for,
+                # Normalize legacy values for UI (old rows may still be TRIGGERED/TRIGGERING)
+                "status": (
+                    "COMPLETED"
+                    if str(r.status or "").upper() == "TRIGGERED"
+                    else "IN_PROGRESS"
+                    if str(r.status or "").upper() == "TRIGGERING"
+                    else r.status
+                ),
+                "triggered_scan_id": str(r.triggered_scan_id) if r.triggered_scan_id else None,
+                "triggered_at": r.triggered_at,
+                "error": r.error,
+                "created_at": r.created_at,
+                "created_by": r.created_by,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.post("/schedule/{schedule_id}/cancel")
+def cancel_scheduled_scan(
+    schedule_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        sid = UUID(schedule_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid schedule id")
+    sched = db.query(ScheduledScan).filter(ScheduledScan.id == sid).first()
+    if not sched:
+        raise HTTPException(status_code=404, detail="Scheduled scan not found")
+    if sched.status != "PENDING":
+        raise HTTPException(status_code=400, detail=f"Cannot cancel scheduled scan in status {sched.status}")
+    sched.status = "CANCELLED"
+    db.commit()
+    return {"message": "Cancelled", "id": schedule_id, "status": sched.status}
 
 
 @router.get("/scan")

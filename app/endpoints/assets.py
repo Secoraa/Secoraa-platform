@@ -36,25 +36,70 @@ def create_domain(
     domain_name = body.get("domain_name")
     assert domain_name, "Domain name cannot be empty."
 
+    asn = body.get("asn")
     tags = body.get("tags",[])
 
     created_by, updated_by = "Praatik", "Praatik"
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
-    domain = Domain(
-        domain_name = domain_name,
-        tags=tags,
-        created_at=created_at,
-        created_by=created_by,
-        updated_at=updated_at,
-        updated_by=updated_by,
-    )
-    db.add(domain)
-    db.commit()
-    db.flush(domain)
+    try:
+        domain = Domain(
+            domain_name=domain_name,
+            asn=asn,
+            tags=tags,
+            created_at=created_at,
+            created_by=created_by,
+            updated_at=updated_at,
+            updated_by=updated_by,
+        )
+        db.add(domain)
+        db.commit()
+        db.flush(domain)
+        domain_id = str(domain.id)
+    except Exception as e:
+        # Backward-compatible fallback for older DB schemas missing newly added columns (asn, discovery_source, etc.)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+        err = str(e).lower()
+        if "undefinedcolumn" in err or "does not exist" in err:
+            domain_uuid = str(uuid.uuid4())
+            try:
+                db.execute(
+                    text(
+                        """
+                        INSERT INTO domains (id, domain_name, tags, created_at, updated_at, created_by, updated_by)
+                        VALUES (:id, :domain_name, :tags, :created_at, :updated_at, :created_by, :updated_by)
+                        """
+                    ),
+                    {
+                        "id": domain_uuid,
+                        "domain_name": domain_name,
+                        "tags": tags,
+                        "created_at": created_at,
+                        "updated_at": updated_at,
+                        "created_by": created_by,
+                        "updated_by": updated_by,
+                    },
+                )
+                db.commit()
+                domain_id = domain_uuid
+                # Can't persist asn in older schema; return it anyway for UI consistency
+            except Exception as sql_e:
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
+                raise HTTPException(status_code=500, detail=f"Database error: {str(sql_e)}")
+        else:
+            raise HTTPException(status_code=500, detail=f"Error creating domain: {str(e)}")
 
     data = {"domain_name":domain_name,
+            "id": domain_id,
+            "asn": asn,
             "tags":tags, 
             "created_at":created_at, 
             "created_by":created_by, 
@@ -91,6 +136,7 @@ def get_domain(
             result.append({
                 "id": str(domain.id),
                 "domain_name": domain.domain_name,
+                "asn": getattr(domain, "asn", None),
                 "tags": domain.tags,
                 "discovery_source": discovery_source,
                 "is_reachable": getattr(domain, "is_reachable", True),
@@ -160,6 +206,7 @@ def get_domain(
                     domains_data.append({
                         "id": domain_id,
                         "domain_name": row[1],
+                        "asn": None,
                         "tags": row[2],
                         "discovery_source": "manual",  # Default for existing domains (they were added manually)
                         # Columns may not exist in older schemas; default sensibly
@@ -203,6 +250,7 @@ def get_domain_by_id(
             "data": {
                 "id": str(domain.id),
                 "domain_name": domain.domain_name,
+                "asn": getattr(domain, "asn", None),
                 "tags": domain.tags,
                 "discovery_source": getattr(domain, "discovery_source", "auto_discovered"),
                 "is_reachable": getattr(domain, "is_reachable", True),
@@ -227,6 +275,54 @@ def get_domain_by_id(
             status_code=503,
             detail=f"Database connection failed. Please ensure PostgreSQL is running. Error: {str(e)}",
         )
+    except Exception as e:
+        # Backward-compatible fallback: if newly added columns are missing, query a minimal set via SQL.
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        err = str(e).lower()
+        if "undefinedcolumn" in err or "does not exist" in err:
+            row = db.execute(
+                text(
+                    """
+                    SELECT id, domain_name, tags, created_at
+                    FROM domains
+                    WHERE id = :domain_id
+                    """
+                ),
+                {"domain_id": str(domain_id)},
+            ).first()
+            if not row:
+                raise HTTPException(status_code=404, detail="Domain with specific Id does not Exist.")
+
+            subs = db.execute(
+                text(
+                    """
+                    SELECT id, subdomain_name
+                    FROM subdomains
+                    WHERE domain_id = :domain_id
+                    """
+                ),
+                {"domain_id": str(domain_id)},
+            ).fetchall()
+
+            return {
+                "message": "Success",
+                "data": {
+                    "id": str(row[0]),
+                    "domain_name": row[1],
+                    "asn": None,
+                    "tags": row[2],
+                    "discovery_source": "manual",
+                    "is_reachable": True,
+                    "is_active": True,
+                    "is_archived": False,
+                    "created_at": row[3],
+                    "subdomains": [{"id": str(s[0]), "subdomain_name": s[1]} for s in subs],
+                },
+            }
+        raise HTTPException(status_code=500, detail=f"Error fetching domain: {str(e)}")
 
 
 @router.get("/ip-addresses")
@@ -441,26 +537,59 @@ def update_domain_by_id(
 ):
     body = request_body.model_dump()
 
-    tags = body.get("tags", [])
+    tags = body.get("tags", None)
+    asn = body.get("asn", None)
 
-    stmt = Select(Domain).filter(Domain.id == domain_id)
-    domain = db.execute(stmt).scalars().first()
-    if not domain:
-        raise HTTPException(status_code=400,detail="Domain with specific Id does not Exist.")
+    try:
+        stmt = Select(Domain).filter(Domain.id == domain_id)
+        domain = db.execute(stmt).scalars().first()
+        if not domain:
+            raise HTTPException(status_code=400,detail="Domain with specific Id does not Exist.")
 
-    if request_body.tags is not None:
-        domain.tags = request_body.tags
-    db.commit()
-    db.refresh(domain)
-    return {
-        "message": "Domain updated successfully",
-        "data": {
-            "id": str(domain.id),
-            "domain_name": domain.domain_name,
-            "tags": domain.tags,
-            "updated_at": domain.updated_at,
-        },
-    }
+        if tags is not None:
+            domain.tags = tags
+        if asn is not None:
+            domain.asn = asn
+        db.commit()
+        db.refresh(domain)
+        return {
+            "message": "Domain updated successfully",
+            "data": {
+                "id": str(domain.id),
+                "domain_name": domain.domain_name,
+                "asn": getattr(domain, "asn", None),
+                "tags": domain.tags,
+                "updated_at": domain.updated_at,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Backward-compatible fallback for older DB schemas.
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        err = str(e).lower()
+        if "undefinedcolumn" in err or "does not exist" in err:
+            # Try tags update
+            if tags is not None:
+                db.execute(
+                    text("UPDATE domains SET tags = :tags WHERE id = :domain_id"),
+                    {"tags": tags, "domain_id": str(domain_id)},
+                )
+            # Try ASN update (may fail if column doesn't exist; ignore)
+            if asn is not None:
+                try:
+                    db.execute(
+                        text("UPDATE domains SET asn = :asn WHERE id = :domain_id"),
+                        {"asn": asn, "domain_id": str(domain_id)},
+                    )
+                except Exception:
+                    pass
+            db.commit()
+            return {"message": "Domain updated successfully", "data": {"id": str(domain_id)}}
+        raise HTTPException(status_code=500, detail=f"Error updating domain: {str(e)}")
 
 @router.delete("/domain/{domain_id}")
 def delete_domain(
