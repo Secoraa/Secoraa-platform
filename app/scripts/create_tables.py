@@ -64,6 +64,3 @@ def run_migrations():
     add_missing_columns()
     print("✅ Database schema ready")
 
-
-if __name__ == "__main__":
-    run_migrations()
