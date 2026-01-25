@@ -3,7 +3,7 @@
  */
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://secoraa-platform-production.up.railway.app';
 
 const TOKEN_STORAGE_KEY = 'secoraa_access_token';
 const TOKEN_STORAGE_PERSIST_KEY = 'secoraa_token_persist';
