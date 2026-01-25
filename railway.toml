@@ -2,6 +2,13 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "uvicorn main:app --host 0.0.0.0 --port 8080"
+startCommand = "python main.py"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
+
+# Required environment variables (set in Railway dashboard):
+# AUTH_USERNAME=your_email@example.com
+# AUTH_PASSWORD=your_password  
+# AUTH_TENANT=secorra
+# JWT_SECRET=your-jwt-secret-key
+# DATABASE_URL=${{RAILWAY_POSTGRES_URL}}

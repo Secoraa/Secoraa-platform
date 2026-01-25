@@ -37,6 +37,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8501",
         "http://127.0.0.1:8501",
+        "http://localhost:8502",
+        "http://127.0.0.1:8502",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
@@ -74,6 +76,7 @@ app.include_router(minio_events_router)
 app.include_router(subdomain_router)
 app.include_router(subdomain_scan_router)
 
+
 # ---------------------------------------------------------
 # Health Check (REQUIRED for Railway)
 # ---------------------------------------------------------
@@ -81,10 +84,12 @@ app.include_router(subdomain_scan_router)
 def health():
     return {"status": "ok"}
 
+
 # ---------------------------------------------------------
 # Startup
 # ---------------------------------------------------------
 from app.database.session import engine, Base
+
 
 @app.on_event("startup")
 def startup():
@@ -94,4 +99,3 @@ def startup():
         print("✅ Database initialized")
     except Exception as e:
         print(f"⚠️ Startup warning: {e}")
-
