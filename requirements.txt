@@ -39,7 +39,6 @@ greenlet==3.2.4
 minio==7.2.20
 
 # --- Reporting / PDF ---
-fpdf==1.7.2
 fpdf2==2.7.9
 Pillow==11.3.0
 fonttools==4.60.2
