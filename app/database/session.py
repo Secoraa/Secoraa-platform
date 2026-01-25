@@ -24,11 +24,15 @@ if not DATABASE_URL:
             f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
         )
 
-# 3️⃣ DO NOT crash at import time
+# 3️⃣ Create engine safely (do NOT crash at import time)
+engine = None
+SessionLocal = None
+
 if not DATABASE_URL:
     logger.error("❌ DATABASE_URL not set. Database will be unavailable.")
-    engine = None
 else:
+    logger.info("✅ DATABASE_URL detected. Initializing database engine.")
+
     engine = create_engine(
         DATABASE_URL,
         poolclass=QueuePool,
@@ -38,12 +42,19 @@ else:
         pool_recycle=3600,
     )
 
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    SessionLocal = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+    )
+
+# 4️⃣ Base model
 Base = declarative_base()
 
 
+# 5️⃣ Dependency for FastAPI
 def get_db():
-    if engine is None:
+    if engine is None or SessionLocal is None:
         raise RuntimeError("Database not configured")
 
     db = SessionLocal()
