@@ -1,8 +1,0 @@
-# Tell Railway to ignore frontend directories
-frontend-react/
-frontend/
-*.html
-*.js
-*.css
-webpack.config.js
-package-lock.json
