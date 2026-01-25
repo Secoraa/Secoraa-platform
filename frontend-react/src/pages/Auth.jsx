@@ -38,6 +38,12 @@ const Auth = ({ onAuthed }) => {
     <div className="auth-page">
       {/* Decorative animation (kept subtle, disabled for reduce-motion users via CSS) */}
       <div className="auth-sky" aria-hidden="true">
+        <div className="auth-clouds">
+          <div className="auth-cloud cloud-1" />
+          <div className="auth-cloud cloud-2" />
+          <div className="auth-cloud cloud-3" />
+          <div className="auth-cloud cloud-4" />
+        </div>
         <svg className="auth-bird auth-bird1" viewBox="0 0 64 32" xmlns="http://www.w3.org/2000/svg">
           <path className="auth-wing auth-left" d="M32 16 C20 5, 5 5, 0 16" fill="none" stroke="currentColor" strokeWidth="2" />
           <path className="auth-wing auth-right" d="M32 16 C44 5, 59 5, 64 16" fill="none" stroke="currentColor" strokeWidth="2" />

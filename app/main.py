@@ -18,7 +18,7 @@ from app.endpoints.subdomain_scan import scan_router as subdomain_scan_router
 app = FastAPI(
     title="Secoraa Backend",
     docs_url=None,  # Disable default docs
-    redoc_url=None  # Disable default redoc
+    redoc_url=None,  # Disable default redoc
 )
 
 # Add CORS middleware
@@ -33,6 +33,8 @@ app.add_middleware(
         "http://127.0.0.1:8080",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "https://*.vercel.app",
+        "https://secorra-platform.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -66,4 +68,3 @@ def _startup():
     except Exception:
         # Don't fail app boot if scheduler can't start (e.g., DB not ready yet)
         pass
-

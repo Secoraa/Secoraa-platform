@@ -1,6 +1,7 @@
 from datetime import datetime
 import uuid
 from fastapi import APIRouter, Body, Depends, HTTPException
+from typing import Any, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import Select, select
 from sqlalchemy.exc import OperationalError
@@ -11,7 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.endpoints.request_body import SubdomainRequestBody
 
-from app.api.auth import get_token_claims
+from app.api.auth import get_token_claims, get_tenant_usernames
 
 
 router = APIRouter(
@@ -24,6 +25,7 @@ router = APIRouter(
 def create_subdomain(
     db:Session = Depends(get_db),
     request_body: SubdomainRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
         body = request_body.model_dump()
@@ -36,14 +38,19 @@ def create_subdomain(
         domain_id = body.get("domain_id")
         assert domain_id, "Domain name cannot be empty."
 
-        valid_domain = db.query(Domain).filter(Domain.id == domain_id).first()
+        tenant_users = get_tenant_usernames(db, claims)
+        valid_domain = (
+            db.query(Domain)
+            .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+            .first()
+        )
         assert valid_domain, "Invalid Domain Id."
     
 
         created_at = datetime.utcnow()
         updated_at = datetime.utcnow()
-        updated_by = "pratik"
-        created_by = "pratik"
+        created_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+        updated_by = created_by
 
         subdomain = Subdomain(
             subdomain_name=subdomain_name,
@@ -94,16 +101,24 @@ def create_subdomain(
 
 
 @router.get("/subdomain")
-def get_subdomain(db: Session = Depends(get_db)):
+def get_subdomain(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     """
     Get all subdomains with their associated domain information.
     Returns: name, tags, domain_name, created_by, updated_by, created_at, updated_at
     """
     try:
         # Load subdomains with their domain relationship
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
         stmt = (
             Select(Subdomain)
             .options(selectinload(Subdomain.domain))
+            .join(Domain, Subdomain.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
         )
         subdomains = db.execute(stmt).scalars().all()
 
@@ -152,9 +167,15 @@ def get_subdomain(db: Session = Depends(get_db)):
 def get_subdomain_with_id(
     subdomain_id,
     db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
-        stmt = select(Subdomain).filter(Subdomain.id == subdomain_id)
+        tenant_users = get_tenant_usernames(db, claims)
+        stmt = (
+            select(Subdomain)
+            .join(Domain, Subdomain.domain_id == Domain.id)
+            .filter(Subdomain.id == subdomain_id, Domain.created_by.in_(tenant_users))
+        )
         result = db.execute(stmt).scalars().one_or_none()
         if not result:
             raise HTTPException(status_code=404, detail="Subdomain with id does not exist.")

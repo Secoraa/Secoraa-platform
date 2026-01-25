@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_token_claims
+from app.api.auth import get_token_claims, get_tenant_usernames
 from app.database.models import Domain, Report, Subdomain, Vulnerability
 from app.database.session import get_db
 from app.storage.minio_client import upload_bytes_to_minio, get_object_stream, object_exists, MINIO_BUCKET
@@ -478,6 +478,378 @@ def _build_exposure_stories_pdf(
         pdf.cell(80, 7, _safe_pdf_text(name), 1, 0)
         pdf.cell(20, 7, _safe_pdf_text(str(g.get("count") or 0)), 1, 0, "C")
         pdf.cell(90, 7, _safe_pdf_text(ex or "-"), 1, 1)
+
+    footer()
+
+    raw = pdf.output(dest="S")
+    if isinstance(raw, (bytes, bytearray)):
+        return bytes(raw)
+    return str(raw).encode("latin-1")
+
+
+def _build_api_details_pdf(
+    *,
+    tenant: str,
+    report_name: str,
+    description: str,
+    created_by: str,
+    created_at: datetime,
+    domain: Optional[str],
+    total_endpoints: int,
+    vulnerabilities_total: int,
+    severity_counts: Dict[str, int],
+    findings_rows: List[Dict[str, Any]],
+):
+    """
+    API Testing Details report styled like the provided reference:
+    table of contents, assessment scope, executive summary, methodology, and
+    vulnerabilities classification sections.
+    """
+    from fpdf import FPDF  # type: ignore
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    if hasattr(pdf, "alias_nb_pages"):
+        pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=16)
+
+    orange = (249, 115, 22)
+    blue = (30, 64, 175)
+    dark = (17, 24, 39)
+
+    def footer():
+        # Bottom orange bar + brand
+        pdf.set_y(-12)
+        pdf.set_fill_color(*orange)
+        pdf.rect(0, 289, 210, 8, style="F")
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 9)
+        page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
+        pdf.set_xy(10, 290.2)
+        pdf.cell(0, 6, _safe_pdf_text(str(page_no)), 0, 0, "L")
+        pdf.set_xy(170, 290.2)
+        pdf.cell(0, 6, _safe_pdf_text(tenant), 0, 0, "R")
+        pdf.set_text_color(0, 0, 0)
+
+    def section_heading(title: str):
+        pdf.set_text_color(*blue)
+        pdf.set_font("Helvetica", "B", 13)
+        y = pdf.get_y()
+        pdf.set_fill_color(*orange)
+        pdf.rect(10, y + 1.5, 3, 7, style="F")
+        pdf.set_xy(15, y)
+        pdf.cell(0, 10, _safe_pdf_text(title), ln=1)
+        pdf.set_text_color(0, 0, 0)
+
+    def wrap_text(text: str, max_width_mm: float) -> List[str]:
+        if max_width_mm <= 2:
+            return ["-"]
+        s = _safe_pdf_text(text or "").strip()
+        if not s:
+            return ["-"]
+        words = s.split()
+        lines: List[str] = []
+        cur = ""
+        for w in words:
+            test = f"{cur} {w}".strip()
+            if pdf.get_string_width(test) <= max_width_mm:
+                cur = test
+            else:
+                if cur:
+                    lines.append(cur)
+                if pdf.get_string_width(w) <= max_width_mm:
+                    cur = w
+                else:
+                    chunk = ""
+                    for ch in w:
+                        test2 = chunk + ch
+                        if pdf.get_string_width(test2) <= max_width_mm:
+                            chunk = test2
+                        else:
+                            if chunk:
+                                lines.append(chunk)
+                            chunk = ch
+                    cur = chunk
+        if cur:
+            lines.append(cur)
+        return lines
+
+    def safe_full_width(text: str, h: float = 5.0):
+        pdf.set_x(10)
+        pdf.multi_cell(0, h, _safe_pdf_text(text))
+
+    # -------------------------
+    # Cover page (reuse existing ASM cover style)
+    # -------------------------
+    pdf.set_auto_page_break(auto=False, margin=16)
+    pdf.add_page()
+    pdf.set_fill_color(6, 16, 26)
+    pdf.rect(0, 0, 210, 297, style="F")
+    logo_path = Path(__file__).resolve().parent.parent / "swagger" / "secoraa.jpg"
+    if logo_path.exists():
+        pdf.image(str(logo_path), x=12, y=18, w=55)
+
+    pdf.set_xy(12, 92)
+    pdf.set_font("Helvetica", "B", 26)
+    pdf.set_text_color(*orange)
+    pdf.multi_cell(0, 12, _safe_pdf_text("API TESTING\nDETAILS REPORT"))
+
+    pdf.set_draw_color(34, 197, 94)
+    pdf.set_line_width(1.2)
+    pdf.line(12, pdf.get_y() + 2, 110, pdf.get_y() + 2)
+    pdf.set_line_width(0.2)
+
+    pdf.set_xy(12, 200)
+    pdf.set_font("Helvetica", "", 14)
+    pdf.set_text_color(230, 230, 230)
+    pdf.cell(0, 8, _safe_pdf_text("Prepared for"), 0, 1, "L")
+    pdf.set_font("Helvetica", "B", 26)
+    pdf.set_text_color(*orange)
+    pdf.cell(0, 12, _safe_pdf_text(tenant), 0, 1, "L")
+    if domain:
+        pdf.set_font("Helvetica", "", 16)
+        pdf.set_text_color(230, 230, 230)
+        pdf.cell(0, 10, _safe_pdf_text(domain), 0, 1, "L")
+    pdf.set_font("Helvetica", "", 12)
+    pdf.set_text_color(200, 200, 200)
+    pdf.cell(0, 8, _safe_pdf_text(f"Generated on {created_at.strftime('%m-%d-%Y')}"), 0, 1, "L")
+    footer()
+    pdf.set_auto_page_break(auto=True, margin=16)
+
+    # -------------------------
+    # Table of content
+    # -------------------------
+    pdf.add_page()
+    section_heading("Table Of Content")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(55, 65, 81)
+    toc = [
+        "A. Assessment Scope",
+        "B. Executive Summary",
+        "C. Testing Methodology",
+        "   1. Introduction",
+        "   2. API Application Assessment",
+        "   3. Vulnerabilities Classification",
+    ]
+    for line in toc:
+        pdf.cell(0, 7, _safe_pdf_text(line), ln=1)
+    footer()
+
+    # -------------------------
+    # Disclosure Statement + Document Information
+    # -------------------------
+    pdf.add_page()
+    section_heading("Disclosure Statement")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "This document contains sensitive information about the computer security environment, practices, "
+        "and current weaknesses of the client's security infrastructure. This document is subject to the "
+        "terms and conditions of a non-disclosure agreement between Secoraa and the Client."
+    )
+    pdf.ln(4)
+    section_heading("Document Information")
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(*orange)
+    pdf.cell(0, 6, _safe_pdf_text("Engagement scope"), ln=1)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*dark)
+    pdf.cell(0, 6, _safe_pdf_text(f"{total_endpoints} endpoint(s)"), ln=1)
+    footer()
+
+    # -------------------------
+    # Assessment Scope
+    # -------------------------
+    pdf.add_page()
+    section_heading("A. Assessment Scope")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*blue)
+    pdf.cell(0, 8, _safe_pdf_text("API Application Automated Penetration Test"), ln=1)
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(4)
+    pdf.set_draw_color(200, 200, 200)
+    pdf.set_fill_color(59, 130, 246)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(45, 10, _safe_pdf_text("Organization"), 1, 0, "L", True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(145, 10, _safe_pdf_text(tenant), 1, 1, "L")
+    pdf.set_fill_color(59, 130, 246)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(45, 10, _safe_pdf_text("Asset(s)"), 1, 0, "L", True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(145, 10, _safe_pdf_text(domain or "-"), 1, 1, "L")
+    footer()
+
+    # -------------------------
+    # Executive Summary
+    # -------------------------
+    pdf.add_page()
+    section_heading("B. Executive Summary")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "An Automated Penetration Test (APT) was conducted on the target API application. "
+        "The objective was to identify security gaps and validate exposure of the API surface."
+    )
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        f"During the assessment, we identified {severity_counts.get('CRITICAL',0)} Critical, "
+        f"{severity_counts.get('HIGH',0)} High, {severity_counts.get('MEDIUM',0)} Medium, "
+        f"{severity_counts.get('LOW',0)} Low, {severity_counts.get('INFO',0)} Informational findings."
+    )
+    pdf.ln(4)
+    if vulnerabilities_total == 0:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*dark)
+        pdf.cell(0, 8, _safe_pdf_text("During the assessment, no vulnerabilities were found."), ln=1, align="C")
+        # Simple green check
+        pdf.set_draw_color(34, 197, 94)
+        pdf.set_fill_color(34, 197, 94)
+        pdf.ellipse(85, 115, 40, 40, style="F")
+        pdf.set_draw_color(255, 255, 255)
+        pdf.set_line_width(3)
+        pdf.line(95, 135, 102, 147)
+        pdf.line(102, 147, 118, 122)
+        pdf.set_line_width(0.2)
+        pdf.set_draw_color(0, 0, 0)
+    footer()
+
+    # -------------------------
+    # Testing Methodology
+    # -------------------------
+    pdf.add_page()
+    section_heading("C. Testing Methodology")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*blue)
+    pdf.cell(0, 8, _safe_pdf_text("1. Introduction"), ln=1)
+    pdf.set_text_color(*dark)
+    pdf.set_font("Helvetica", "", 10)
+    safe_full_width(
+        "API testing focuses on authentication, authorization, input validation, and data exposure "
+        "to ensure the API surface behaves securely and consistently."
+    )
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*blue)
+    pdf.cell(0, 8, _safe_pdf_text("2. API Application Assessment"), ln=1)
+    pdf.set_text_color(*dark)
+    pdf.set_font("Helvetica", "", 9)
+    bullets = [
+        "Information gathering and endpoint discovery",
+        "Authentication and session handling review",
+        "Authorization and object level access checks",
+        "Input validation and injection testing",
+        "Error handling and response analysis",
+        "Transport security and configuration review",
+    ]
+    for b in bullets:
+        safe_full_width(f"- {b}")
+    footer()
+
+    # -------------------------
+    # Vulnerabilities Classification
+    # -------------------------
+    pdf.add_page()
+    section_heading("3. Vulnerabilities Classification")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "Classification methodology is based on a risk-rating approach. Each finding is assessed "
+        "for likelihood and impact using factors such as skill level, ease of discovery, and "
+        "business impact."
+    )
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, _safe_pdf_text("Threat Agent Factors"), ln=1)
+    pdf.set_font("Helvetica", "", 9)
+    for item in [
+        "Skill level",
+        "Motivation",
+        "Opportunity",
+        "Size",
+    ]:
+        safe_full_width(f"- {item}")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, _safe_pdf_text("Vulnerability Factors"), ln=1)
+    pdf.set_font("Helvetica", "", 9)
+    for item in [
+        "Ease of discovery",
+        "Ease of exploit",
+        "Awareness",
+        "Intrusion detection",
+    ]:
+        safe_full_width(f"- {item}")
+    footer()
+
+    # -------------------------
+    # Findings (with endpoints)
+    # -------------------------
+    pdf.add_page()
+    section_heading("API Findings")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "This section lists identified vulnerabilities for the selected API asset. "
+        "Endpoints are included for actionability."
+    )
+    pdf.ln(3)
+
+    def table_header():
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_fill_color(245, 245, 245)
+        pdf.cell(85, 7, _safe_pdf_text("Endpoint"), 1, 0, "L", True)
+        pdf.cell(55, 7, _safe_pdf_text("Finding"), 1, 0, "L", True)
+        pdf.cell(20, 7, _safe_pdf_text("Severity"), 1, 0, "C", True)
+        pdf.cell(20, 7, _safe_pdf_text("Score"), 1, 1, "C", True)
+        pdf.set_font("Helvetica", "", 8)
+
+    table_header()
+    bottom_y = 268
+
+    if not findings_rows:
+        pdf.cell(180, 8, _safe_pdf_text("No findings available."), 1, 1)
+        footer()
+        raw = pdf.output(dest="S")
+        if isinstance(raw, (bytes, bytearray)):
+            return bytes(raw)
+        return str(raw).encode("latin-1")
+
+    for row in findings_rows:
+        endpoint = str(row.get("endpoint") or "-").replace("\n", " ")
+        finding = str(row.get("issue") or row.get("name") or "-").replace("\n", " ")
+        severity = str(row.get("severity") or "INFO").upper()
+        score = row.get("score")
+        score_text = f"{float(score):.1f}" if score not in (None, "") else "-"
+
+        endpoint_lines = wrap_text(endpoint, 82)
+        finding_lines = wrap_text(finding, 52)
+        lines = max(len(endpoint_lines), len(finding_lines))
+        row_h = 5 * lines
+
+        if pdf.get_y() + row_h > bottom_y:
+            footer()
+            pdf.add_page()
+            section_heading("API Findings (continued)")
+            table_header()
+
+        y_start = pdf.get_y()
+        pdf.multi_cell(85, 5, _safe_pdf_text("\n".join(endpoint_lines)), 1, "L")
+        y_after = pdf.get_y()
+
+        pdf.set_xy(95, y_start)
+        pdf.multi_cell(55, 5, _safe_pdf_text("\n".join(finding_lines)), 1, "L")
+
+        pdf.set_xy(150, y_start)
+        pdf.cell(20, row_h, _safe_pdf_text(severity), 1, 0, "C")
+        pdf.cell(20, row_h, _safe_pdf_text(score_text), 1, 1, "C")
+
+        pdf.set_y(max(y_after, y_start + row_h))
 
     footer()
 
@@ -1202,7 +1574,8 @@ def download_asm_report_pdf(
     created_at = datetime.utcnow()
 
     # Assets
-    domain_q = db.query(Domain)
+    tenant_users = get_tenant_usernames(db, claims)
+    domain_q = db.query(Domain).filter(Domain.created_by.in_(tenant_users))
     if domain:
         domain_q = domain_q.filter(Domain.domain_name == domain)
     domains = domain_q.order_by(Domain.created_at.desc()).all()
@@ -1275,13 +1648,14 @@ def list_reports(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ):
-    q = db.query(Report).order_by(Report.created_at.desc())
+    tenant_users = get_tenant_usernames(db, claims)
+    q = db.query(Report).filter(Report.created_by.in_(tenant_users)).order_by(Report.created_at.desc())
     rows = q.offset(offset).limit(limit).all()
 
     domain_ids = [r.domain_id for r in rows if r.domain_id]
     domains_by_id: Dict[Any, str] = {}
     if domain_ids:
-        for d in db.query(Domain).filter(Domain.id.in_(domain_ids)).all():
+        for d in db.query(Domain).filter(Domain.id.in_(domain_ids), Domain.created_by.in_(tenant_users)).all():
             domains_by_id[d.id] = d.domain_name
 
     out: List[Dict[str, Any]] = []
@@ -1333,7 +1707,12 @@ def create_report(
     domain_obj: Optional[Domain] = None
     if not req.domain_name:
         raise HTTPException(status_code=400, detail="domain_name is required for reports.")
-    domain_obj = db.query(Domain).filter(Domain.domain_name == req.domain_name).first()
+    tenant_users = get_tenant_usernames(db, claims)
+    domain_obj = (
+        db.query(Domain)
+        .filter(Domain.domain_name == req.domain_name, Domain.created_by.in_(tenant_users))
+        .first()
+    )
     if not domain_obj:
         raise HTTPException(status_code=404, detail="Domain not found.")
 
@@ -1435,7 +1814,7 @@ def create_report(
         from app.database.models import Scan, ApiScanReport
         import json as _json
 
-        scan = db.query(Scan).filter(Scan.id == req.scan_id).first()
+        scan = db.query(Scan).filter(Scan.id == req.scan_id, Scan.created_by.in_(tenant_users)).first()
         if not scan:
             raise HTTPException(status_code=404, detail="Scan not found.")
         if str(getattr(scan, "scan_type", "")).lower() != "api":
@@ -1462,13 +1841,34 @@ def create_report(
         if not isinstance(findings, list):
             findings = []
 
-        # Build summarized rows WITHOUT including endpoint paths.
+        # Build summarized rows and keep endpoint details for report tables.
         by_issue: Dict[str, Dict[str, Any]] = {}
+        findings_rows: List[Dict[str, Any]] = []
         for f in findings:
             if not isinstance(f, dict):
                 continue
             issue = str(f.get("issue") or f.get("name") or "Finding").strip() or "Finding"
             sev = str(f.get("severity") or "INFO").upper()
+            endpoint = (
+                f.get("endpoint")
+                or f.get("path")
+                or f.get("url")
+                or f.get("endpoint_url")
+                or ""
+            )
+            score = (
+                f.get("cvss_score")
+                or f.get("cvss")
+                or f.get("score")
+            )
+            findings_rows.append(
+                {
+                    "endpoint": endpoint,
+                    "issue": issue,
+                    "severity": sev,
+                    "score": score,
+                }
+            )
             g = by_issue.setdefault(issue, {"count": 0, "severity": sev})
             g["count"] += 1
             # keep the worst severity for that issue
@@ -1538,26 +1938,41 @@ def create_report(
             executive_intro=exec_intro,
         )
     else:
-        # Keep existing layout, adjust labels per assessment type.
-        pdf_bytes = _build_asm_pdf(
-            tenant=tenant,
-            report_name=req.report_name,
-            report_type="ASM",
-            description=(req.description or "").strip(),
-            created_by=created_by,
-            created_at=created_at,
-            prepared_for=prepared_for,
-            domain=cover_domain_line,
-            data={
-                "assets_total": assets_total,
-                "assets_list": assets_list,
-                "vulnerabilities_total": vulnerabilities_total,
-                "vulnerabilities": vuln_rows,
-                "severity_counts": sev_counts,
-                "avg_risk": avg_risk,
-            },
-            template=template,
-        )
+        # API testing uses the details-style template requested by the user.
+        if assessment == "API_TESTING":
+            pdf_bytes = _build_api_details_pdf(
+                tenant=tenant,
+                report_name=req.report_name,
+                description=(req.description or "").strip(),
+                created_by=created_by,
+                created_at=created_at,
+                domain=cover_domain_line,
+                total_endpoints=assets_total,
+                vulnerabilities_total=vulnerabilities_total,
+                severity_counts=sev_counts,
+                findings_rows=findings_rows,
+            )
+        else:
+            # Keep existing layout, adjust labels per assessment type.
+            pdf_bytes = _build_asm_pdf(
+                tenant=tenant,
+                report_name=req.report_name,
+                report_type="ASM",
+                description=(req.description or "").strip(),
+                created_by=created_by,
+                created_at=created_at,
+                prepared_for=prepared_for,
+                domain=cover_domain_line,
+                data={
+                    "assets_total": assets_total,
+                    "assets_list": assets_list,
+                    "vulnerabilities_total": vulnerabilities_total,
+                    "vulnerabilities": vuln_rows,
+                    "severity_counts": sev_counts,
+                    "avg_risk": avg_risk,
+                },
+                template=template,
+            )
 
     report_id = uuid.uuid4()
     stored_type = f"{assessment}_{variant}"
@@ -1591,7 +2006,8 @@ def download_report_pdf(
     claims: Dict[str, Any] = Depends(get_token_claims),
     db: Session = Depends(get_db),
 ):
-    rec = db.query(Report).filter(Report.id == report_id).first()
+    tenant_users = get_tenant_usernames(db, claims)
+    rec = db.query(Report).filter(Report.id == report_id, Report.created_by.in_(tenant_users)).first()
     if not rec:
         raise HTTPException(status_code=404, detail="Report not found.")
     if not rec.minio_object_name:

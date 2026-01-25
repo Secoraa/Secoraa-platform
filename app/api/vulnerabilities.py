@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.auth import get_token_claims
+from app.api.auth import get_token_claims, get_tenant_usernames
 from app.database.models import ApiScanReport, Scan, Vulnerability, Domain, Subdomain
 from app.database.session import get_db
 from app.storage.minio_client import download_json
@@ -37,14 +37,17 @@ def list_api_findings(
     db: Session = Depends(get_db),
     severity: Optional[str] = None,
     scan_id: Optional[str] = None,
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ) -> Dict[str, Any]:
     """
     Flatten API scan findings so frontend can render them in Vulnerability section.
     """
+    tenant_users = get_tenant_usernames(db, claims)
     q = (
         db.query(Scan, ApiScanReport)
         .join(ApiScanReport, ApiScanReport.scan_id == Scan.id)
         .filter(Scan.scan_type == "api")
+        .filter(Scan.created_by.in_(tenant_users))
         .order_by(Scan.created_at.desc())
     )
 
@@ -117,6 +120,7 @@ def list_api_findings(
 def list_all_findings(
     db: Session = Depends(get_db),
     severity: Optional[str] = None,
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ) -> Dict[str, Any]:
     """
     Unified Vulnerability feed:
@@ -126,7 +130,7 @@ def list_all_findings(
     out: List[Dict[str, Any]] = []
 
     # 1) API findings (reuse existing logic)
-    api_resp = list_api_findings(db=db, severity=severity, scan_id=None)
+    api_resp = list_api_findings(db=db, severity=severity, scan_id=None, claims=claims)
     api_items = api_resp.get("data") if isinstance(api_resp, dict) else []
     if isinstance(api_items, list):
         # Normalize API findings to a richer shape (fields may be null for API)
@@ -148,6 +152,7 @@ def list_all_findings(
     # 2) Subdomain/Domain vulnerabilities from DB
     # Try a rich select; if schema is missing columns, fall back to minimal columns.
     def _query_rich():
+        tenant_users = get_tenant_usernames(db, claims)
         return (
             db.query(
                 Vulnerability.id,
@@ -166,10 +171,12 @@ def list_all_findings(
             )
             .outerjoin(Domain, Vulnerability.domain_id == Domain.id)
             .outerjoin(Subdomain, Vulnerability.subdomain_id == Subdomain.id)
+            .filter(Domain.created_by.in_(tenant_users))
             .order_by(Vulnerability.id.desc())
         )
 
     def _query_minimal():
+        tenant_users = get_tenant_usernames(db, claims)
         return (
             db.query(
                 Vulnerability.id,
@@ -182,6 +189,7 @@ def list_all_findings(
             )
             .outerjoin(Domain, Vulnerability.domain_id == Domain.id)
             .outerjoin(Subdomain, Vulnerability.subdomain_id == Subdomain.id)
+            .filter(Domain.created_by.in_(tenant_users))
             .order_by(Vulnerability.id.desc())
         )
 

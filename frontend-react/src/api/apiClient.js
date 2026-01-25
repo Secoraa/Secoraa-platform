@@ -124,7 +124,7 @@ export const askHelpCenter = async (question, maxSources = 3) => {
 
 export const runApiTestingScan = async (scanName, assetUrl, endpoints) => {
   try {
-    const response = await apiClient.post('/scanner/api', {
+    const response = await scanClient.post('/scanner/api', {
       scan_name: scanName,
       asset_url: assetUrl,
       endpoints: endpoints,

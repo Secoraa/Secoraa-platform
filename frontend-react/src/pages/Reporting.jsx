@@ -21,6 +21,31 @@ const Reporting = () => {
   const [scans, setScans] = useState([]);
   const [scanId, setScanId] = useState('');
 
+  const getAssetHost = (value) => {
+    if (!value) return '';
+    try {
+      const url = new URL(value);
+      return url.hostname || '';
+    } catch (err) {
+      return String(value).replace(/^https?:\/\//i, '').split('/')[0];
+    }
+  };
+
+  const apiScansForDomain = useMemo(() => {
+    const apiScans = (scans || []).filter((s) => String(s.scan_type || '').toLowerCase() === 'api');
+    if (!domainName) return apiScans;
+    const domainLower = String(domainName).toLowerCase();
+    return apiScans.filter((s) => {
+      const asset = String(s.asset_url || '').toLowerCase();
+      const host = getAssetHost(asset).toLowerCase();
+      return (
+        host === domainLower ||
+        host.endsWith(`.${domainLower}`) ||
+        asset.includes(domainLower)
+      );
+    });
+  }, [scans, domainName]);
+
   useEffect(() => {
     getDomains()
       .then((data) => setDomains(Array.isArray(data) ? data : data?.data || []))
@@ -292,15 +317,14 @@ const Reporting = () => {
 
               {assessmentType === 'API_TESTING' && (
                 <div className="modal-field">
-                  <label>API Scan</label>
+                  <label>API Asset</label>
                   <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
-                    <option value="">Select API scan</option>
-                    {(scans || [])
-                      .filter((s) => String(s.scan_type || '').toLowerCase() === 'api')
+                    <option value="">Select API asset</option>
+                    {(apiScansForDomain || [])
                       .slice(0, 200)
                       .map((s) => (
                         <option key={s.scan_id} value={s.scan_id}>
-                          {s.scan_name} ({s.status})
+                          {s.asset_url || s.scan_name} ({s.status})
                         </option>
                       ))}
                   </select>

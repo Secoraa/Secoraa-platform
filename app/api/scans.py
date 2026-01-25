@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional, List
 from app.database.models import Scan, ScanResult, Domain, Subdomain, ApiScanReport, Vulnerability, ScheduledScan
 from app.storage.minio_client import download_json, object_exists
 from sqlalchemy import Select
-from app.api.auth import get_token_claims
+from app.api.auth import get_token_claims, get_tenant_usernames
 from app.scanners.api_scanner.main import run_api_scan
 from app.storage.minio_client import MINIO_BUCKET
 from app.database.session import get_db
@@ -821,13 +821,16 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
 
 
 @router.post("/")
-def create_scan(request: CreateScanRequest):
+def create_scan(
+    request: CreateScanRequest,
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
 
     db = SessionLocal()
 
     scan_name = request.scan_name
     scan_type = request.scan_type
-    created_by = "Pratik"
+    created_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
     payload_dict = request.payload.model_dump()
 
     try:
@@ -895,8 +898,16 @@ def list_scheduled_scans(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
-    q = db.query(ScheduledScan).order_by(ScheduledScan.scheduled_for.desc()).offset(offset).limit(limit)
+    tenant_users = get_tenant_usernames(db, claims)
+    q = (
+        db.query(ScheduledScan)
+        .filter(ScheduledScan.created_by.in_(tenant_users))
+        .order_by(ScheduledScan.scheduled_for.desc())
+        .offset(offset)
+        .limit(limit)
+    )
     rows = q.all()
     return {
         "total": len(rows),
@@ -929,12 +940,18 @@ def list_scheduled_scans(
 def cancel_scheduled_scan(
     schedule_id: str,
     db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
         sid = UUID(schedule_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid schedule id")
-    sched = db.query(ScheduledScan).filter(ScheduledScan.id == sid).first()
+    tenant_users = get_tenant_usernames(db, claims)
+    sched = (
+        db.query(ScheduledScan)
+        .filter(ScheduledScan.id == sid, ScheduledScan.created_by.in_(tenant_users))
+        .first()
+    )
     if not sched:
         raise HTTPException(status_code=404, detail="Scheduled scan not found")
     if sched.status != "PENDING":
@@ -945,10 +962,42 @@ def cancel_scheduled_scan(
 
 
 @router.get("/scan")
-def get_all_scans():
+def get_all_scans(
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     db = SessionLocal()
     try:
-        scans = db.query(Scan).order_by(Scan.created_at.desc()).all()
+        tenant_users = get_tenant_usernames(db, claims)
+        scans = (
+            db.query(Scan)
+            .filter(Scan.created_by.in_(tenant_users))
+            .order_by(Scan.created_at.desc())
+            .all()
+        )
+        scan_ids = [s.id for s in scans]
+        api_assets = {}
+        if scan_ids:
+            api_reports = db.query(ApiScanReport).filter(ApiScanReport.scan_id.in_(scan_ids)).all()
+            for r in api_reports:
+                asset_url = getattr(r, "asset_url", None)
+                if not asset_url:
+                    try:
+                        report_obj = json.loads(r.report_json or "{}")
+                        asset_url = report_obj.get("asset_url")
+                    except Exception:
+                        asset_url = None
+                api_assets[r.scan_id] = asset_url
+
+        scan_assets = {}
+        if scan_ids:
+            results = db.query(ScanResult).filter(ScanResult.scan_id.in_(scan_ids)).all()
+            for r in results:
+                if r.scan_id not in scan_assets:
+                    scan_assets[r.scan_id] = {
+                        "domain": getattr(r, "domain", None),
+                        "subdomain": getattr(r, "subdomain", None),
+                    }
+
         data = [
             {
                 "scan_id": str(scan.id),
@@ -957,6 +1006,14 @@ def get_all_scans():
                 "status": scan.status,
                 "created_at": scan.created_at,
                 "created_by": getattr(scan, 'created_by', None),
+                "asset_url": api_assets.get(scan.id),
+                "asset_name": (
+                    api_assets.get(scan.id)
+                    if str(scan.scan_type or "").lower() == "api"
+                    else (scan_assets.get(scan.id, {}) or {}).get("subdomain")
+                    if str(scan.scan_type or "").lower() == "subdomain"
+                    else (scan_assets.get(scan.id, {}) or {}).get("domain")
+                ),
             }
             for scan in scans
         ]
@@ -968,10 +1025,14 @@ def get_all_scans():
 
 
 @router.get("/scan/{scan_id}")
-def get_scan_by_id(scan_id: str):
+def get_scan_by_id(
+    scan_id: str,
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     db = SessionLocal()
 
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    tenant_users = get_tenant_usernames(db, claims)
+    scan = db.query(Scan).filter(Scan.id == scan_id, Scan.created_by.in_(tenant_users)).first()
     assert scan, "Scan with id does not exist."
 
     result = {'message':'Success', 'data':scan}
@@ -1123,11 +1184,15 @@ def terminate_scan(scan_id: str):
 
 
 @router.get("/{scan_id}/results")
-def get_scan_results(scan_id: str):
+def get_scan_results(
+    scan_id: str,
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     db = SessionLocal()
 
     try:
-        scan = db.query(Scan).filter(Scan.id == scan_id).first()
+        tenant_users = get_tenant_usernames(db, claims)
+        scan = db.query(Scan).filter(Scan.id == scan_id, Scan.created_by.in_(tenant_users)).first()
         if not scan:
             raise HTTPException(status_code=404, detail="Scan not found")
 

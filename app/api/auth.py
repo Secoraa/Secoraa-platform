@@ -7,7 +7,7 @@ import hmac
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -35,6 +35,27 @@ class TokenExpired(Exception):
 
 class TokenInvalid(Exception):
     pass
+
+
+def get_tenant_usernames(db: Session, claims: Dict[str, Any]) -> List[str]:
+    """
+    Resolve all usernames for the current tenant so we can scope data access.
+    Falls back to the current user's identity if the tenant lookup fails.
+    """
+    tenant = str(claims.get("tenant") or "").strip()
+    usernames: List[str] = []
+    if tenant:
+        usernames = [
+            u.username
+            for u in db.query(User)
+            .filter(User.tenant == tenant, User.is_active == True)  # noqa: E712
+            .all()
+        ]
+    if not usernames:
+        fallback = str(claims.get("sub") or claims.get("username") or "").strip()
+        if fallback:
+            usernames = [fallback]
+    return usernames
 
 
 def _b64url_encode(data: bytes) -> str:

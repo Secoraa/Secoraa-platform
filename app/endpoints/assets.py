@@ -1,6 +1,7 @@
 from datetime import datetime
 import uuid
 from fastapi import APIRouter, Body, Depends, HTTPException
+from typing import Any, Dict
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -16,7 +17,7 @@ from app.endpoints.request_body import (
 from sqlalchemy import Select
 from sqlalchemy.orm import selectinload
 
-from app.api.auth import get_token_claims
+from app.api.auth import get_token_claims, get_tenant_usernames
 
 
 router = APIRouter(
@@ -29,7 +30,8 @@ router = APIRouter(
 @router.post("/domain")
 def create_domain(
     db: Session = Depends(get_db),
-    request_body: DomainRequestBody = Body(...)
+    request_body: DomainRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     body = request_body.model_dump()
 
@@ -39,7 +41,8 @@ def create_domain(
     asn = body.get("asn")
     tags = body.get("tags",[])
 
-    created_by, updated_by = "Praatik", "Praatik"
+    created_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+    updated_by = created_by
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
 
@@ -114,12 +117,17 @@ def create_domain(
 
 @router.get("/domain")
 def get_domain(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
         stmt = (
             Select(Domain)
             .options(selectinload(Domain.subdomains))
+            .filter(Domain.created_by.in_(tenant_users))
         )
 
         domains = db.execute(stmt).scalars().all()
@@ -177,10 +185,13 @@ def get_domain(
         if "discovery_source" in error_str or "undefinedcolumn" in error_str:
             try:
                 # Query without discovery_source column
+                if not tenant_users:
+                    return []
                 result = db.execute(text("""
                     SELECT id, domain_name, tags, created_at, updated_at, created_by, updated_by
                     FROM domains
-                """))
+                    WHERE created_by = ANY(:tenant_users)
+                """), {"tenant_users": tenant_users})
                 
                 # Get subdomains separately
                 domains_data = []
@@ -233,12 +244,15 @@ def get_domain(
 @router.get("/domain/{domain_id}")
 def get_domain_by_id(
     domain_id,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
+        tenant_users = get_tenant_usernames(db, claims)
         stmt = (
             Select(Domain)
             .filter(Domain.id == domain_id)
+            .filter(Domain.created_by.in_(tenant_users))
             .options(selectinload(Domain.subdomains))
         )
         domain = db.execute(stmt).scalars().first()
@@ -289,9 +303,10 @@ def get_domain_by_id(
                     SELECT id, domain_name, tags, created_at
                     FROM domains
                     WHERE id = :domain_id
+                      AND created_by = ANY(:tenant_users)
                     """
                 ),
-                {"domain_id": str(domain_id)},
+                {"domain_id": str(domain_id), "tenant_users": get_tenant_usernames(db, claims)},
             ).first()
             if not row:
                 raise HTTPException(status_code=404, detail="Domain with specific Id does not Exist.")
@@ -326,12 +341,23 @@ def get_domain_by_id(
 
 
 @router.get("/ip-addresses")
-def list_ip_addresses(db: Session = Depends(get_db)):
+def list_ip_addresses(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     """
     List IP addresses with their associated domain_name.
     """
     try:
-        stmt = Select(IPAddress).options(selectinload(IPAddress.domain))
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
+        stmt = (
+            Select(IPAddress)
+            .options(selectinload(IPAddress.domain))
+            .join(Domain, IPAddress.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
+        )
         ips = db.execute(stmt).scalars().all()
 
         return [
@@ -360,6 +386,7 @@ def list_ip_addresses(db: Session = Depends(get_db)):
 def create_ip_address(
     db: Session = Depends(get_db),
     request_body: IPAddressRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     """
     Create an IP address entry connected to a domain.
@@ -375,11 +402,16 @@ def create_ip_address(
         if not ipaddress_name:
             raise HTTPException(status_code=400, detail="ipaddress_name is required")
 
-        valid_domain = db.query(Domain).filter(Domain.id == domain_id).first()
+        tenant_users = get_tenant_usernames(db, claims)
+        valid_domain = (
+            db.query(Domain)
+            .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+            .first()
+        )
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
 
-        created_by = updated_by = "manual"
+        created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
         created_at = updated_at = datetime.utcnow()
 
         ip = IPAddress(
@@ -424,13 +456,24 @@ def create_ip_address(
 
 
 @router.get("/urls")
-def list_urls(db: Session = Depends(get_db)):
+def list_urls(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
     """
     List URLs with their associated domain_name.
     If the `urls` table hasn't been created yet, returns an empty list.
     """
     try:
-        stmt = Select(URLAsset).options(selectinload(URLAsset.domain))
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
+        stmt = (
+            Select(URLAsset)
+            .options(selectinload(URLAsset.domain))
+            .join(Domain, URLAsset.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
+        )
         urls = db.execute(stmt).scalars().all()
 
         return [
@@ -462,6 +505,7 @@ def list_urls(db: Session = Depends(get_db)):
 def create_url(
     db: Session = Depends(get_db),
     request_body: URLRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     """
     Create a URL entry connected to a domain.
@@ -478,11 +522,16 @@ def create_url(
         if not url_name:
             raise HTTPException(status_code=400, detail="url_name is required")
 
-        valid_domain = db.query(Domain).filter(Domain.id == domain_id).first()
+        tenant_users = get_tenant_usernames(db, claims)
+        valid_domain = (
+            db.query(Domain)
+            .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+            .first()
+        )
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
 
-        created_by = updated_by = "manual"
+        created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
         created_at = updated_at = datetime.utcnow()
 
         u = URLAsset(
@@ -534,6 +583,7 @@ def update_domain_by_id(
     domain_id,
     request_body : DomainUpdateRequestBody = Body(...),
     db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     body = request_body.model_dump()
 
@@ -541,7 +591,8 @@ def update_domain_by_id(
     asn = body.get("asn", None)
 
     try:
-        stmt = Select(Domain).filter(Domain.id == domain_id)
+        tenant_users = get_tenant_usernames(db, claims)
+        stmt = Select(Domain).filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
         domain = db.execute(stmt).scalars().first()
         if not domain:
             raise HTTPException(status_code=400,detail="Domain with specific Id does not Exist.")
@@ -609,10 +660,18 @@ def delete_domain(
 
 @router.get("/subdomain")
 def get_subdomain(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
 ):
     try:
-        stmt = Select(Subdomain).all()
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
+        stmt = (
+            Select(Subdomain)
+            .join(Domain, Subdomain.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
+        )
         subdomains = db.execute(stmt).scalars().all()
         result = []
         for subdomain in subdomains:

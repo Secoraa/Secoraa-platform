@@ -96,6 +96,8 @@ const Scan = ({ onViewResults }) => {
     }
   }, [activeTab, runStep, scanForm.type]);
 
+  const allEndpointsSelected = apiEndpoints.length > 0 && selectedEndpointKeys.size === apiEndpoints.length;
+
   const loadSubdomains = async () => {
     try {
       setSubdomainLoading(true);
@@ -380,7 +382,7 @@ const Scan = ({ onViewResults }) => {
       }
       setApiEndpoints(endpoints);
       const all = new Set(endpoints.map(endpointKey));
-      setSelectedEndpointKeys(all); // default: all selected
+      setSelectedEndpointKeys(new Set()); // default: none selected
       if (!endpoints.length) {
         setNotification({
           message: 'No endpoints found. If this is a Postman collection, choose Documentation Type = POSTMAN. If it is OpenAPI, choose OPENAPI.',
@@ -837,18 +839,23 @@ const Scan = ({ onViewResults }) => {
                               const name = String(s.subdomain_name || s.name || '');
                               const isSelected = String(scanForm.subdomainId) === id;
                               return (
-                                <button
+                                <label
                                   key={id}
-                                  type="button"
                                   className={`subdomain-option-row ${isSelected ? 'selected' : ''}`}
-                                  onClick={() => {
-                                    setScanForm({ ...scanForm, subdomainId: id });
-                                    setSubdomainQuery(name);
-                                  }}
                                 >
+                                  <input
+                                    className="subdomain-option-checkbox"
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const nextId = e.target.checked ? id : '';
+                                      setScanForm({ ...scanForm, subdomainId: nextId });
+                                      setSubdomainQuery(e.target.checked ? name : '');
+                                    }}
+                                  />
                                   <span className="subdomain-option-name">{name}</span>
                                   <span className="subdomain-option-domain">{s.domain_name || ''}</span>
-                                </button>
+                                </label>
                               );
                             })
                           )}
@@ -924,21 +931,25 @@ const Scan = ({ onViewResults }) => {
                     {apiEndpoints.length > 0 && (
                       <div className="api-endpoints">
                         <div className="api-endpoints-header">
-                          <div>Endpoints ({apiEndpoints.length})</div>
+                          <div>
+                            Endpoints ({apiEndpoints.length})
+                            <span className="scan-count" style={{ marginLeft: 10 }}>
+                              Selected: {selectedEndpointKeys.size}
+                            </span>
+                          </div>
                           <div className="api-endpoints-actions">
                             <button
                               type="button"
                               className="btn-secondary btn-small"
-                              onClick={() => setSelectedEndpointKeys(new Set(apiEndpoints.map(endpointKey)))}
+                              onClick={() => {
+                                if (allEndpointsSelected) {
+                                  setSelectedEndpointKeys(new Set());
+                                } else {
+                                  setSelectedEndpointKeys(new Set(apiEndpoints.map(endpointKey)));
+                                }
+                              }}
                             >
-                              Select all
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-small"
-                              onClick={() => setSelectedEndpointKeys(new Set())}
-                            >
-                              Clear
+                              {allEndpointsSelected ? 'Unselect all' : 'Select all'}
                             </button>
                           </div>
                         </div>
@@ -1125,17 +1136,28 @@ const Scan = ({ onViewResults }) => {
                       <span className="scan-count">{filteredSubdomainData.total}</span>
                     </div>
                     <div className="api-endpoints-list">
-                      {filteredSubdomainData.items.map((s) => (
-                        <button
-                          type="button"
-                          key={s.id}
-                          className={`subdomain-option-row ${String(scheduleForm.subdomainId) === String(s.id) ? 'selected' : ''}`}
-                          onClick={() => setScheduleForm({ ...scheduleForm, subdomainId: String(s.id) })}
-                        >
-                          <div className="subdomain-option-name">{s.subdomain_name || s.name}</div>
-                          <div className="subdomain-option-domain"> </div>
-                        </button>
-                      ))}
+                      {filteredSubdomainData.items.map((s) => {
+                        const id = String(s.id);
+                        const name = String(s.subdomain_name || s.name || '');
+                        const checked = String(scheduleForm.subdomainId) === id;
+                        return (
+                          <label
+                            key={id}
+                            className={`subdomain-option-row ${checked ? 'selected' : ''}`}
+                          >
+                            <input
+                              className="subdomain-option-checkbox"
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setScheduleForm({ ...scheduleForm, subdomainId: e.target.checked ? id : '' })
+                              }
+                            />
+                            <div className="subdomain-option-name">{name}</div>
+                            <div className="subdomain-option-domain"> </div>
+                          </label>
+                        );
+                      })}
                       {filteredSubdomainData.items.length === 0 && (
                         <div style={{ padding: '12px', color: 'var(--text-secondary)' }}>No subdomains found</div>
                       )}
@@ -1203,13 +1225,14 @@ const Scan = ({ onViewResults }) => {
 
           {/* Filter scans based on search query */}
           {(() => {
-            const filteredScans = scans.filter((scan) => {
+                    const filteredScans = scans.filter((scan) => {
               if (!searchQuery.trim()) return true;
               const query = searchQuery.toLowerCase();
               return (
                 scan.scan_name?.toLowerCase().includes(query) ||
                 scan.scan_type?.toLowerCase().includes(query) ||
-                scan.status?.toLowerCase().includes(query)
+                        scan.status?.toLowerCase().includes(query) ||
+                        scan.asset_name?.toLowerCase().includes(query)
               );
             });
 
@@ -1230,6 +1253,7 @@ const Scan = ({ onViewResults }) => {
                     <tr>
                       <th>Scan Name</th>
                       <th>Scan Type</th>
+                      <th>Asset</th>
                       <th>Status</th>
                       <th>Created At</th>
                       <th>Actions</th>
@@ -1240,6 +1264,7 @@ const Scan = ({ onViewResults }) => {
                     <tr key={scan.scan_id}>
                       <td>{scan.scan_name}</td>
                       <td>{scan.scan_type.toUpperCase()}</td>
+                      <td>{scan.asset_name || '-'}</td>
                       <td>
                         <span
                           className={`status-badge ${
