@@ -83,17 +83,14 @@ def health():
 # ---------------------------------------------------------
 # Startup
 # ---------------------------------------------------------
+from app.database.session import engine, Base
+
 @app.on_event("startup")
-def startup_event():
+def startup():
     try:
-        # ✅ Auto-create tables & migrate schema
-        run_migrations()
-
-        # ✅ Start scheduler (idempotent)
+        Base.metadata.create_all(bind=engine)
         start_schedule_worker()
-
-        print("🚀 Secoraa backend started successfully")
-
+        print("✅ Database initialized")
     except Exception as e:
-        # Never crash the app on startup
-        print("⚠️ Startup warning:", e)
+        print(f"⚠️ Startup warning: {e}")
+
