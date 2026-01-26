@@ -20,7 +20,7 @@ ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
 
 # Install amass
-RUN go install -v github.com/OWASP/Amass/v3/...@master
+RUN go install -v github.com/owasp-amass/amass/v3/...@latest
 
 # Install httpx
 RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
