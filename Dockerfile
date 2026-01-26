@@ -29,9 +29,12 @@ RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
 RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 
 # Install ffuf
-RUN wget -O ffuf.zip https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.zip && \
-    unzip ffuf.zip -d /usr/local/bin/ && \
-    rm ffuf.zip
+RUN wget https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.tar.gz \
+    && tar -xzf ffuf_2.1.0_linux_amd64.tar.gz \
+    && mv ffuf /usr/local/bin/ffuf \
+    && chmod +x /usr/local/bin/ffuf \
+    && rm ffuf_2.1.0_linux_amd64.tar.gz
+
 
 # Set working directory
 WORKDIR /app
