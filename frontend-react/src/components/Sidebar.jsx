@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import secoraaLogo from '../assets/secoraa-logo.jpg';
 import ASMIcon from './ASMIcon';
 import ScanIcon from './ScanIcon';
 import BugIcon from './BugIcon';
@@ -30,7 +31,7 @@ const Sidebar = ({ activePage, setActivePage, tenant, username }) => {
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <img 
-            src="/images/secoraa-logo.jpg" 
+            src={secoraaLogo} 
             alt="Secoraa Logo" 
             className="logo-image"
             onError={(e) => {

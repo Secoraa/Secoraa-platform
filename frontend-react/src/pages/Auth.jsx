@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import secoraaLogo from '../assets/secoraa-logo.jpg';
 import './Auth.css';
 import { login, signup, setStoredToken } from '../api/apiClient';
 
@@ -60,7 +61,7 @@ const Auth = ({ onAuthed }) => {
 
       <div className="auth-brand">
         <div className="auth-logo">
-          <img src="/images/secoraa-logo.jpg" alt="Secoraa" onError={(e) => { e.target.style.display = 'none'; }} />
+          <img src={secoraaLogo} alt="Secoraa" onError={(e) => { e.target.style.display = 'none'; }} />
         </div>
         <div className="auth-brand-text">Secoraa</div>
       </div>
