@@ -4,8 +4,6 @@ from uuid import uuid4, UUID
 from datetime import datetime, timezone
 import logging
 import threading
-import subprocess
-import signal
 import os
 
 from app.schemas.scan import CreateScanRequest
@@ -26,6 +24,9 @@ from app.scanners.api_scanner.main import run_api_scan
 from app.storage.minio_client import MINIO_BUCKET
 from app.database.session import get_db
 from sqlalchemy.orm import Session
+from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
+from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
+from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
 
 router = APIRouter(
     prefix="/scans",
@@ -35,7 +36,7 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 # Global dictionary to track running scans
-# Format: {scan_id: {"thread": thread_obj, "pause_event": threading.Event(), "process": subprocess_obj}}
+# Format: {scan_id: {"thread": thread_obj, "pause_event": threading.Event()}}
 running_scans = {}
 scan_lock = threading.Lock()
 
@@ -320,74 +321,47 @@ def run_scan_with_control(scan_id: str, scan_type: str, payload_dict: dict, paus
     domain = payload_dict.get("domain")
     if not domain:
         raise ValueError("Domain is required")
-    
-    cmd = ["subfinder", "-d", domain, "-silent"]
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
-    
-    # Store process in running_scans
-    with scan_lock:
-        if scan_id in running_scans:
-            running_scans[scan_id]["process"] = process
-    
-    try:
-        # Wait for process with periodic checks for termination/pause
-        import time
-        while True:
-            # Check if scan was terminated
-            with scan_lock:
-                scan_info = running_scans.get(scan_id)
-                if scan_info and scan_info.get("terminated"):
-                    process.terminate()
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                    raise InterruptedError("Scan was terminated")
-            
-            # Check if paused (wait until resumed)
-            if pause_event.is_set():
-                time.sleep(0.5)  # Wait and check again
-                continue
-            
-            # Check if process finished
-            if process.poll() is not None:
-                break
-            
-            # Wait a bit before checking again
-            time.sleep(0.5)
-        
-        stdout, stderr = process.communicate()
-        
-        if process.returncode != 0:
-            raise RuntimeError(stderr or "Scan process failed")
-        
-        # Get all subdomains from subfinder
-        all_subdomains = list(set(stdout.splitlines()))
-        
-        # Filter wildcards (simplified - using scanner's filter if available)
-        scanner = SCANNERS.get(scan_type)
-        if scanner and hasattr(scanner, '_filter_wildcards'):
-            valid_subdomains = scanner._filter_wildcards(all_subdomains, domain)
-        else:
-            valid_subdomains = [s for s in all_subdomains if s.strip()]
-        
-        return {
-            "scan_type": scan_type,
-            "domain": domain,
-            "subdomains": valid_subdomains,
-            "total_found": len(valid_subdomains),
-            "total_before_filtering": len(all_subdomains)
-        }
-    finally:
-        # Clean up
+
+    def _check_terminated():
         with scan_lock:
-            if scan_id in running_scans:
-                running_scans[scan_id].pop("process", None)
+            scan_info = running_scans.get(scan_id)
+            if scan_info and scan_info.get("terminated"):
+                raise InterruptedError("Scan was terminated")
+
+    def _wait_if_paused():
+        import time
+        while pause_event.is_set():
+            _check_terminated()
+            time.sleep(0.5)
+
+    _check_terminated()
+    _wait_if_paused()
+    passive = fetch_from_crtsh(domain)
+
+    _check_terminated()
+    _wait_if_paused()
+    brute = bruteforce_subdomains(domain)
+    discovered = list(set(passive).union(brute))
+
+    _check_terminated()
+    _wait_if_paused()
+    resolved = validate_dns(discovered)
+    all_subdomains = list(set(resolved))
+
+    # Filter wildcards (simplified - using scanner's filter if available)
+    scanner = SCANNERS.get(scan_type)
+    if scanner and hasattr(scanner, '_filter_wildcards'):
+        valid_subdomains = scanner._filter_wildcards(all_subdomains, domain)
+    else:
+        valid_subdomains = [s for s in all_subdomains if s.strip()]
+
+    return {
+        "scan_type": scan_type,
+        "domain": domain,
+        "subdomains": valid_subdomains,
+        "total_found": len(valid_subdomains),
+        "total_before_filtering": len(all_subdomains)
+    }
 
 
 def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payload_dict: dict, created_by: str):
@@ -1150,18 +1124,6 @@ def terminate_scan(scan_id: str):
                 scan_info = running_scans[scan_id_str]
                 # Mark as terminated
                 scan_info["terminated"] = True
-                
-                # Try to kill the process if it exists
-                process = scan_info.get("process")
-                if process:
-                    try:
-                        process.terminate()
-                        try:
-                            process.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            process.kill()
-                    except Exception as e:
-                        logger.error(f"Error terminating process: {e}")
                 
                 # Update scan status
                 scan.status = "TERMINATED"

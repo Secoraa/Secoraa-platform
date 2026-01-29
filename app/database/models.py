@@ -131,7 +131,7 @@ class Domain(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    domain_name = Column(String, unique=True, nullable=False)
+    domain_name = Column(String, nullable=False)
     # ASN (Optional): Some older DBs won't have this column yet; migration adds it.
     asn = Column(String, nullable=True)
     tags = Column(ARRAY(String), nullable=True)

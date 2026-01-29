@@ -1,41 +1,5 @@
 FROM python:3.11-slim
 
-# Install system dependencies for security tools
-RUN apt-get update && apt-get install -y \
-    curl \
-    wget \
-    git \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Go for subfinder and other tools
-RUN wget -O go.tar.gz https://go.dev/dl/go1.21.0.linux-amd64.tar.gz && \
-    tar -C /usr/local -xzf go.tar.gz && \
-    rm go.tar.gz
-
-ENV GOPATH="/root/go"
-ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
-
-# Install subfinder
-RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-
-# Install amass
-RUN go install -v github.com/owasp-amass/amass/v3/...@latest
-
-# Install httpx
-RUN go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
-
-# Install nuclei
-RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-# Install ffuf
-RUN wget https://github.com/ffuf/ffuf/releases/download/v2.1.0/ffuf_2.1.0_linux_amd64.tar.gz \
-    && tar -xzf ffuf_2.1.0_linux_amd64.tar.gz \
-    && mv ffuf /usr/local/bin/ffuf \
-    && chmod +x /usr/local/bin/ffuf \
-    && rm ffuf_2.1.0_linux_amd64.tar.gz
-
-
 # Set working directory
 WORKDIR /app
 

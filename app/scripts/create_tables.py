@@ -13,6 +13,12 @@ def add_missing_columns():
         existing_columns = [c["name"] for c in inspector.get_columns("domains")]
 
         with engine.begin() as conn:
+            # Remove global unique constraint on domain_name if it exists
+            conn.execute(text("""
+                ALTER TABLE domains
+                DROP CONSTRAINT IF EXISTS domains_domain_name_key;
+            """))
+
             if "discovery_source" not in existing_columns:
                 conn.execute(text("""
                     ALTER TABLE domains
@@ -60,7 +66,11 @@ def add_missing_columns():
 
 def run_migrations():
     print("🚀 Running database migrations...")
-    Base.metadata.create_all(bind=engine)
-    add_missing_columns()
+    try:
+        Base.metadata.create_all(bind=engine)
+        add_missing_columns()
+    except Exception as exc:
+        print(f"❌ Migration failed: {exc}")
+        raise
     print("✅ Database schema ready")
 

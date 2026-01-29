@@ -1,6 +1,8 @@
-import subprocess
 import socket
 from app.scanners.base import BaseScanner
+from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
+from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
+from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
 
 class DomainDiscoveryScanner(BaseScanner):
     name = "dd"
@@ -80,19 +82,12 @@ class DomainDiscoveryScanner(BaseScanner):
     def run(self, payload: dict) -> dict:
         domain = payload["domain"]
 
-        cmd = ["subfinder", "-d", domain, "-silent"]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-
-        if result.returncode != 0:
-            raise RuntimeError(result.stderr)
-
-        # Get all subdomains from subfinder
-        all_subdomains = list(set(result.stdout.splitlines()))
+        # Passive + bruteforce discovery (Python only)
+        passive = fetch_from_crtsh(domain)
+        brute = set(bruteforce_subdomains(domain))
+        discovered = list(passive.union(brute))
+        resolved = validate_dns(discovered)
+        all_subdomains = list(set(resolved))
         
         # Filter out wildcards and invalid subdomains
         valid_subdomains = self._filter_wildcards(all_subdomains, domain)
