@@ -544,3 +544,17 @@ export const cancelScheduledScan = async (scheduleId) => {
     throw new Error(`Failed to cancel scheduled scan: ${error.message}`);
   }
 };
+
+export const updateScheduledScan = async (scheduleId, scheduledForIso) => {
+  try {
+    const response = await apiClient.put(`/scans/schedule/${scheduleId}`, {
+      scheduled_for: scheduledForIso,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Failed to update scheduled scan: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to update scheduled scan: ${error.message}`);
+  }
+};

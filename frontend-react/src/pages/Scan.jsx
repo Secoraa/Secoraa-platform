@@ -14,6 +14,7 @@ import {
   createScheduledScan,
   listScheduledScans,
   cancelScheduledScan,
+  updateScheduledScan,
 } from '../api/apiClient';
 import Notification from '../components/Notification';
 import ScanIcon from '../components/ScanIcon';
@@ -56,6 +57,9 @@ const Scan = ({ onViewResults }) => {
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [lastScheduledId, setLastScheduledId] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+  const [editScheduleId, setEditScheduleId] = useState('');
+  const [editScheduleTime, setEditScheduleTime] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [apiScanResult, setApiScanResult] = useState(null);
   const [postmanFileName, setPostmanFileName] = useState('');
@@ -150,6 +154,36 @@ const Scan = ({ onViewResults }) => {
       setNotification({ message: `Failed to load scheduled scans: ${err.message}`, type: 'error' });
     } finally {
       setScheduleLoading(false);
+    }
+  };
+
+  const openEditSchedule = (row) => {
+    const existing = row?.scheduled_for ? new Date(row.scheduled_for) : null;
+    const localValue = existing
+      ? new Date(existing.getTime() - existing.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+      : '';
+    setEditScheduleId(row?.id || '');
+    setEditScheduleTime(localValue);
+    setShowEditScheduleModal(true);
+  };
+
+  const handleUpdateScheduled = async (e) => {
+    e.preventDefault();
+    if (!editScheduleId) return;
+    if (!editScheduleTime) {
+      setNotification({ message: 'Please select schedule time', type: 'error' });
+      return;
+    }
+    try {
+      const iso = new Date(editScheduleTime).toISOString();
+      await updateScheduledScan(editScheduleId, iso);
+      setNotification({ message: 'Scheduled scan updated', type: 'success' });
+      setShowEditScheduleModal(false);
+      setEditScheduleId('');
+      setEditScheduleTime('');
+      await loadScheduled();
+    } catch (err) {
+      setNotification({ message: `Failed to update schedule: ${err.message}`, type: 'error' });
     }
   };
 
@@ -1580,21 +1614,30 @@ const Scan = ({ onViewResults }) => {
                                   View Results
                                 </button>
                               ) : s.status === 'PENDING' ? (
-                                <button
-                                  type="button"
-                                  className="btn-small btn-terminate"
-                                  onClick={async () => {
-                                    try {
-                                      await cancelScheduledScan(s.id);
-                                      setNotification({ message: 'Scheduled scan cancelled', type: 'success' });
-                                      await loadScheduled();
-                                    } catch (err) {
-                                      setNotification({ message: `Failed to cancel: ${err.message}`, type: 'error' });
-                                    }
-                                  }}
-                                >
-                                  Cancel
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn-small"
+                                    onClick={() => openEditSchedule(s)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-small btn-terminate"
+                                    onClick={async () => {
+                                      try {
+                                        await cancelScheduledScan(s.id);
+                                        setNotification({ message: 'Scheduled scan cancelled', type: 'success' });
+                                        await loadScheduled();
+                                      } catch (err) {
+                                        setNotification({ message: `Failed to cancel: ${err.message}`, type: 'error' });
+                                      }
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
                               ) : (
                                 <span style={{ color: 'var(--text-secondary)' }}>-</span>
                               )}
@@ -1607,6 +1650,38 @@ const Scan = ({ onViewResults }) => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {showEditScheduleModal && (
+        <div className="scan-modal-overlay" onClick={() => setShowEditScheduleModal(false)}>
+          <div className="scan-modal-content" onClick={(e) => e.stopPropagation()}>
+            <h3>Edit Scheduled Scan</h3>
+            <form onSubmit={handleUpdateScheduled}>
+              <div className="form-group">
+                <label>Schedule Time</label>
+                <input
+                  type="datetime-local"
+                  value={editScheduleTime}
+                  onChange={(e) => setEditScheduleTime(e.target.value)}
+                  required
+                />
+                <div className="helper-text">Uses your local time; it will be stored and executed in UTC.</div>
+              </div>
+              <div className="scan-modal-actions">
+                <button type="submit" className="btn-primary">
+                  Update
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowEditScheduleModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

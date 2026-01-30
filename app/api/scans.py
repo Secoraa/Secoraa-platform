@@ -48,6 +48,10 @@ class CreateScheduledScanRequest(BaseModel):
     payload: Dict[str, Any] = Field(default_factory=dict)
 
 
+class UpdateScheduledScanRequest(BaseModel):
+    scheduled_for: datetime
+
+
 def _create_scan_record_and_start_thread(db: SessionLocal, scan_name: str, scan_type: str, payload_dict: dict, created_by: str):
     """
     Shared helper used by both the HTTP endpoint and the scheduler worker.
@@ -952,6 +956,44 @@ def cancel_scheduled_scan(
     sched.status = "CANCELLED"
     db.commit()
     return {"message": "Cancelled", "id": schedule_id, "status": sched.status}
+
+
+@router.put("/schedule/{schedule_id}")
+def update_scheduled_scan(
+    schedule_id: str,
+    body: UpdateScheduledScanRequest,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    try:
+        sid = UUID(schedule_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid schedule id")
+    tenant_users = get_tenant_usernames(db, claims)
+    sched = (
+        db.query(ScheduledScan)
+        .filter(ScheduledScan.id == sid, ScheduledScan.created_by.in_(tenant_users))
+        .first()
+    )
+    if not sched:
+        raise HTTPException(status_code=404, detail="Scheduled scan not found")
+    if sched.status != "PENDING":
+        raise HTTPException(status_code=400, detail=f"Cannot edit scheduled scan in status {sched.status}")
+
+    scheduled_for = body.scheduled_for
+    if scheduled_for.tzinfo is not None:
+        scheduled_for = scheduled_for.astimezone(timezone.utc).replace(tzinfo=None)
+    if scheduled_for < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="scheduled_for must be in the future")
+
+    sched.scheduled_for = scheduled_for
+    db.commit()
+    return {
+        "message": "Updated",
+        "id": schedule_id,
+        "scheduled_for": sched.scheduled_for,
+        "status": sched.status,
+    }
 
 
 @router.get("/scan")

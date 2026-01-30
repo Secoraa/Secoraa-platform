@@ -1,3 +1,33 @@
+.scan-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.scan-modal-content {
+  width: 92%;
+  max-width: 420px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.scan-modal-content h3 {
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+}
+
+.scan-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+}
 .scan-page {
   padding: 2rem;
   min-height: calc(100vh - 64px);
