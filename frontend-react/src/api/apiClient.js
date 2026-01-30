@@ -343,6 +343,36 @@ export const getUrls = async () => {
   }
 };
 
+export const getAssetGroups = async () => {
+  try {
+    const response = await apiClient.get('/assets/asset-groups');
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(`Failed to fetch asset groups: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to fetch asset groups: ${error.message}`);
+  }
+};
+
+export const createAssetGroup = async ({ name, domainId, assetType, description, assetIds }) => {
+  try {
+    const response = await apiClient.post('/assets/asset-groups', {
+      name,
+      domain_id: domainId,
+      asset_type: assetType,
+      asset_ids: Array.isArray(assetIds) ? assetIds : [],
+      description: description || undefined,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Failed to create asset group: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to create asset group: ${error.message}`);
+  }
+};
+
 export const createIPAddress = async (domainId, ipAddress, tags = []) => {
   try {
     const response = await apiClient.post('/assets/ip-addresses', {

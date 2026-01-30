@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from app.database.models import Domain, Subdomain, IPAddress, URLAsset
+from app.database.models import Domain, Subdomain, IPAddress, URLAsset, AssetGroup, AssetGroupItem
 from app.database.session import get_db
 from app.endpoints.request_body import (
     DomainRequestBody,
     DomainUpdateRequestBody,
     IPAddressRequestBody,
     URLRequestBody,
+    AssetGroupRequestBody,
 )
 from sqlalchemy import Select
 from sqlalchemy.orm import selectinload
@@ -669,6 +670,7 @@ def get_subdomain(
             return []
         stmt = (
             Select(Subdomain)
+            .options(selectinload(Subdomain.domain))
             .join(Domain, Subdomain.domain_id == Domain.id)
             .filter(Domain.created_by.in_(tenant_users))
         )
@@ -678,6 +680,8 @@ def get_subdomain(
             result.append(
                 {   "id":str(subdomain.id),
                     "subdomain_name":subdomain.subdomain_name,
+                    "domain_id": str(subdomain.domain_id),
+                    "domain_name": getattr(subdomain.domain, "domain_name", None),
                 }
             )
         return result
@@ -685,4 +689,171 @@ def get_subdomain(
     except Exception as ex:
         db.rollback()
         print(ex)
+
+
+#----------------------------------------------------------------
+# Asset Groups
+#----------------------------------------------------------------
+
+@router.get("/asset-groups")
+def list_asset_groups(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    try:
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
+        stmt = (
+            Select(AssetGroup)
+            .options(selectinload(AssetGroup.domain), selectinload(AssetGroup.items))
+            .join(Domain, AssetGroup.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
+        )
+        groups = db.execute(stmt).scalars().all()
+        return [
+            {
+                "id": str(g.id),
+                "name": g.name,
+                "domain_id": str(g.domain_id),
+                "domain_name": getattr(g.domain, "domain_name", None),
+                "asset_type": g.asset_type,
+                "description": g.description,
+                "assets": [
+                    (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name)
+                    for item in (g.items or [])
+                    if (item.subdomain_id or item.ip_id)
+                ],
+                "asset_count": len(g.items or []),
+                "created_at": g.created_at,
+                "created_by": g.created_by,
+                "updated_at": g.updated_at,
+                "updated_by": g.updated_by,
+            }
+            for g in groups
+        ]
+    except ProgrammingError:
+        return []
+    except OperationalError as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+
+
+@router.post("/asset-groups")
+def create_asset_group(
+    db: Session = Depends(get_db),
+    request_body: AssetGroupRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    body = request_body.model_dump()
+    name = (body.get("name") or "").strip()
+    domain_id = body.get("domain_id")
+    asset_type = (body.get("asset_type") or "").strip().upper()
+    asset_ids = body.get("asset_ids") or []
+    description = (body.get("description") or "").strip() or None
+
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not domain_id:
+        raise HTTPException(status_code=400, detail="domain_id is required")
+    if asset_type not in {"SUBDOMAIN", "IP"}:
+        raise HTTPException(status_code=400, detail="asset_type must be SUBDOMAIN or IP")
+    if not isinstance(asset_ids, list):
+        raise HTTPException(status_code=400, detail="asset_ids must be a list")
+    if len(asset_ids) == 0:
+        raise HTTPException(status_code=400, detail="Select at least one asset")
+    if len(asset_ids) > 5:
+        raise HTTPException(status_code=400, detail="You can select up to 5 assets")
+
+    tenant_users = get_tenant_usernames(db, claims)
+    valid_domain = (
+        db.query(Domain)
+        .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+        .first()
+    )
+    if not valid_domain:
+        raise HTTPException(status_code=400, detail="Invalid domain_id")
+
+    created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+    created_at = updated_at = datetime.utcnow()
+
+    group = AssetGroup(
+        name=name,
+        domain_id=domain_id,
+        asset_type=asset_type,
+        description=description,
+        created_at=created_at,
+        updated_at=updated_at,
+        created_by=created_by,
+        updated_by=updated_by,
+    )
+    try:
+        # Validate assets belong to the selected domain
+        asset_items = []
+        if asset_type == "SUBDOMAIN":
+            assets = (
+                db.query(Subdomain)
+                .filter(Subdomain.id.in_(asset_ids), Subdomain.domain_id == domain_id)
+                .all()
+            )
+            if len(assets) != len(asset_ids):
+                raise HTTPException(status_code=400, detail="Some subdomains are not linked to the selected domain")
+            for s in assets:
+                asset_items.append(
+                    AssetGroupItem(
+                        asset_type="SUBDOMAIN",
+                        subdomain_id=s.id,
+                        created_at=created_at,
+                    )
+                )
+        else:
+            assets = (
+                db.query(IPAddress)
+                .filter(IPAddress.id.in_(asset_ids), IPAddress.domain_id == domain_id)
+                .all()
+            )
+            if len(assets) != len(asset_ids):
+                raise HTTPException(status_code=400, detail="Some IPs are not linked to the selected domain")
+            for ip in assets:
+                asset_items.append(
+                    AssetGroupItem(
+                        asset_type="IP",
+                        ip_id=ip.id,
+                        created_at=created_at,
+                    )
+                )
+
+        db.add(group)
+        db.flush()
+        for item in asset_items:
+            item.asset_group_id = group.id
+            db.add(item)
+        db.commit()
+        db.refresh(group)
+        return {
+            "id": str(group.id),
+            "name": group.name,
+            "domain_id": str(group.domain_id),
+            "domain_name": getattr(valid_domain, "domain_name", None),
+            "asset_type": group.asset_type,
+            "description": group.description,
+            "assets": [
+                (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name)
+                for item in asset_items
+            ],
+            "asset_count": len(asset_items),
+            "created_at": group.created_at,
+            "created_by": group.created_by,
+            "updated_at": group.updated_at,
+            "updated_by": group.updated_by,
+        }
+    except Exception as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=str(e))
 

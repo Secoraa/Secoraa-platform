@@ -58,6 +58,14 @@ class URLRequestBody(BaseModel):
     )
 
 
+class AssetGroupRequestBody(BaseModel):
+    name: str = Field(..., example="Customer APIs")
+    domain_id: UUID
+    asset_type: str = Field(..., example="SUBDOMAIN")
+    asset_ids: Optional[List[UUID]] = None
+    description: Optional[str] = None
+
+
 
 class SubdomainScanRequest(BaseModel):
     domain: str

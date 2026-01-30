@@ -313,6 +313,66 @@ class URLAsset(Base):
     )
 
 
+class AssetGroup(Base):
+    __tablename__ = "asset_groups"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    name = Column(String, nullable=False)
+    domain_id = Column(UUID(as_uuid=True), ForeignKey("domains.id", ondelete="CASCADE"), nullable=False)
+    asset_type = Column(String, nullable=False)  # "SUBDOMAIN" | "IP"
+    description = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(String, nullable=True)
+    updated_by = Column(String, nullable=True)
+
+    domain = relationship(
+        "Domain",
+        backref="asset_groups",
+    )
+
+    items = relationship(
+        "AssetGroupItem",
+        back_populates="group",
+        cascade="all, delete-orphan",
+    )
+
+
+class AssetGroupItem(Base):
+    __tablename__ = "asset_group_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    asset_group_id = Column(UUID(as_uuid=True), ForeignKey("asset_groups.id", ondelete="CASCADE"), nullable=False)
+    asset_type = Column(String, nullable=False)  # "SUBDOMAIN" | "IP"
+    subdomain_id = Column(UUID(as_uuid=True), ForeignKey("subdomains.id", ondelete="CASCADE"), nullable=True)
+    ip_id = Column(UUID(as_uuid=True), ForeignKey("ipaddress.id", ondelete="CASCADE"), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    group = relationship(
+        "AssetGroup",
+        back_populates="items",
+    )
+
+    subdomain = relationship(
+        "Subdomain",
+        backref="asset_group_items",
+    )
+
+    ip_address = relationship(
+        "IPAddress",
+        backref="asset_group_items",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("asset_group_id", "subdomain_id"),
+        UniqueConstraint("asset_group_id", "ip_id"),
+    )
+
+
 class Finding(Base):
     __tablename__ = "findings"
 

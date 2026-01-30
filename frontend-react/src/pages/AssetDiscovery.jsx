@@ -8,6 +8,8 @@ import {
   getUrls,
   createIPAddress,
   createUrl,
+  getAssetGroups,
+  createAssetGroup,
 } from '../api/apiClient';
 import './AssetDiscovery.css';
 
@@ -56,10 +58,12 @@ const AssetDiscovery = () => {
   const [subdomains, setSubdomains] = useState([]);
   const [ipAddresses, setIpAddresses] = useState([]);
   const [urls, setUrls] = useState([]);
+  const [assetGroups, setAssetGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [subdomainLoading, setSubdomainLoading] = useState(false);
   const [ipLoading, setIpLoading] = useState(false);
   const [urlLoading, setUrlLoading] = useState(false);
+  const [assetGroupLoading, setAssetGroupLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('domains');
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,14 +76,17 @@ const AssetDiscovery = () => {
   const [showAddSubdomainModal, setShowAddSubdomainModal] = useState(false);
   const [showAddIpModal, setShowAddIpModal] = useState(false);
   const [showAddUrlModal, setShowAddUrlModal] = useState(false);
+  const [showAddAssetGroupModal, setShowAddAssetGroupModal] = useState(false);
   const [newDomain, setNewDomain] = useState({ name: '', tags: '' });
   const [newSubdomain, setNewSubdomain] = useState({ domainId: '', name: '', tags: '' });
   const [newIpAddress, setNewIpAddress] = useState({ domainId: '', ip: '', tags: '' });
   const [newUrl, setNewUrl] = useState({ domainId: '', url: '', tags: '' });
+  const [newAssetGroup, setNewAssetGroup] = useState({ name: '', domainId: '', assetType: 'SUBDOMAIN', description: '', assetIds: [] });
   const [currentPage, setCurrentPage] = useState(1);
   const [subdomainCurrentPage, setSubdomainCurrentPage] = useState(1);
   const [ipCurrentPage, setIpCurrentPage] = useState(1);
   const [urlCurrentPage, setUrlCurrentPage] = useState(1);
+  const [assetGroupCurrentPage, setAssetGroupCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedTags, setExpandedTags] = useState({});
 
@@ -88,6 +95,7 @@ const AssetDiscovery = () => {
     loadDomains();
     loadIPAddresses();
     loadUrls();
+    loadAssetGroups();
   }, []);
 
   useEffect(() => {
@@ -102,7 +110,20 @@ const AssetDiscovery = () => {
       // Lazy-load fallback (in case prefetch failed)
       if (!urls || urls.length === 0) loadUrls();
     }
+    if (activeTab === 'asset-groups') {
+      if (!assetGroups || assetGroups.length === 0) loadAssetGroups();
+    }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!showAddAssetGroupModal) return;
+    if (newAssetGroup.assetType === 'SUBDOMAIN' && subdomains.length === 0) {
+      loadSubdomains();
+    }
+    if (newAssetGroup.assetType === 'IP' && ipAddresses.length === 0) {
+      loadIPAddresses();
+    }
+  }, [showAddAssetGroupModal, newAssetGroup.assetType]);
 
   const loadDomains = async () => {
     try {
@@ -160,6 +181,19 @@ const AssetDiscovery = () => {
       setError(err.message);
     } finally {
       setUrlLoading(false);
+    }
+  };
+
+  const loadAssetGroups = async () => {
+    try {
+      setAssetGroupLoading(true);
+      const data = await getAssetGroups();
+      setAssetGroups(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAssetGroupLoading(false);
     }
   };
 
@@ -240,6 +274,37 @@ const AssetDiscovery = () => {
       loadUrls();
     } catch (err) {
       alert(`Failed to add URL: ${err.message}`);
+    }
+  };
+
+  const handleAddAssetGroup = async (e) => {
+    e.preventDefault();
+    try {
+      if (!newAssetGroup.domainId) {
+        alert('Please select a domain');
+        return;
+      }
+      if (!newAssetGroup.assetIds || newAssetGroup.assetIds.length === 0) {
+        alert('Please select at least one asset');
+        return;
+      }
+      if (newAssetGroup.assetIds.length > 5) {
+        alert('You can select up to 5 assets');
+        return;
+      }
+      await createAssetGroup({
+        name: newAssetGroup.name,
+        domainId: newAssetGroup.domainId,
+        assetType: newAssetGroup.assetType,
+        description: newAssetGroup.description,
+        assetIds: newAssetGroup.assetIds,
+      });
+      setShowAddAssetGroupModal(false);
+      setNewAssetGroup({ name: '', domainId: '', assetType: 'SUBDOMAIN', description: '', assetIds: [] });
+      setAssetGroupCurrentPage(1);
+      loadAssetGroups();
+    } catch (err) {
+      alert(`Failed to add asset group: ${err.message}`);
     }
   };
 
@@ -329,13 +394,50 @@ const AssetDiscovery = () => {
   const urlEndIndex = urlStartIndex + rowsPerPage;
   const paginatedUrls = filteredUrls.slice(urlStartIndex, urlEndIndex);
 
+  // Filter Asset Groups
+  let filteredAssetGroups = assetGroups;
+  if (searchQuery && activeTab === 'asset-groups') {
+    const q = searchQuery.toLowerCase();
+    filteredAssetGroups = filteredAssetGroups.filter((g) =>
+      String(g.name || '').toLowerCase().includes(q) ||
+      String(g.domain_name || '').toLowerCase().includes(q) ||
+      String(g.asset_type || '').toLowerCase().includes(q) ||
+      String(g.description || '').toLowerCase().includes(q)
+    );
+  }
+  const assetGroupTotalPages = Math.ceil(filteredAssetGroups.length / rowsPerPage);
+  const assetGroupStartIndex = (assetGroupCurrentPage - 1) * rowsPerPage;
+  const assetGroupEndIndex = assetGroupStartIndex + rowsPerPage;
+  const paginatedAssetGroups = filteredAssetGroups.slice(assetGroupStartIndex, assetGroupEndIndex);
+
+  const selectedDomainSubdomains = useMemo(() => {
+    if (!newAssetGroup.domainId) return [];
+    return (subdomains || []).filter((s) => String(s.domain_id) === String(newAssetGroup.domainId));
+  }, [subdomains, newAssetGroup.domainId]);
+
+  const selectedDomainIps = useMemo(() => {
+    if (!newAssetGroup.domainId) return [];
+    return (ipAddresses || []).filter((ip) => String(ip.domain_id) === String(newAssetGroup.domainId));
+  }, [ipAddresses, newAssetGroup.domainId]);
+
+  const toggleAssetSelection = (assetId) => {
+    setNewAssetGroup((prev) => {
+      const exists = prev.assetIds.includes(assetId);
+      if (exists) {
+        return { ...prev, assetIds: prev.assetIds.filter((id) => id !== assetId) };
+      }
+      if (prev.assetIds.length >= 5) return prev;
+      return { ...prev, assetIds: [...prev.assetIds, assetId] };
+    });
+  };
+
   const tabs = [
     { id: 'domains', label: 'Domains', count: domains.length },
     { id: 'subdomains', label: 'Subdomains', count: totalSubdomains > 999 ? '999+' : totalSubdomains },
     { id: 'ip-addresses', label: 'IP Addresses', count: ipAddresses.length },
     { id: 'url', label: 'URL', count: urls.length },
     { id: 'ip-blocks', label: 'IP Blocks', count: 0 },
-    { id: 'asset-groups', label: 'Asset Groups', count: 5 },
+    { id: 'asset-groups', label: 'Asset Groups', count: assetGroups.length },
   ];
 
   return (
@@ -910,8 +1012,113 @@ const AssetDiscovery = () => {
         </>
       )}
 
+      {/* Asset Groups Tab */}
+      {activeTab === 'asset-groups' && (
+        <>
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search Name"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setAssetGroupCurrentPage(1);
+              }}
+            />
+            <button
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddAssetGroupModal(true)}
+            >
+              ➕ Add Asset Group
+            </button>
+          </div>
+
+          {assetGroupLoading ? (
+            <div className="loading">Loading asset groups...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>NAME</th>
+                      <th>DOMAIN</th>
+                      <th>ASSET TYPE</th>
+                      <th>ASSETS</th>
+                      <th>DESCRIPTION</th>
+                      <th>CREATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedAssetGroups.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="empty-state">No asset groups found</td>
+                      </tr>
+                    ) : (
+                      paginatedAssetGroups.map((g) => (
+                        <tr key={g.id}>
+                          <td>{g.name}</td>
+                          <td>{g.domain_name || '-'}</td>
+                          <td>{g.asset_type || '-'}</td>
+                          <td>{(g.assets || []).join(', ') || '-'}</td>
+                          <td>{g.description || '-'}</td>
+                          <td>{g.created_at ? new Date(g.created_at).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setAssetGroupCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {assetGroupStartIndex + 1}-{Math.min(assetGroupEndIndex, filteredAssetGroups.length)} of {filteredAssetGroups.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setAssetGroupCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={assetGroupCurrentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setAssetGroupCurrentPage(prev => Math.min(assetGroupTotalPages, prev + 1))}
+                      disabled={assetGroupCurrentPage === assetGroupTotalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Other tabs placeholder */}
-      {activeTab !== 'domains' && activeTab !== 'subdomains' && activeTab !== 'ip-addresses' && activeTab !== 'url' && (
+      {activeTab !== 'domains' && activeTab !== 'subdomains' && activeTab !== 'ip-addresses' && activeTab !== 'url' && activeTab !== 'asset-groups' && (
         <div className="coming-soon">Coming soon</div>
       )}
 
@@ -1141,6 +1348,112 @@ const AssetDiscovery = () => {
                   type="button"
                   className="btn-secondary"
                   onClick={() => setShowAddUrlModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Asset Group Modal */}
+      {showAddAssetGroupModal && (
+        <div className="modal-overlay" onClick={() => setShowAddAssetGroupModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add Asset Group</h2>
+            <form onSubmit={handleAddAssetGroup}>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={newAssetGroup.name}
+                  onChange={(e) =>
+                    setNewAssetGroup({ ...newAssetGroup, name: e.target.value })
+                  }
+                  placeholder="Customer APIs"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Domain</label>
+                <select
+                  value={newAssetGroup.domainId}
+                  onChange={(e) =>
+                    setNewAssetGroup({ ...newAssetGroup, domainId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select a domain</option>
+                  {domains.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Asset Type</label>
+                <select
+                  value={newAssetGroup.assetType}
+                  onChange={(e) =>
+                    setNewAssetGroup({ ...newAssetGroup, assetType: e.target.value, assetIds: [] })
+                  }
+                  required
+                >
+                  <option value="SUBDOMAIN">Subdomain</option>
+                  <option value="IP">IP</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Select Assets (max 5)</label>
+                {!newAssetGroup.domainId ? (
+                  <div className="helper-text">Select a domain first.</div>
+                ) : (
+                  <div className="asset-select-list">
+                    {(newAssetGroup.assetType === 'SUBDOMAIN' ? selectedDomainSubdomains : selectedDomainIps).map((item) => {
+                      const id = item.id;
+                      const label = newAssetGroup.assetType === 'SUBDOMAIN' ? item.subdomain_name : item.ipaddress_name;
+                      const checked = newAssetGroup.assetIds.includes(id);
+                      const disabled = !checked && newAssetGroup.assetIds.length >= 5;
+                      return (
+                        <label key={id} className={`asset-select-item ${disabled ? 'disabled' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={disabled}
+                            onChange={() => toggleAssetSelection(id)}
+                          />
+                          <span>{label}</span>
+                        </label>
+                      );
+                    })}
+                    {(newAssetGroup.assetType === 'SUBDOMAIN' ? selectedDomainSubdomains : selectedDomainIps).length === 0 && (
+                      <div className="helper-text">No assets found for this domain.</div>
+                    )}
+                  </div>
+                )}
+                <div className="helper-text">{newAssetGroup.assetIds.length} / 5 selected</div>
+              </div>
+              <div className="form-group">
+                <label>Description (optional)</label>
+                <textarea
+                  value={newAssetGroup.description}
+                  onChange={(e) =>
+                    setNewAssetGroup({ ...newAssetGroup, description: e.target.value })
+                  }
+                  placeholder="Short description of this asset group"
+                  rows={3}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add Asset Group
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddAssetGroupModal(false)}
                 >
                   Cancel
                 </button>
