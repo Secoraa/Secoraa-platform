@@ -3,6 +3,7 @@ import {
   getDomains,
   getSubdomains,
   getIPAddresses,
+  getAssetGroups,
   createScan,
   createScanWithPayload,
   getAllScans,
@@ -28,6 +29,8 @@ const Scan = ({ onViewResults }) => {
   const [urlLoading, setUrlLoading] = useState(false);
   const [ipAssets, setIpAssets] = useState([]);
   const [ipLoading, setIpLoading] = useState(false);
+  const [assetGroups, setAssetGroups] = useState([]);
+  const [assetGroupLoading, setAssetGroupLoading] = useState(false);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('run');
@@ -42,6 +45,7 @@ const Scan = ({ onViewResults }) => {
     docType: 'POSTMAN', // OPENAPI | POSTMAN | CUSTOM
     subdomainId: '',
     targetIp: '',
+    assetGroupId: '',
   });
   const [scheduleForm, setScheduleForm] = useState({
     name: '',
@@ -109,6 +113,12 @@ const Scan = ({ onViewResults }) => {
   useEffect(() => {
     if (activeTab === 'run' && runStep === 2 && scanForm.type === 'network') {
       loadIpAssets();
+    }
+  }, [activeTab, runStep, scanForm.type]);
+
+  useEffect(() => {
+    if (activeTab === 'run' && runStep === 2 && scanForm.type === 'asset_group') {
+      loadAssetGroups();
     }
   }, [activeTab, runStep, scanForm.type]);
 
@@ -265,6 +275,19 @@ const Scan = ({ onViewResults }) => {
       setNotification({ message: `Failed to load URLs: ${err.message}`, type: 'error' });
     } finally {
       setUrlLoading(false);
+    }
+  };
+
+  const loadAssetGroups = async () => {
+    try {
+      setAssetGroupLoading(true);
+      const data = await getAssetGroups();
+      setAssetGroups(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setAssetGroups([]);
+      setNotification({ message: `Failed to load asset groups: ${err.message}`, type: 'error' });
+    } finally {
+      setAssetGroupLoading(false);
     }
   };
 
@@ -475,7 +498,7 @@ const Scan = ({ onViewResults }) => {
           message: `Scan "${result.scan_name}" started successfully! Check scan history for progress.`,
           type: 'success',
         });
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
         // Load scans and redirect to history tab immediately
         await loadScans();
         setActiveTab('history');
@@ -525,6 +548,22 @@ const Scan = ({ onViewResults }) => {
         setNotification({ message: `API Scan "${scanForm.name}" completed.`, type: 'success' });
         await loadScans();
         setActiveTab('history');
+      } else if (scanForm.type === 'asset_group') {
+        if (!scanForm.assetGroupId) {
+          setNotification({ message: 'Please select an asset group', type: 'error' });
+          return;
+        }
+        const result = await createScanWithPayload(scanForm.name, 'asset_group', {
+          asset_group_id: scanForm.assetGroupId,
+        });
+        const count = result?.count || 0;
+        setNotification({
+          message: `Asset group scan started (${count} scans). Check scan history for progress.`,
+          type: 'success',
+        });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
+        await loadScans();
+        setActiveTab('history');
       } else if (scanForm.type === 'network') {
         if (!scanForm.targetIp) {
           setNotification({ message: 'Please select a target IP', type: 'error' });
@@ -539,7 +578,7 @@ const Scan = ({ onViewResults }) => {
           type: 'success',
         });
 
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
         await loadScans();
         setActiveTab('history');
 
@@ -579,7 +618,7 @@ const Scan = ({ onViewResults }) => {
           type: 'success',
         });
 
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
         await loadScans();
         setActiveTab('history');
 
@@ -841,12 +880,14 @@ const Scan = ({ onViewResults }) => {
                           assetUrl: '',
                           subdomainId: '',
                           targetIp: '',
+                          assetGroupId: '',
                         })
                       }
                     >
                       <option value="dd">Domain Discovery</option>
                       <option value="api">API Testing</option>
                       <option value="subdomain">Subdomain Scan</option>
+                      <option value="asset_group">Asset Group Scan</option>
                       <option value="network">Network Scan</option>
                     </select>
                   </div>
@@ -993,6 +1034,30 @@ const Scan = ({ onViewResults }) => {
                         required
                       />
                     )}
+                  </div>
+                )}
+
+                {scanForm.type === 'asset_group' && (
+                  <div className="form-group">
+                    <label>Asset Group</label>
+                    <select
+                      value={scanForm.assetGroupId}
+                      onChange={(e) => setScanForm({ ...scanForm, assetGroupId: e.target.value })}
+                      required
+                      disabled={assetGroupLoading}
+                    >
+                      <option value="">{assetGroupLoading ? 'Loading asset groups...' : 'Select asset group'}</option>
+                      {assetGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name} ({g.asset_type || '-'} / {g.asset_count || 0})
+                        </option>
+                      ))}
+                    </select>
+                    {scanForm.assetGroupId ? (
+                      <div className="helper-text">
+                        Assets: {((assetGroups.find((g) => String(g.id) === String(scanForm.assetGroupId)) || {}).assets || []).join(', ') || '-'}
+                      </div>
+                    ) : null}
                   </div>
                 )}
 

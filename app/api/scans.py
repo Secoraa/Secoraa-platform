@@ -16,14 +16,14 @@ import asyncio
 from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List
 
-from app.database.models import Scan, ScanResult, Domain, Subdomain, ApiScanReport, Vulnerability, ScheduledScan
+from app.database.models import Scan, ScanResult, Domain, Subdomain, IPAddress, ApiScanReport, Vulnerability, ScheduledScan, AssetGroup, AssetGroupItem
 from app.storage.minio_client import download_json, object_exists
 from sqlalchemy import Select
 from app.api.auth import get_token_claims, get_tenant_usernames
 from app.scanners.api_scanner.main import run_api_scan
 from app.storage.minio_client import MINIO_BUCKET
 from app.database.session import get_db
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
 from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
 from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
@@ -831,6 +831,76 @@ def create_scan(
     payload_dict = request.payload.model_dump()
 
     try:
+        if str(scan_type or "").lower() == "asset_group":
+            asset_group_id = payload_dict.get("asset_group_id")
+            if not asset_group_id:
+                raise HTTPException(status_code=400, detail="asset_group_id is required for asset group scan")
+
+            tenant_users = get_tenant_usernames(db, claims)
+            group = (
+                db.query(AssetGroup)
+                .options(
+                    selectinload(AssetGroup.items).selectinload(AssetGroupItem.subdomain).selectinload(Subdomain.domain),
+                    selectinload(AssetGroup.items).selectinload(AssetGroupItem.ip_address).selectinload(IPAddress.domain),
+                )
+                .join(Domain, AssetGroup.domain_id == Domain.id)
+                .filter(AssetGroup.id == asset_group_id, Domain.created_by.in_(tenant_users))
+                .first()
+            )
+            if not group:
+                raise HTTPException(status_code=404, detail="Asset group not found")
+
+            items = list(group.items or [])
+            if not items:
+                raise HTTPException(status_code=400, detail="Asset group has no assets")
+
+            started = []
+            for idx, item in enumerate(items, start=1):
+                child_name = f"{scan_name}-{idx}"
+                if item.subdomain_id:
+                    sub = item.subdomain
+                    sub_name = str(getattr(sub, "subdomain_name", "") or "").strip()
+                    if not sub_name:
+                        continue
+                    domain_name = ""
+                    try:
+                        domain_name = str(getattr(sub.domain, "domain_name", "") or "").strip()
+                    except Exception:
+                        domain_name = ""
+                    if not domain_name:
+                        parts = sub_name.split(".")
+                        domain_name = ".".join(parts[-2:]) if len(parts) >= 2 else sub_name
+                    scan, final_name = _create_scan_record_and_start_thread(
+                        db,
+                        child_name,
+                        "subdomain",
+                        {"domain": domain_name, "subdomains": [sub_name]},
+                        created_by,
+                    )
+                    started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "subdomain"})
+                elif item.ip_id:
+                    ip_row = item.ip_address
+                    ip_value = str(getattr(ip_row, "ipaddress_name", "") or "").strip()
+                    if not ip_value:
+                        continue
+                    scan, final_name = _create_scan_record_and_start_thread(
+                        db,
+                        child_name,
+                        "network",
+                        {"target_ip": ip_value},
+                        created_by,
+                    )
+                    started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "network"})
+
+            if not started:
+                raise HTTPException(status_code=400, detail="No valid assets to scan in asset group")
+
+            return {
+                "message": "Asset group scan started",
+                "count": len(started),
+                "scans": started,
+            }
+
         scan, final_scan_name = _create_scan_record_and_start_thread(db, scan_name, scan_type, payload_dict, created_by)
         logger.info(f"Started background thread for scan {scan.id}")
 

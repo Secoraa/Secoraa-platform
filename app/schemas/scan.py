@@ -7,6 +7,7 @@ class GenericScanPayload(BaseModel):
     domain: Optional[str] = None
     subdomains: Optional[List[str]] = None
     target_ip: Optional[str] = None
+    asset_group_id: Optional[str] = None
 
 
 class CreateScanRequest(BaseModel):

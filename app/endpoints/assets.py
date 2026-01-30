@@ -706,7 +706,11 @@ def list_asset_groups(
             return []
         stmt = (
             Select(AssetGroup)
-            .options(selectinload(AssetGroup.domain), selectinload(AssetGroup.items))
+            .options(
+                selectinload(AssetGroup.domain),
+                selectinload(AssetGroup.items).selectinload(AssetGroupItem.subdomain),
+                selectinload(AssetGroup.items).selectinload(AssetGroupItem.ip_address),
+            )
             .join(Domain, AssetGroup.domain_id == Domain.id)
             .filter(Domain.created_by.in_(tenant_users))
         )
@@ -721,6 +725,15 @@ def list_asset_groups(
                 "description": g.description,
                 "assets": [
                     (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name)
+                    for item in (g.items or [])
+                    if (item.subdomain_id or item.ip_id)
+                ],
+                "assets_detail": [
+                    {
+                        "id": str(item.subdomain_id) if item.subdomain_id else str(item.ip_id),
+                        "type": "SUBDOMAIN" if item.subdomain_id else "IP",
+                        "name": (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name),
+                    }
                     for item in (g.items or [])
                     if (item.subdomain_id or item.ip_id)
                 ],
