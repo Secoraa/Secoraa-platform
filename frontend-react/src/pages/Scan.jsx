@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   getDomains,
   getSubdomains,
+  getIPAddresses,
   createScan,
   createScanWithPayload,
   getAllScans,
@@ -24,6 +25,8 @@ const Scan = ({ onViewResults }) => {
   const [domains, setDomains] = useState([]);
   const [urlAssets, setUrlAssets] = useState([]);
   const [urlLoading, setUrlLoading] = useState(false);
+  const [ipAssets, setIpAssets] = useState([]);
+  const [ipLoading, setIpLoading] = useState(false);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('run');
@@ -37,6 +40,7 @@ const Scan = ({ onViewResults }) => {
     assetUrl: '',
     docType: 'POSTMAN', // OPENAPI | POSTMAN | CUSTOM
     subdomainId: '',
+    targetIp: '',
   });
   const [scheduleForm, setScheduleForm] = useState({
     name: '',
@@ -46,6 +50,7 @@ const Scan = ({ onViewResults }) => {
     assetUrl: '',
     docType: 'POSTMAN',
     subdomainId: '',
+    targetIp: '',
   });
   const [scheduledScans, setScheduledScans] = useState([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -87,12 +92,19 @@ const Scan = ({ onViewResults }) => {
     if (scheduleForm.type === 'dd') loadDomains();
     if (scheduleForm.type === 'api') loadUrlAssets();
     if (scheduleForm.type === 'subdomain') loadSubdomains();
+    if (scheduleForm.type === 'network') loadIpAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, scheduleForm.type]);
 
   useEffect(() => {
     if (activeTab === 'run' && runStep === 2 && scanForm.type === 'api') {
       loadUrlAssets();
+    }
+  }, [activeTab, runStep, scanForm.type]);
+
+  useEffect(() => {
+    if (activeTab === 'run' && runStep === 2 && scanForm.type === 'network') {
+      loadIpAssets();
     }
   }, [activeTab, runStep, scanForm.type]);
 
@@ -219,6 +231,19 @@ const Scan = ({ onViewResults }) => {
       setNotification({ message: `Failed to load URLs: ${err.message}`, type: 'error' });
     } finally {
       setUrlLoading(false);
+    }
+  };
+
+  const loadIpAssets = async () => {
+    try {
+      setIpLoading(true);
+      const data = await getIPAddresses();
+      setIpAssets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setIpAssets([]);
+      setNotification({ message: `Failed to load IP addresses: ${err.message}`, type: 'error' });
+    } finally {
+      setIpLoading(false);
     }
   };
 
@@ -416,7 +441,7 @@ const Scan = ({ onViewResults }) => {
           message: `Scan "${result.scan_name}" started successfully! Check scan history for progress.`,
           type: 'success',
         });
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
         // Load scans and redirect to history tab immediately
         await loadScans();
         setActiveTab('history');
@@ -466,6 +491,41 @@ const Scan = ({ onViewResults }) => {
         setNotification({ message: `API Scan "${scanForm.name}" completed.`, type: 'success' });
         await loadScans();
         setActiveTab('history');
+      } else if (scanForm.type === 'network') {
+        if (!scanForm.targetIp) {
+          setNotification({ message: 'Please select a target IP', type: 'error' });
+          return;
+        }
+        const result = await createScanWithPayload(scanForm.name, 'network', {
+          target_ip: scanForm.targetIp,
+        });
+
+        setNotification({
+          message: `Network scan "${result.scan_name}" started successfully! Check scan history for progress.`,
+          type: 'success',
+        });
+
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
+        await loadScans();
+        setActiveTab('history');
+
+        const pollInterval = setInterval(async () => {
+          const updatedScansData = await getAllScans();
+          const updatedScans = updatedScansData.data || [];
+          await loadScans();
+          const currentScan = updatedScans.find(s => s.scan_id === result.scan_id);
+          if (currentScan && (currentScan.status === 'COMPLETED' || currentScan.status === 'FAILED')) {
+            clearInterval(pollInterval);
+            setNotification({
+              message: currentScan.status === 'COMPLETED'
+                ? `Scan "${result.scan_name}" completed successfully!`
+                : `Scan "${result.scan_name}" failed. Please check the logs.`,
+              type: currentScan.status === 'COMPLETED' ? 'success' : 'error',
+            });
+          }
+        }, 2000);
+
+        setTimeout(() => clearInterval(pollInterval), 300000);
       } else if (scanForm.type === 'subdomain') {
         if (!selectedSubdomain) {
           setNotification({ message: 'Please select a subdomain', type: 'error' });
@@ -485,7 +545,7 @@ const Scan = ({ onViewResults }) => {
           type: 'success',
         });
 
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
         await loadScans();
         setActiveTab('history');
 
@@ -549,6 +609,12 @@ const Scan = ({ onViewResults }) => {
         const subName = String(selectedScheduledSubdomain.subdomain_name || selectedScheduledSubdomain.name || '').trim();
         const derivedDomain = subName.split('.').slice(-2).join('.');
         payload = { domain: derivedDomain, subdomains: [subName] };
+      } else if (scheduleForm.type === 'network') {
+        if (!scheduleForm.targetIp) {
+          setNotification({ message: 'Please select a target IP', type: 'error' });
+          return;
+        }
+        payload = { target_ip: scheduleForm.targetIp };
       } else if (scheduleForm.type === 'api') {
         if (!scheduleForm.assetUrl) {
           setNotification({ message: 'Please select Asset Base URL', type: 'error' });
@@ -575,7 +641,7 @@ const Scan = ({ onViewResults }) => {
 
       setLastScheduledId(resp?.id);
       setNotification({ message: `Scan scheduled successfully! It will run at the selected time.`, type: 'success' });
-      setScheduleForm({ name: '', type: 'dd', scheduledFor: '', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '' });
+      setScheduleForm({ name: '', type: 'dd', scheduledFor: '', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '' });
       await loadScheduled();
       // After scheduling, go to Schedule Scan History tab
       setActiveTab('schedule-history');
@@ -740,12 +806,14 @@ const Scan = ({ onViewResults }) => {
                           domain: '',
                           assetUrl: '',
                           subdomainId: '',
+                          targetIp: '',
                         })
                       }
                     >
                       <option value="dd">Domain Discovery</option>
                       <option value="api">API Testing</option>
                       <option value="subdomain">Subdomain Scan</option>
+                      <option value="network">Network Scan</option>
                     </select>
                   </div>
                 </div>
@@ -863,6 +931,35 @@ const Scan = ({ onViewResults }) => {
                       </div>
                     </div>
                   </>
+                )}
+
+                {scanForm.type === 'network' && (
+                  <div className="form-group">
+                    <label>Target IP</label>
+                    {ipAssets.length > 0 ? (
+                      <select
+                        value={scanForm.targetIp}
+                        onChange={(e) => setScanForm({ ...scanForm, targetIp: e.target.value })}
+                        required
+                        disabled={ipLoading}
+                      >
+                        <option value="">{ipLoading ? 'Loading IPs...' : 'Select an IP'}</option>
+                        {ipAssets.map((ip) => (
+                          <option key={ip.id || ip.ipaddress_name} value={ip.ipaddress_name}>
+                            {ip.ipaddress_name}{ip.domain_name ? ` (${ip.domain_name})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="e.g. 8.8.8.8"
+                        value={scanForm.targetIp}
+                        onChange={(e) => setScanForm({ ...scanForm, targetIp: e.target.value })}
+                        required
+                      />
+                    )}
+                  </div>
                 )}
 
                 {scanForm.type === 'api' && (
@@ -1071,11 +1168,13 @@ const Scan = ({ onViewResults }) => {
                       type: e.target.value,
                       domain: '',
                       subdomainId: '',
+                      targetIp: '',
                     })
                   }
                 >
                   <option value="dd">Domain Discovery (DD)</option>
                   <option value="subdomain">Subdomain Scan</option>
+                  <option value="network">Network Scan</option>
                   <option value="api" disabled>API Scan (coming soon)</option>
                 </select>
               </div>
@@ -1190,6 +1289,35 @@ const Scan = ({ onViewResults }) => {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+
+            {scheduleForm.type === 'network' && (
+              <div className="form-group">
+                <label>Target IP</label>
+                {ipAssets.length > 0 ? (
+                  <select
+                    value={scheduleForm.targetIp}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, targetIp: e.target.value })}
+                    required
+                    disabled={ipLoading}
+                  >
+                    <option value="">{ipLoading ? 'Loading IPs...' : 'Select an IP'}</option>
+                    {ipAssets.map((ip) => (
+                      <option key={ip.id || ip.ipaddress_name} value={ip.ipaddress_name}>
+                        {ip.ipaddress_name}{ip.domain_name ? ` (${ip.domain_name})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    placeholder="e.g. 8.8.8.8"
+                    value={scheduleForm.targetIp}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, targetIp: e.target.value })}
+                    required
+                  />
                 )}
               </div>
             )}

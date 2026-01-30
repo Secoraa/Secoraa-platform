@@ -4,8 +4,9 @@ from pydantic import BaseModel
 
 
 class GenericScanPayload(BaseModel):
-    domain: str
+    domain: Optional[str] = None
     subdomains: Optional[List[str]] = None
+    target_ip: Optional[str] = None
 
 
 class CreateScanRequest(BaseModel):

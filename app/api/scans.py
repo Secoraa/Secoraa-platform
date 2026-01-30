@@ -461,6 +461,25 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
             domain_name = scan_output.get("domain", "").strip().lower() if scan_output.get("domain") else ""
             saved_count = 0
             subdomain_saved_count = 0
+
+            # Network scan: store target IP in ScanResult for history asset column
+            if str(scan_type or "").lower() == "network":
+                target_ip = (scan_output.get("target") or payload_dict.get("target_ip") or "").strip()
+                if target_ip:
+                    try:
+                        result = ScanResult(
+                            scan_id=scan.id,
+                            domain=target_ip,
+                            subdomain="",
+                        )
+                        db.add(result)
+                        db.commit()
+                    except Exception as e:
+                        logger.error(f"Error saving network scan result for {target_ip}: {e}")
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
             
             if subdomains and domain_name:
                 logger.info(f"Saving {len(subdomains)} subdomains to database for domain: {domain_name}")
