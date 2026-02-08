@@ -49,6 +49,30 @@ def add_missing_columns():
                     "ALTER TABLE api_scan_reports ADD COLUMN minio_object_name VARCHAR;"
                 ))
 
+    # subdomains table
+    if inspector.has_table("subdomains"):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                ALTER TABLE subdomains
+                DROP CONSTRAINT IF EXISTS subdomains_domain_id_subdomain_name_key;
+            """))
+
+    # ipaddress table
+    if inspector.has_table("ipaddress"):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                ALTER TABLE ipaddress
+                DROP CONSTRAINT IF EXISTS ipaddress_domain_id_ipaddress_name_key;
+            """))
+
+    # urls table
+    if inspector.has_table("urls"):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                ALTER TABLE urls
+                DROP CONSTRAINT IF EXISTS urls_domain_id_url_name_key;
+            """))
+
     # reports table
     if inspector.has_table("reports"):
         existing_columns = [c["name"] for c in inspector.get_columns("reports")]

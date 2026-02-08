@@ -186,10 +186,6 @@ class Subdomain(Base):
     created_by = Column(String)
     updated_by = Column(String)
 
-    __table_args__ = (
-        UniqueConstraint("domain_id", "subdomain_name"),
-    )
-
     # Relationships
     domain = relationship(
         "Domain",
@@ -269,10 +265,6 @@ class IPAddress(Base):
     created_by = Column(String)
     updated_by = Column(String)
 
-    __table_args__ = (
-        UniqueConstraint("domain_id", "ipaddress_name"),
-    )
-
     # Relationships
     domain = relationship(
         "Domain",
@@ -302,10 +294,6 @@ class URLAsset(Base):
 
     created_by = Column(String)
     updated_by = Column(String)
-
-    __table_args__ = (
-        UniqueConstraint("domain_id", "url_name"),
-    )
 
     domain = relationship(
         "Domain",

@@ -100,6 +100,12 @@ def list_api_findings(
             sev = str(f.get("severity") or "").upper()
             if severity and sev != str(severity).upper():
                 continue
+            cvss_score = (
+                f.get("cvss_score")
+                or f.get("cvss")
+                or f.get("score")
+            )
+            cvss_vector = f.get("cvss_vector") or f.get("vector")
             out.append(
                 {
                     "scan_id": str(scan.id),
@@ -110,6 +116,8 @@ def list_api_findings(
                     "severity": sev or None,
                     "endpoint": f.get("endpoint"),
                     "evidence": f.get("evidence"),
+                    "cvss_score": cvss_score,
+                    "cvss_vector": cvss_vector,
                 }
             )
 
@@ -142,8 +150,8 @@ def list_all_findings(
                     **item,
                     "name": item.get("issue"),
                     "description": item.get("evidence"),
-                    "cvss_score": None,
-                    "cvss_vector": None,
+                    "cvss_score": item.get("cvss_score"),
+                    "cvss_vector": item.get("cvss_vector"),
                     "recommendation": None,
                     "reference": None,
                 }

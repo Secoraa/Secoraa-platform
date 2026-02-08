@@ -35,8 +35,8 @@ const Reporting = () => {
     const apiScans = (scans || []).filter((s) => String(s.scan_type || '').toLowerCase() === 'api');
     if (!domainName) return apiScans;
     const domainLower = String(domainName).toLowerCase();
-    return apiScans.filter((s) => {
-      const asset = String(s.asset_url || '').toLowerCase();
+    const filtered = apiScans.filter((s) => {
+      const asset = String(s.asset_url || s.asset_name || '').toLowerCase();
       const host = getAssetHost(asset).toLowerCase();
       return (
         host === domainLower ||
@@ -44,6 +44,7 @@ const Reporting = () => {
         asset.includes(domainLower)
       );
     });
+    return filtered.length > 0 ? filtered : apiScans;
   }, [scans, domainName]);
 
   useEffect(() => {
@@ -324,10 +325,13 @@ const Reporting = () => {
                       .slice(0, 200)
                       .map((s) => (
                         <option key={s.scan_id} value={s.scan_id}>
-                          {s.asset_url || s.scan_name} ({s.status})
+                          {s.asset_url || s.asset_name || s.scan_name} ({s.status})
                         </option>
                       ))}
                   </select>
+                  {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
+                    <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
+                  )}
                 </div>
               )}
             </div>
