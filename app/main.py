@@ -86,6 +86,15 @@ def health():
 
 
 # ---------------------------------------------------------
+# TEMP: One-time DB migration trigger (remove after use)
+# ---------------------------------------------------------
+@app.get("/create-tables")
+def create_tables():
+    run_migrations()
+    return {"message": "tables created"}
+
+
+# ---------------------------------------------------------
 # Startup
 # ---------------------------------------------------------
 from app.database.session import engine, Base
