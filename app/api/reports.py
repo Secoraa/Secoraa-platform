@@ -517,7 +517,8 @@ def _build_api_details_pdf(
     dark = (17, 24, 39)
 
     def footer():
-        # Bottom orange bar + brand
+        # Bottom orange bar + brand (disable auto page break to avoid blank pages)
+        pdf.set_auto_page_break(auto=False)
         pdf.set_y(-12)
         pdf.set_fill_color(*orange)
         pdf.rect(0, 289, 210, 8, style="F")
@@ -527,8 +528,9 @@ def _build_api_details_pdf(
         pdf.set_xy(10, 290.2)
         pdf.cell(0, 6, _safe_pdf_text(str(page_no)), 0, 0, "L")
         pdf.set_xy(170, 290.2)
-        pdf.cell(0, 6, _safe_pdf_text(tenant), 0, 0, "R")
+        pdf.cell(0, 6, _safe_pdf_text("Secoraa"), 0, 0, "R")
         pdf.set_text_color(0, 0, 0)
+        pdf.set_auto_page_break(auto=True, margin=16)
 
     def section_heading(title: str):
         pdf.set_text_color(*blue)
@@ -625,9 +627,10 @@ def _build_api_details_pdf(
     toc = [
         "A. Assessment Scope",
         "B. Executive Summary",
-        "C. Testing Methodology",
+        "C. Vulnerabilities Summary",
+        "D. Testing Methodology",
         "   1. Introduction",
-        "   2. API Application Assessment",
+        "   2. Web Application Assessment",
         "   3. Vulnerabilities Classification",
     ]
     for line in toc:
@@ -663,7 +666,7 @@ def _build_api_details_pdf(
     section_heading("A. Assessment Scope")
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*blue)
-    pdf.cell(0, 8, _safe_pdf_text("API Application Automated Penetration Test"), ln=1)
+    pdf.cell(0, 8, _safe_pdf_text("Web Application Automated Penetration Test"), ln=1)
     pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
     pdf.set_draw_color(200, 200, 200)
@@ -691,8 +694,8 @@ def _build_api_details_pdf(
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(*dark)
     safe_full_width(
-        "An Automated Penetration Test (APT) was conducted on the target API application. "
-        "The objective was to identify security gaps and validate exposure of the API surface."
+        "An Automated Penetration Test (APT) was conducted on the target web application. "
+        "The objective was to identify security gaps and validate exposure of the attack surface."
     )
     pdf.ln(2)
     pdf.set_font("Helvetica", "", 10)
@@ -720,35 +723,137 @@ def _build_api_details_pdf(
     footer()
 
     # -------------------------
+    # Vulnerabilities Summary
+    # -------------------------
+    pdf.add_page()
+    section_heading("C. Vulnerabilities Summary")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "The risk ratings allocated to each vulnerability are determined using CVSS scoring. "
+        "Severity is derived directly from CVSS score ranges."
+    )
+    pdf.ln(3)
+
+    # Severity bar
+    bar_x = 12
+    bar_y = pdf.get_y() + 2
+    bar_w = 186
+    bar_h = 4
+    segments = [
+        ("CRITICAL", (220, 38, 38), severity_counts.get("CRITICAL", 0)),
+        ("HIGH", (234, 88, 12), severity_counts.get("HIGH", 0)),
+        ("MEDIUM", (234, 179, 8), severity_counts.get("MEDIUM", 0)),
+        ("LOW", (59, 130, 246), severity_counts.get("LOW", 0)),
+        ("INFO", (34, 197, 94), severity_counts.get("INFO", 0)),
+    ]
+    seg_w = bar_w / len(segments)
+    for idx, (_, color, _) in enumerate(segments):
+        pdf.set_fill_color(*color)
+        pdf.rect(bar_x + idx * seg_w, bar_y, seg_w, bar_h, style="F")
+    pdf.ln(8)
+    pdf.set_font("Helvetica", "B", 9)
+    for label, color, count in segments:
+        pdf.set_text_color(*color)
+        pdf.cell(36.5, 6, _safe_pdf_text(f"{count} {label}"), 0, 0, "L")
+    pdf.set_text_color(0, 0, 0)
+    pdf.ln(10)
+
+    severity_descriptions = [
+        ("CRITICAL", "Critical risk vulnerabilities have a very high threat impact and require immediate action."),
+        ("HIGH", "High risk vulnerabilities can cause serious adverse effects on business operations."),
+        ("MEDIUM", "Medium risk vulnerabilities could have a noticeable impact and should be remediated."),
+        ("LOW", "Low risk issues do not usually alter normal behavior but can aid further attacks."),
+        ("INFORMATIONAL", "Informational findings highlight exposures that may not require action."),
+    ]
+    pdf.set_font("Helvetica", "", 9)
+    for name, desc in severity_descriptions:
+        pdf.set_font("Helvetica", "B", 9)
+        y_start = pdf.get_y()
+        pdf.cell(30, 6, _safe_pdf_text(name), 0, 0, "L")
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_xy(40, y_start)
+        pdf.multi_cell(160, 6, _safe_pdf_text(desc))
+    footer()
+
+    # -------------------------
     # Testing Methodology
     # -------------------------
     pdf.add_page()
-    section_heading("C. Testing Methodology")
+    section_heading("D. Testing Methodology")
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*blue)
     pdf.cell(0, 8, _safe_pdf_text("1. Introduction"), ln=1)
     pdf.set_text_color(*dark)
     pdf.set_font("Helvetica", "", 10)
     safe_full_width(
-        "API testing focuses on authentication, authorization, input validation, and data exposure "
-        "to ensure the API surface behaves securely and consistently."
+        "This methodology is based on OWASP Web Application testing guidelines. "
+        "The approach focuses on identifying weaknesses across authentication, session management, "
+        "input validation, and security configuration."
     )
     pdf.ln(3)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(*blue)
-    pdf.cell(0, 8, _safe_pdf_text("2. API Application Assessment"), ln=1)
-    pdf.set_text_color(*dark)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, _safe_pdf_text("Black Box testing characteristics:"), ln=1)
     pdf.set_font("Helvetica", "", 9)
-    bullets = [
-        "Information gathering and endpoint discovery",
-        "Authentication and session handling review",
-        "Authorization and object level access checks",
-        "Input validation and injection testing",
-        "Error handling and response analysis",
-        "Transport security and configuration review",
+    black_box = [
+        "No prior knowledge of the target environment",
+        "Target assets are provided by the client to initiate assessment",
+        "Testing emulates external attacker behavior",
+        "Publicly available information is leveraged for discovery",
     ]
-    for b in bullets:
-        safe_full_width(f"- {b}")
+    for item in black_box:
+        safe_full_width(f"- {item}")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, _safe_pdf_text("White Box testing characteristics:"), ln=1)
+    pdf.set_font("Helvetica", "", 9)
+    white_box = [
+        "Full system knowledge is available for assessment",
+        "Detailed documentation is provided by internal teams",
+        "Testing focuses on verifying controls and code paths",
+    ]
+    for item in white_box:
+        safe_full_width(f"- {item}")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, _safe_pdf_text("Grey Box testing characteristics:"), ln=1)
+    pdf.set_font("Helvetica", "", 9)
+    grey_box = [
+        "Limited knowledge is provided to simulate a realistic attacker",
+        "Combination of black and white box approaches",
+    ]
+    for item in grey_box:
+        safe_full_width(f"- {item}")
+    footer()
+
+    # -------------------------
+    # Web Application Assessment
+    # -------------------------
+    pdf.add_page()
+    section_heading("2. Web Application Assessment")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*dark)
+    safe_full_width(
+        "The assessment consists of the following phases and tests aligned with OWASP Top 10 and OWASP ASVS."
+    )
+    pdf.ln(2)
+    phase_bullets = [
+        "2.1 Scoping",
+        "2.2 Information gathering",
+        "2.3 Configuration and deployment management testing",
+        "2.4 Identity management testing",
+        "2.5 Authentication testing",
+        "2.6 Authorization testing",
+        "2.7 Session management testing",
+        "2.8 Data validation testing",
+        "2.9 Testing for error handling",
+        "2.10 Testing for weak cryptography",
+        "2.11 Business logic testing",
+        "2.12 Client-side testing",
+        "2.13 Reporting and presentation",
+    ]
+    for line in phase_bullets:
+        safe_full_width(f"- {line}")
     footer()
 
     # -------------------------
@@ -759,31 +864,32 @@ def _build_api_details_pdf(
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*dark)
     safe_full_width(
-        "Classification methodology is based on a risk-rating approach. Each finding is assessed "
-        "for likelihood and impact using factors such as skill level, ease of discovery, and "
-        "business impact."
+        "Classification methodology is based on OWASP Risk Rating Methodology. Each finding is analyzed "
+        "in two aspects: likelihood and impact."
     )
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(0, 6, _safe_pdf_text("Threat Agent Factors"), ln=1)
     pdf.set_font("Helvetica", "", 9)
-    for item in [
-        "Skill level",
-        "Motivation",
-        "Opportunity",
-        "Size",
-    ]:
+    threat_agent = [
+        "Skill level: How technically skilled the threat agent is (1-9).",
+        "Motive: How motivated the agent is to find or exploit the issue (1-9).",
+        "Opportunity: Resources required to find or exploit the issue (1-9).",
+        "Size: How large the threat agent group is (1-9).",
+    ]
+    for item in threat_agent:
         safe_full_width(f"- {item}")
     pdf.ln(2)
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(0, 6, _safe_pdf_text("Vulnerability Factors"), ln=1)
     pdf.set_font("Helvetica", "", 9)
-    for item in [
-        "Ease of discovery",
-        "Ease of exploit",
-        "Awareness",
-        "Intrusion detection",
-    ]:
+    vuln_factors = [
+        "Ease of discovery: Difficulty for agents to discover the vulnerability (1-9).",
+        "Ease of exploit: Difficulty for agents to exploit the vulnerability (1-9).",
+        "Awareness: How well known the vulnerability is to agents (1-9).",
+        "Intrusion detection: Likelihood an exploit would be detected (1-9).",
+    ]
+    for item in vuln_factors:
         safe_full_width(f"- {item}")
     footer()
 
@@ -1836,8 +1942,15 @@ def create_report(
             except Exception:
                 report_obj = {}
 
-        total_endpoints = int(report_obj.get("total_endpoints") or 0)
-        findings = report_obj.get("findings") or []
+        # Normalize wrapper shapes from storage (may be {result:{...}} or {result:{report:{...}}})
+        report_data = report_obj
+        if isinstance(report_data, dict) and isinstance(report_data.get("result"), dict):
+            report_data = report_data.get("result") or report_data
+        if isinstance(report_data, dict) and isinstance(report_data.get("report"), dict):
+            report_data = report_data.get("report") or report_data
+
+        total_endpoints = int(report_data.get("total_endpoints") or 0)
+        findings = report_data.get("findings") or []
         if not isinstance(findings, list):
             findings = []
 
