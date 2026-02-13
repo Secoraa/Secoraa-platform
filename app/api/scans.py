@@ -586,8 +586,113 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                 if scan_type == "subdomain":
                     try:
                         report = scan_output.get("report") or {}
+                        findings_list = report.get("findings") if isinstance(report, dict) else None
                         per_sub = report.get("subdomains") if isinstance(report, dict) else None
-                        if isinstance(per_sub, dict) and per_sub:
+
+                        if isinstance(findings_list, list) and findings_list:
+                            created_at = datetime.utcnow()
+                            added = 0
+
+                            scan_meta = report.get("scan") if isinstance(report, dict) else {}
+                            asset_value = (
+                                (scan_meta or {}).get("asset_value")
+                                or payload_dict.get("domain")
+                                or domain_name
+                            )
+                            sub_row = None
+                            if asset_value:
+                                sub_row = (
+                                    db.query(Subdomain)
+                                    .filter(
+                                        Subdomain.domain_id == domain.id,
+                                        Subdomain.subdomain_name == asset_value,
+                                    )
+                                    .first()
+                                )
+                            sub_id = getattr(sub_row, "id", None) if sub_row else None
+
+                            for finding in findings_list:
+                                if not isinstance(finding, dict):
+                                    continue
+                                vuln = finding.get("vulnerability") if isinstance(finding.get("vulnerability"), dict) else {}
+                                name = str(
+                                    vuln.get("name")
+                                    or finding.get("name")
+                                    or finding.get("issue")
+                                    or "Finding"
+                                ).strip()
+                                if not name:
+                                    continue
+                                sev = str(vuln.get("severity") or finding.get("severity") or "").upper() or None
+                                cvss_raw = vuln.get("cvss_score") or finding.get("cvss_score")
+                                cvss_score = None
+                                if isinstance(cvss_raw, (int, float, str)):
+                                    try:
+                                        cvss_score = int(round(float(cvss_raw)))
+                                    except Exception:
+                                        cvss_score = None
+                                db.add(
+                                    Vulnerability(
+                                        domain_id=domain.id,
+                                        subdomain_id=sub_id,
+                                        vuln_name=name,
+                                        description=vuln.get("description"),
+                                        recommendation=vuln.get("recommendation"),
+                                        severity=sev,
+                                        cvss_score=cvss_score,
+                                        created_at=created_at,
+                                        updated_at=created_at,
+                                        created_by=created_by,
+                                        updated_by=created_by,
+                                    )
+                                )
+                                added += 1
+
+                            if added:
+                                try:
+                                    db.commit()
+                                    logger.info(f"✅ Persisted {added} vulnerability row(s) for subdomain scan {scan.id}")
+                                except Exception as e:
+                                    logger.error(f"❌ Failed to commit vulnerabilities (schema mismatch?): {e}", exc_info=True)
+                                    try:
+                                        db.rollback()
+                                    except Exception:
+                                        pass
+                                    try:
+                                        minimal_added = 0
+                                        for finding in findings_list:
+                                            if not isinstance(finding, dict):
+                                                continue
+                                            vuln = finding.get("vulnerability") if isinstance(finding.get("vulnerability"), dict) else {}
+                                            name = str(
+                                                vuln.get("name")
+                                                or finding.get("name")
+                                                or finding.get("issue")
+                                                or "Finding"
+                                            ).strip()
+                                            if not name:
+                                                continue
+                                            sev = str(vuln.get("severity") or finding.get("severity") or "").upper() or None
+                                            db.add(
+                                                Vulnerability(
+                                                    domain_id=domain.id,
+                                                    subdomain_id=sub_id,
+                                                    vuln_name=name,
+                                                    severity=sev,
+                                                )
+                                            )
+                                            minimal_added += 1
+                                        if minimal_added:
+                                            db.commit()
+                                            logger.info(f"✅ Persisted {minimal_added} vulnerability row(s) (minimal schema) for subdomain scan {scan.id}")
+                                    except Exception as e2:
+                                        logger.error(f"❌ Fallback minimal vulnerability insert failed: {e2}", exc_info=True)
+                                        try:
+                                            db.rollback()
+                                        except Exception:
+                                            pass
+
+                        elif isinstance(per_sub, dict) and per_sub:
                             # Build a map of subdomain_name -> Subdomain row for FK
                             sub_stmt = Select(Subdomain).filter(
                                 Subdomain.domain_id == domain.id,

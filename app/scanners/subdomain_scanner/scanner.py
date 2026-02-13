@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from app.scanners.base import BaseScanner
-from app.scanners.subdomain_scanner.scan import run_subdomain_scan
+from app.scanners.web_scanner.scanner import run_scan
 
 
 class SubdomainScanner(BaseScanner):
@@ -27,8 +27,10 @@ class SubdomainScanner(BaseScanner):
         else:
             selected = None
 
-        report = run_subdomain_scan(domain, selected)
-        resolved = list((report.get("subdomains") or {}).keys())
+        target = selected[0] if selected else domain
+        tenant = payload.get("tenant") or payload.get("tenant_name")
+        report = run_scan(target, tenant=tenant)
+        resolved = [target]
 
         # Return in the same shape DD expects so scan results persistence works.
         return {

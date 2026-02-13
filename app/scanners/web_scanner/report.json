@@ -1,0 +1,42 @@
+{
+  "scan": {
+    "domain": "example.com",
+    "asset_uuid": "00000000-0000-0000-0000-000000000000",
+    "asset_value": "example.com",
+    "asset_type": "Subdomain",
+    "is_extensive_scan": false,
+    "is_invasive": false,
+    "tenant": "default",
+    "execution_id": "00000000-0000-0000-0000-000000000000"
+  },
+  "preflight_checks": {
+    "reachable": true,
+    "status_code": 200,
+    "final_url": "https://example.com"
+  },
+  "findings_metadata": {
+    "crawlUrls": {
+      "authenticatedUrl": [],
+      "unauthenticatedUrl": []
+    },
+    "totalCrawlUrls": 0
+  },
+  "messages": {
+    "totalCrawledUrls": 0,
+    "technologies": [
+      "all"
+    ],
+    "authenticationType": null,
+    "infos": [
+      "Scan started",
+      "The asset is reachable.",
+      "This is a BlackBox scan",
+      "Scan completed"
+    ],
+    "errors": [],
+    "warnings": []
+  },
+  "findings": [],
+  "files": {},
+  "secrets": {}
+}
