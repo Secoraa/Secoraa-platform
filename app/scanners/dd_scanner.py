@@ -1,101 +1,110 @@
+from __future__ import annotations
+
+import logging
+import random
 import socket
+
 from app.scanners.base import BaseScanner
 from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
-from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
+from app.scanners.subdomain_scanner.discovery.passive import fetch_all_passive
 from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
+
+logger = logging.getLogger(__name__)
+
 
 class DomainDiscoveryScanner(BaseScanner):
     name = "dd"
 
-    def _resolve_ip(self, hostname: str) -> str:
+    def _resolve_ip(self, hostname: str) -> str | None:
         """Resolve hostname to IP address. Returns None if resolution fails."""
         try:
             return socket.gethostbyname(hostname)
         except (socket.gaierror, socket.herror, OSError):
             return None
 
-    def _is_wildcard_subdomain(self, subdomain: str, domain: str, wildcard_ip: str = None) -> bool:
-        """
-        Quick pattern check for obviously invalid/wildcard subdomains.
-        Returns True if subdomain should be filtered out.
-        """
-        # Filter out obviously invalid patterns in subdomain name
-        invalid_patterns = [
-            '*', 'wildcard', 'invalid', 'nonexistent',
-            'random', 'fake', 'dummy', 'placeholder',
-            'test123', 'example', 'sample'
-        ]
-        subdomain_lower = subdomain.lower()
-        for pattern in invalid_patterns:
-            if pattern in subdomain_lower:
-                return True
-        
-        return False
-
     def _filter_wildcards(self, subdomains: list, domain: str) -> list:
         """Filter out wildcard subdomains from the list."""
-        # First, detect wildcard IP by checking a few random subdomains
-        # If multiple random subdomains resolve to the same IP, it's likely a wildcard
-        import random
+        # Detect wildcard DNS by resolving random non-existent subdomains
         wildcard_test_subdomains = [
-            f"nonexistent-{random.randint(100000, 999999)}.{domain}",
-            f"invalid-{random.randint(100000, 999999)}.{domain}",
-            f"test-{random.randint(100000, 999999)}.{domain}",
+            f"xzq-nonexist-{random.randint(100000, 999999)}.{domain}",
+            f"xzq-nohost-{random.randint(100000, 999999)}.{domain}",
+            f"xzq-fakesub-{random.randint(100000, 999999)}.{domain}",
         ]
-        
-        wildcard_ips = set()
-        for test_subdomain in wildcard_test_subdomains:
-            test_ip = self._resolve_ip(test_subdomain)
+
+        wildcard_ips: set[str] = set()
+        for test_sub in wildcard_test_subdomains:
+            test_ip = self._resolve_ip(test_sub)
             if test_ip:
                 wildcard_ips.add(test_ip)
-        
-        # If all test subdomains resolve to the same IP, it's definitely a wildcard
-        wildcard_ip = list(wildcard_ips)[0] if len(wildcard_ips) == 1 else None
-        
+
+        if wildcard_ips:
+            logger.info(
+                "Wildcard DNS detected for %s, IPs: %s — will filter matches",
+                domain, wildcard_ips,
+            )
+
         # Filter subdomains
         valid_subdomains = []
-        total_checked = 0
-        
+        filtered_count = 0
+
         for subdomain in subdomains:
             subdomain = subdomain.strip()
             if not subdomain:
                 continue
-            
-            total_checked += 1
-            
-            # Quick pattern check first (faster)
-            if self._is_wildcard_subdomain(subdomain, domain, None):
+
+            # Only filter literal wildcards
+            if "*" in subdomain:
+                filtered_count += 1
                 continue
-            
-            # DNS resolution check (slower, but more accurate)
-            if wildcard_ip:
+
+            # If wildcard DNS detected, filter subdomains that resolve to wildcard IP
+            if wildcard_ips:
                 subdomain_ip = self._resolve_ip(subdomain)
-                if subdomain_ip == wildcard_ip:
+                if subdomain_ip in wildcard_ips:
+                    filtered_count += 1
                     continue
-                # If it doesn't resolve, it might still be valid (just not live)
-                # So we keep it if it doesn't match wildcard IP
-            
+
             valid_subdomains.append(subdomain)
-        
+
+        logger.info(
+            "Wildcard filtering for %s: %d input → %d valid (%d filtered)",
+            domain, len(subdomains), len(valid_subdomains), filtered_count,
+        )
         return valid_subdomains
 
     def run(self, payload: dict) -> dict:
         domain = payload["domain"]
+        logger.info("Starting DD scan for %s", domain)
 
-        # Passive + bruteforce discovery (Python only)
-        passive = fetch_from_crtsh(domain)
+        # 1. Passive discovery (crt.sh + HackerTarget + AlienVault + RapidDNS)
+        passive = fetch_all_passive(domain)
+        logger.info("Passive discovery found %d subdomains for %s", len(passive), domain)
+
+        # 2. Bruteforce discovery (~500 common words)
         brute = set(bruteforce_subdomains(domain))
+        logger.info("Bruteforce generated %d candidates for %s", len(brute), domain)
+
+        # 3. Merge and deduplicate
         discovered = list(passive.union(brute))
+        logger.info("Total unique candidates: %d for %s", len(discovered), domain)
+
+        # 4. DNS validation (A, AAAA, CNAME)
         resolved = validate_dns(discovered)
         all_subdomains = list(set(resolved))
-        
-        # Filter out wildcards and invalid subdomains
+        logger.info("DNS-resolved subdomains: %d for %s", len(all_subdomains), domain)
+
+        # 5. Filter wildcards
         valid_subdomains = self._filter_wildcards(all_subdomains, domain)
+
+        logger.info(
+            "DD scan complete for %s: %d valid subdomains (from %d discovered)",
+            domain, len(valid_subdomains), len(discovered),
+        )
 
         return {
             "scan_type": self.name,
             "domain": domain,
             "subdomains": valid_subdomains,
             "total_found": len(valid_subdomains),
-            "total_before_filtering": len(all_subdomains)
+            "total_before_filtering": len(all_subdomains),
         }

@@ -6,7 +6,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
-from app.database.models import Domain, Subdomain, IPAddress, URLAsset, AssetGroup, AssetGroupItem
+from app.database.models import (
+    Domain,
+    Subdomain,
+    IPAddress,
+    URLAsset,
+    AssetGroup,
+    AssetGroupItem,
+    IPBlock,
+    IPBlockItem,
+)
 from app.database.session import get_db
 from app.endpoints.request_body import (
     DomainRequestBody,
@@ -14,6 +23,7 @@ from app.endpoints.request_body import (
     IPAddressRequestBody,
     URLRequestBody,
     AssetGroupRequestBody,
+    IPBlockRequestBody,
 )
 from sqlalchemy import Select
 from sqlalchemy.orm import selectinload
@@ -40,7 +50,7 @@ def create_domain(
     assert domain_name, "Domain name cannot be empty."
 
     asn = body.get("asn")
-    tags = body.get("tags",[])
+    tags = body.get("tags", [])
 
     created_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
     updated_by = created_by
@@ -97,24 +107,27 @@ def create_domain(
                     db.rollback()
                 except Exception:
                     pass
-                raise HTTPException(status_code=500, detail=f"Database error: {str(sql_e)}")
+                raise HTTPException(
+                    status_code=500, detail=f"Database error: {str(sql_e)}"
+                )
         else:
-            raise HTTPException(status_code=500, detail=f"Error creating domain: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error creating domain: {str(e)}"
+            )
 
-    data = {"domain_name":domain_name,
-            "id": domain_id,
-            "asn": asn,
-            "tags":tags, 
-            "created_at":created_at, 
-            "created_by":created_by, 
-            "updated_at":updated_at, 
-            "updated_by":updated_by
-        }
+    data = {
+        "domain_name": domain_name,
+        "id": domain_id,
+        "asn": asn,
+        "tags": tags,
+        "created_at": created_at,
+        "created_by": created_by,
+        "updated_at": updated_at,
+        "updated_by": updated_by,
+    }
 
     return data
 
-        
-       
 
 @router.get("/domain")
 def get_domain(
@@ -138,26 +151,25 @@ def get_domain(
             # Safely get discovery_source, default to 'manual' if column doesn't exist
             # (All existing domains were added manually)
             try:
-                discovery_source = getattr(domain, 'discovery_source', 'manual')
+                discovery_source = getattr(domain, "discovery_source", "manual")
             except:
-                discovery_source = 'manual'
-            
-            result.append({
-                "id": str(domain.id),
-                "domain_name": domain.domain_name,
-                "asn": getattr(domain, "asn", None),
-                "tags": domain.tags,
-                "discovery_source": discovery_source,
-                "is_reachable": getattr(domain, "is_reachable", True),
-                "is_active": getattr(domain, "is_active", True),
-                "is_archived": getattr(domain, "is_archived", False),
-                "created_at": domain.created_at,
-                "subdomains": [
-                    sub.subdomain_name
-                    for sub in domain.subdomains
-                ],
-            })
-        
+                discovery_source = "manual"
+
+            result.append(
+                {
+                    "id": str(domain.id),
+                    "domain_name": domain.domain_name,
+                    "asn": getattr(domain, "asn", None),
+                    "tags": domain.tags,
+                    "discovery_source": discovery_source,
+                    "is_reachable": getattr(domain, "is_reachable", True),
+                    "is_active": getattr(domain, "is_active", True),
+                    "is_archived": getattr(domain, "is_archived", False),
+                    "created_at": domain.created_at,
+                    "subdomains": [sub.subdomain_name for sub in domain.subdomains],
+                }
+            )
+
         return result
     except OperationalError as e:
         # Handle database connection errors specifically
@@ -171,16 +183,15 @@ def get_domain(
             detail=(
                 f"Database connection failed. Please ensure PostgreSQL is running on "
                 f"localhost:15432. Error: {error_msg}"
-            )
+            ),
         )
     except Exception as e:
-        
         # Rollback the failed transaction
         try:
             db.rollback()
         except:
             pass  # Ignore rollback errors if connection is already lost
-        
+
         # If column doesn't exist, use raw SQL to query without it
         error_str = str(e).lower()
         if "discovery_source" in error_str or "undefinedcolumn" in error_str:
@@ -188,24 +199,30 @@ def get_domain(
                 # Query without discovery_source column
                 if not tenant_users:
                     return []
-                result = db.execute(text("""
+                result = db.execute(
+                    text("""
                     SELECT id, domain_name, tags, created_at, updated_at, created_by, updated_by
                     FROM domains
                     WHERE created_by = ANY(:tenant_users)
-                """), {"tenant_users": tenant_users})
-                
+                """),
+                    {"tenant_users": tenant_users},
+                )
+
                 # Get subdomains separately
                 domains_data = []
                 for row in result:
                     domain_id = str(row[0])
-                    
+
                     # Get subdomains for this domain
-                    subdomains_result = db.execute(text("""
+                    subdomains_result = db.execute(
+                        text("""
                         SELECT id, subdomain_name, created_at
                         FROM subdomains
                         WHERE domain_id = :domain_id
-                    """), {"domain_id": domain_id})
-                    
+                    """),
+                        {"domain_id": domain_id},
+                    )
+
                     subdomains = [
                         {
                             "id": str(sub[0]),
@@ -214,34 +231,38 @@ def get_domain(
                         }
                         for sub in subdomains_result
                     ]
-                    
-                    domains_data.append({
-                        "id": domain_id,
-                        "domain_name": row[1],
-                        "asn": None,
-                        "tags": row[2],
-                        "discovery_source": "manual",  # Default for existing domains (they were added manually)
-                        # Columns may not exist in older schemas; default sensibly
-                        "is_reachable": True,
-                        "is_active": True,
-                        "is_archived": False,
-                        "created_at": row[3],
-                        "subdomains": subdomains,
-                    })
-                
+
+                    domains_data.append(
+                        {
+                            "id": domain_id,
+                            "domain_name": row[1],
+                            "asn": None,
+                            "tags": row[2],
+                            "discovery_source": "manual",  # Default for existing domains (they were added manually)
+                            # Columns may not exist in older schemas; default sensibly
+                            "is_reachable": True,
+                            "is_active": True,
+                            "is_archived": False,
+                            "created_at": row[3],
+                            "subdomains": subdomains,
+                        }
+                    )
+
                 return domains_data
             except Exception as sql_error:
                 try:
                     db.rollback()
                 except:
                     pass
-                raise HTTPException(status_code=500, detail=f"Database error: {str(sql_error)}")
+                raise HTTPException(
+                    status_code=500, detail=f"Database error: {str(sql_error)}"
+                )
         raise HTTPException(status_code=500, detail=f"Error fetching domains: {str(e)}")
-
 
     # domain = db.query(Domain).all()
     # return domain
-    
+
+
 @router.get("/domain/{domain_id}")
 def get_domain_by_id(
     domain_id,
@@ -258,7 +279,9 @@ def get_domain_by_id(
         )
         domain = db.execute(stmt).scalars().first()
         if not domain:
-            raise HTTPException(status_code=404, detail="Domain with specific Id does not Exist.")
+            raise HTTPException(
+                status_code=404, detail="Domain with specific Id does not Exist."
+            )
 
         return {
             "message": "Success",
@@ -267,7 +290,9 @@ def get_domain_by_id(
                 "domain_name": domain.domain_name,
                 "asn": getattr(domain, "asn", None),
                 "tags": domain.tags,
-                "discovery_source": getattr(domain, "discovery_source", "auto_discovered"),
+                "discovery_source": getattr(
+                    domain, "discovery_source", "auto_discovered"
+                ),
                 "is_reachable": getattr(domain, "is_reachable", True),
                 "is_active": getattr(domain, "is_active", True),
                 "is_archived": getattr(domain, "is_archived", False),
@@ -307,10 +332,15 @@ def get_domain_by_id(
                       AND created_by = ANY(:tenant_users)
                     """
                 ),
-                {"domain_id": str(domain_id), "tenant_users": get_tenant_usernames(db, claims)},
+                {
+                    "domain_id": str(domain_id),
+                    "tenant_users": get_tenant_usernames(db, claims),
+                },
             ).first()
             if not row:
-                raise HTTPException(status_code=404, detail="Domain with specific Id does not Exist.")
+                raise HTTPException(
+                    status_code=404, detail="Domain with specific Id does not Exist."
+                )
 
             subs = db.execute(
                 text(
@@ -335,7 +365,9 @@ def get_domain_by_id(
                     "is_active": True,
                     "is_archived": False,
                     "created_at": row[3],
-                    "subdomains": [{"id": str(s[0]), "subdomain_name": s[1]} for s in subs],
+                    "subdomains": [
+                        {"id": str(s[0]), "subdomain_name": s[1]} for s in subs
+                    ],
                 },
             }
         raise HTTPException(status_code=500, detail=f"Error fetching domain: {str(e)}")
@@ -380,7 +412,9 @@ def list_ip_addresses(
             db.rollback()
         except:
             pass
-        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
 
 
 @router.post("/ip-addresses")
@@ -412,7 +446,9 @@ def create_ip_address(
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
 
-        created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+        created_by = updated_by = str(
+            claims.get("sub") or claims.get("username") or "manual"
+        ).strip()
         created_at = updated_at = datetime.utcnow()
 
         ip = IPAddress(
@@ -445,7 +481,9 @@ def create_ip_address(
             db.rollback()
         except:
             pass
-        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -499,7 +537,9 @@ def list_urls(
             db.rollback()
         except:
             pass
-        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
 
 
 @router.post("/urls")
@@ -532,7 +572,9 @@ def create_url(
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
 
-        created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+        created_by = updated_by = str(
+            claims.get("sub") or claims.get("username") or "manual"
+        ).strip()
         created_at = updated_at = datetime.utcnow()
 
         u = URLAsset(
@@ -569,7 +611,9 @@ def create_url(
             db.rollback()
         except:
             pass
-        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -579,10 +623,11 @@ def create_url(
             pass
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.patch("/domain/{domain_id}")
 def update_domain_by_id(
     domain_id,
-    request_body : DomainUpdateRequestBody = Body(...),
+    request_body: DomainUpdateRequestBody = Body(...),
     db: Session = Depends(get_db),
     claims: Dict[str, Any] = Depends(get_token_claims),
 ):
@@ -593,10 +638,14 @@ def update_domain_by_id(
 
     try:
         tenant_users = get_tenant_usernames(db, claims)
-        stmt = Select(Domain).filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+        stmt = Select(Domain).filter(
+            Domain.id == domain_id, Domain.created_by.in_(tenant_users)
+        )
         domain = db.execute(stmt).scalars().first()
         if not domain:
-            raise HTTPException(status_code=400,detail="Domain with specific Id does not Exist.")
+            raise HTTPException(
+                status_code=400, detail="Domain with specific Id does not Exist."
+            )
 
         if tags is not None:
             domain.tags = tags
@@ -640,14 +689,15 @@ def update_domain_by_id(
                 except Exception:
                     pass
             db.commit()
-            return {"message": "Domain updated successfully", "data": {"id": str(domain_id)}}
+            return {
+                "message": "Domain updated successfully",
+                "data": {"id": str(domain_id)},
+            }
         raise HTTPException(status_code=500, detail=f"Error updating domain: {str(e)}")
 
+
 @router.delete("/domain/{domain_id}")
-def delete_domain(
-    domain_id,
-    db: Session = Depends(get_db)
-):
+def delete_domain(domain_id, db: Session = Depends(get_db)):
     stmt = Select(Domain).filter(Domain.id == domain_id)
     domain = db.execute(stmt).scalars().first()
     assert domain, "Domain with specific Id does not Exist."
@@ -655,9 +705,11 @@ def delete_domain(
     db.delete(domain)
     db.commit()
 
-#----------------------------------------------------------------
+
+# ----------------------------------------------------------------
 # Subdomain
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
+
 
 @router.get("/subdomain")
 def get_subdomain(
@@ -678,8 +730,9 @@ def get_subdomain(
         result = []
         for subdomain in subdomains:
             result.append(
-                {   "id":str(subdomain.id),
-                    "subdomain_name":subdomain.subdomain_name,
+                {
+                    "id": str(subdomain.id),
+                    "subdomain_name": subdomain.subdomain_name,
                     "domain_id": str(subdomain.domain_id),
                     "domain_name": getattr(subdomain.domain, "domain_name", None),
                 }
@@ -691,9 +744,10 @@ def get_subdomain(
         print(ex)
 
 
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
 # Asset Groups
-#----------------------------------------------------------------
+# ----------------------------------------------------------------
+
 
 @router.get("/asset-groups")
 def list_asset_groups(
@@ -724,15 +778,25 @@ def list_asset_groups(
                 "asset_type": g.asset_type,
                 "description": g.description,
                 "assets": [
-                    (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name)
+                    (
+                        item.subdomain.subdomain_name
+                        if item.subdomain_id
+                        else item.ip_address.ipaddress_name
+                    )
                     for item in (g.items or [])
                     if (item.subdomain_id or item.ip_id)
                 ],
                 "assets_detail": [
                     {
-                        "id": str(item.subdomain_id) if item.subdomain_id else str(item.ip_id),
+                        "id": str(item.subdomain_id)
+                        if item.subdomain_id
+                        else str(item.ip_id),
                         "type": "SUBDOMAIN" if item.subdomain_id else "IP",
-                        "name": (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name),
+                        "name": (
+                            item.subdomain.subdomain_name
+                            if item.subdomain_id
+                            else item.ip_address.ipaddress_name
+                        ),
                     }
                     for item in (g.items or [])
                     if (item.subdomain_id or item.ip_id)
@@ -752,7 +816,9 @@ def list_asset_groups(
             db.rollback()
         except Exception:
             pass
-        raise HTTPException(status_code=503, detail=f"Database connection failed. Error: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
 
 
 @router.post("/asset-groups")
@@ -773,7 +839,9 @@ def create_asset_group(
     if not domain_id:
         raise HTTPException(status_code=400, detail="domain_id is required")
     if asset_type not in {"SUBDOMAIN", "IP"}:
-        raise HTTPException(status_code=400, detail="asset_type must be SUBDOMAIN or IP")
+        raise HTTPException(
+            status_code=400, detail="asset_type must be SUBDOMAIN or IP"
+        )
     if not isinstance(asset_ids, list):
         raise HTTPException(status_code=400, detail="asset_ids must be a list")
     if len(asset_ids) == 0:
@@ -790,7 +858,9 @@ def create_asset_group(
     if not valid_domain:
         raise HTTPException(status_code=400, detail="Invalid domain_id")
 
-    created_by = updated_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
+    created_by = updated_by = str(
+        claims.get("sub") or claims.get("username") or "manual"
+    ).strip()
     created_at = updated_at = datetime.utcnow()
 
     group = AssetGroup(
@@ -813,7 +883,10 @@ def create_asset_group(
                 .all()
             )
             if len(assets) != len(asset_ids):
-                raise HTTPException(status_code=400, detail="Some subdomains are not linked to the selected domain")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Some subdomains are not linked to the selected domain",
+                )
             for s in assets:
                 asset_items.append(
                     AssetGroupItem(
@@ -829,7 +902,10 @@ def create_asset_group(
                 .all()
             )
             if len(assets) != len(asset_ids):
-                raise HTTPException(status_code=400, detail="Some IPs are not linked to the selected domain")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Some IPs are not linked to the selected domain",
+                )
             for ip in assets:
                 asset_items.append(
                     AssetGroupItem(
@@ -854,7 +930,11 @@ def create_asset_group(
             "asset_type": group.asset_type,
             "description": group.description,
             "assets": [
-                (item.subdomain.subdomain_name if item.subdomain_id else item.ip_address.ipaddress_name)
+                (
+                    item.subdomain.subdomain_name
+                    if item.subdomain_id
+                    else item.ip_address.ipaddress_name
+                )
                 for item in asset_items
             ],
             "asset_count": len(asset_items),
@@ -870,3 +950,159 @@ def create_asset_group(
             pass
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ----------------------------------------------------------------
+# IP Blocks
+# ----------------------------------------------------------------
+
+
+@router.get("/ip-blocks")
+def list_ip_blocks(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    try:
+        tenant_users = get_tenant_usernames(db, claims)
+        if not tenant_users:
+            return []
+        stmt = (
+            Select(IPBlock)
+            .options(
+                selectinload(IPBlock.domain),
+                selectinload(IPBlock.items).selectinload(IPBlockItem.ip_address),
+            )
+            .join(Domain, IPBlock.domain_id == Domain.id)
+            .filter(Domain.created_by.in_(tenant_users))
+            .order_by(IPBlock.created_at.desc())
+        )
+        blocks = db.execute(stmt).scalars().all()
+        return [
+            {
+                "id": str(block.id),
+                "domain_id": str(block.domain_id),
+                "domain_name": getattr(block.domain, "domain_name", None),
+                "name": block.name,
+                "cidr": block.cidr,
+                "description": block.description,
+                "ips": [
+                    item.ip_address.ipaddress_name
+                    for item in (block.items or [])
+                    if item.ip_id
+                ],
+                "ip_count": len(block.items or []),
+                "created_at": block.created_at,
+                "updated_at": block.updated_at,
+                "created_by": block.created_by,
+                "updated_by": block.updated_by,
+            }
+            for block in blocks
+        ]
+    except ProgrammingError:
+        # Table/column may not exist yet in older schemas.
+        return []
+    except OperationalError as e:
+        raise HTTPException(
+            status_code=503, detail=f"Database connection failed. Error: {str(e)}"
+        )
+
+
+@router.post("/ip-blocks")
+def create_ip_block(
+    db: Session = Depends(get_db),
+    request_body: IPBlockRequestBody = Body(...),
+    claims: Dict[str, Any] = Depends(get_token_claims),
+):
+    body = request_body.model_dump()
+    domain_id = body.get("domain_id")
+    name = (body.get("name") or "").strip()
+    cidr = (body.get("cidr") or "").strip()
+    ip_ids = body.get("ip_ids") or []
+    description = (body.get("description") or "").strip() or None
+
+    if not domain_id:
+        raise HTTPException(status_code=400, detail="domain_id is required")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    if not isinstance(ip_ids, list):
+        raise HTTPException(status_code=400, detail="ip_ids must be a list")
+    if len(ip_ids) == 0:
+        raise HTTPException(status_code=400, detail="Select at least one IP")
+    if len(ip_ids) > 5:
+        raise HTTPException(status_code=400, detail="You can select up to 5 IPs")
+
+    tenant_users = get_tenant_usernames(db, claims)
+    valid_domain = (
+        db.query(Domain)
+        .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
+        .first()
+    )
+    if not valid_domain:
+        raise HTTPException(status_code=400, detail="Invalid domain_id")
+
+    created_by = updated_by = str(
+        claims.get("sub") or claims.get("username") or "manual"
+    ).strip()
+    created_at = updated_at = datetime.utcnow()
+
+    try:
+        assets = (
+            db.query(IPAddress)
+            .filter(IPAddress.id.in_(ip_ids), IPAddress.domain_id == domain_id)
+            .all()
+        )
+        if len(assets) != len(ip_ids):
+            raise HTTPException(
+                status_code=400, detail="Some IPs are not linked to the selected domain"
+            )
+
+        ip_names = [ip.ipaddress_name for ip in assets]
+        cidr_value = cidr or (
+            f"{ip_names[0]} (+{len(ip_names) - 1} more)"
+            if len(ip_names) > 1
+            else ip_names[0]
+        )
+
+        block = IPBlock(
+            domain_id=domain_id,
+            name=name,
+            cidr=cidr_value,
+            description=description,
+            created_at=created_at,
+            updated_at=updated_at,
+            created_by=created_by,
+            updated_by=updated_by,
+        )
+        db.add(block)
+        db.flush()
+        for ip in assets:
+            db.add(
+                IPBlockItem(
+                    ip_block_id=block.id,
+                    ip_id=ip.id,
+                    created_at=created_at,
+                )
+            )
+        db.commit()
+        db.refresh(block)
+        return {
+            "id": str(block.id),
+            "domain_id": str(block.domain_id),
+            "domain_name": valid_domain.domain_name,
+            "name": block.name,
+            "cidr": block.cidr,
+            "description": block.description,
+            "ips": ip_names,
+            "ip_count": len(ip_names),
+            "created_at": block.created_at,
+            "updated_at": block.updated_at,
+            "created_by": block.created_by,
+            "updated_by": block.updated_by,
+        }
+    except Exception as e:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500, detail=f"Error creating IP block: {str(e)}"
+        )

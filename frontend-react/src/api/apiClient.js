@@ -59,6 +59,19 @@ attachAuthInterceptor(apiClient);
 attachAuthInterceptor(scanClient);
 
 // ==========================================
+// System Health
+// ==========================================
+
+export const getSystemHealth = async () => {
+  try {
+    const response = await apiClient.get('/health');
+    return response.data;
+  } catch (error) {
+    return { status: 'unreachable', services: {} };
+  }
+};
+
+// ==========================================
 // Auth APIs
 // ==========================================
 
@@ -122,13 +135,17 @@ export const askHelpCenter = async (question, maxSources = 3) => {
 // API Scanner
 // ==========================================
 
-export const runApiTestingScan = async (scanName, assetUrl, endpoints) => {
+export const runApiTestingScan = async (scanName, assetUrl, endpoints, authConfig = null) => {
   try {
-    const response = await scanClient.post('/scanner/api', {
+    const body = {
       scan_name: scanName,
       asset_url: assetUrl,
       endpoints: endpoints,
-    });
+    };
+    if (authConfig) {
+      body.auth_config = authConfig;
+    }
+    const response = await scanClient.post('/scanner/api', body);
     return response.data;
   } catch (error) {
     if (error.response) {
@@ -328,6 +345,21 @@ export const getIPAddresses = async () => {
   }
 };
 
+export const getIpBlocks = async () => {
+  try {
+    const response = await apiClient.get('/assets/ip-blocks');
+    return response.data;
+  } catch (error) {
+    if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+      throw new Error('Network Error: Unable to connect to backend. Please ensure the FastAPI server is running on http://localhost:8000');
+    }
+    if (error.response) {
+      throw new Error(`Failed to fetch IP blocks: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to fetch IP blocks: ${error.message}`);
+  }
+};
+
 export const getUrls = async () => {
   try {
     const response = await apiClient.get('/assets/urls');
@@ -386,6 +418,24 @@ export const createIPAddress = async (domainId, ipAddress, tags = []) => {
       throw new Error(`Failed to create IP address: ${error.response.status} ${error.response.statusText}`);
     }
     throw new Error(`Failed to create IP address: ${error.message}`);
+  }
+};
+
+export const createIpBlock = async (domainId, name, ipIds = [], description = '', cidr = '') => {
+  try {
+    const response = await apiClient.post('/assets/ip-blocks', {
+      domain_id: domainId,
+      name,
+      ip_ids: Array.isArray(ipIds) ? ipIds : [],
+      cidr: cidr || undefined,
+      description: description || undefined,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(`Failed to create IP block: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Failed to create IP block: ${error.message}`);
   }
 };
 

@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -80,9 +83,61 @@ app.include_router(subdomain_scan_router)
 # ---------------------------------------------------------
 # Health Check (REQUIRED for Railway)
 # ---------------------------------------------------------
+logger = logging.getLogger("secoraa.health")
+
+
+def _check_redis() -> dict:
+    try:
+        import redis as _redis
+        import os
+        r = _redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+        r.ping()
+        return {"status": "up"}
+    except Exception as e:
+        return {"status": "down", "error": str(e)}
+
+
+def _check_db() -> dict:
+    try:
+        from app.database.session import SessionLocal
+        if SessionLocal is None:
+            return {"status": "down", "error": "not configured"}
+        db = SessionLocal()
+        db.execute(__import__("sqlalchemy").text("SELECT 1"))
+        db.close()
+        return {"status": "up"}
+    except Exception as e:
+        return {"status": "down", "error": str(e)}
+
+
+def _check_minio() -> dict:
+    try:
+        from app.storage.minio_client import get_minio_client, MINIO_BUCKET
+        client = get_minio_client()
+        client.bucket_exists(MINIO_BUCKET)
+        return {"status": "up"}
+    except Exception as e:
+        return {"status": "down", "error": str(e)}
+
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    redis_status = _check_redis()
+    db_status = _check_db()
+    minio_status = _check_minio()
+
+    all_up = all(
+        s["status"] == "up" for s in [redis_status, db_status, minio_status]
+    )
+
+    return {
+        "status": "healthy" if all_up else "degraded",
+        "services": {
+            "redis": redis_status,
+            "database": db_status,
+            "minio": minio_status,
+        },
+    }
 
 
 # ---------------------------------------------------------
@@ -100,6 +155,28 @@ def create_tables():
 from app.database.session import engine, Base
 
 
+_redis_was_up = True  # track state transitions
+
+
+async def _redis_heartbeat():
+    """Check Redis every 60s. Log warnings on state change."""
+    global _redis_was_up
+    while True:
+        await asyncio.sleep(60)
+        status = _check_redis()
+        is_up = status["status"] == "up"
+
+        if not is_up and _redis_was_up:
+            logger.warning(
+                "🔴 Redis is DOWN — background scans will fall back to sync. Error: %s",
+                status.get("error", "unknown"),
+            )
+        elif is_up and not _redis_was_up:
+            logger.info("🟢 Redis is back UP — background scan processing restored.")
+
+        _redis_was_up = is_up
+
+
 @app.on_event("startup")
 def startup():
     try:
@@ -108,3 +185,11 @@ def startup():
         print("✅ Database initialized")
     except Exception as e:
         print(f"⚠️ Startup warning: {e}")
+
+    # Start Redis heartbeat monitor
+    asyncio.get_event_loop().create_task(_redis_heartbeat())
+    redis_status = _check_redis()
+    if redis_status["status"] == "up":
+        print("✅ Redis connected — Celery background scans enabled")
+    else:
+        print(f"⚠️ Redis not reachable — scans will run synchronously. Error: {redis_status.get('error')}")

@@ -87,6 +87,43 @@ def add_missing_columns():
                     "ALTER TABLE reports ADD COLUMN minio_object_name VARCHAR;"
                 ))
 
+    # scans table - progress tracking columns
+    if inspector.has_table("scans"):
+        existing_columns = [c["name"] for c in inspector.get_columns("scans")]
+
+        with engine.begin() as conn:
+            if "progress" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN progress INTEGER DEFAULT 0;"
+                ))
+            if "current_phase" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN current_phase VARCHAR;"
+                ))
+            if "findings_count" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN findings_count INTEGER DEFAULT 0;"
+                ))
+            if "endpoints_total" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN endpoints_total INTEGER DEFAULT 0;"
+                ))
+            if "endpoints_scanned" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN endpoints_scanned INTEGER DEFAULT 0;"
+                ))
+
+    # ip_blocks table (ensure cidr can be nullable for IP selection based blocks)
+    if inspector.has_table("ip_blocks"):
+        existing_columns = [c["name"] for c in inspector.get_columns("ip_blocks")]
+        with engine.begin() as conn:
+            if "name" not in existing_columns:
+                conn.execute(text("ALTER TABLE ip_blocks ADD COLUMN name VARCHAR;"))
+            try:
+                conn.execute(text("ALTER TABLE ip_blocks ALTER COLUMN cidr DROP NOT NULL;"))
+            except Exception:
+                pass
+
 
 def run_migrations():
     print("🚀 Running database migrations...")

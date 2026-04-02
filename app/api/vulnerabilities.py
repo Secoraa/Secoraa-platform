@@ -112,10 +112,13 @@ def list_api_findings(
                     "asset_url": asset_url,
                     "scan_type": scan.scan_type,
                     "created_at": scan.created_at,
-                    "issue": f.get("issue") or f.get("name"),
+                    "issue": f.get("title") or f.get("issue") or f.get("name"),
                     "severity": sev or None,
                     "endpoint": f.get("endpoint"),
+                    "description": f.get("description"),
                     "evidence": f.get("evidence"),
+                    "impact": f.get("impact"),
+                    "remediation": f.get("remediation"),
                     "cvss_score": cvss_score,
                     "cvss_vector": cvss_vector,
                 }
@@ -148,8 +151,8 @@ def list_all_findings(
             out.append(
                 {
                     **item,
-                    "name": item.get("issue"),
-                    "description": item.get("evidence"),
+                    "name": item.get("issue") or item.get("title"),
+                    "description": item.get("description"),
                     "cvss_score": item.get("cvss_score"),
                     "cvss_vector": item.get("cvss_vector"),
                     "recommendation": None,
@@ -169,7 +172,7 @@ def list_all_findings(
                 Vulnerability.vuln_name,
                 Vulnerability.description,
                 Vulnerability.cvss_score,
-                Vulnerability.cvss_vectore,
+                Vulnerability.cvss_vector,
                 Vulnerability.recommendation,
                 Vulnerability.reference,
                 Vulnerability.severity,
@@ -224,7 +227,7 @@ def list_all_findings(
             out.append(
                 {
                     "scan_id": None,
-                    "scan_type": "subdomain" if v_subdomain_id else "dd",
+                    "scan_type": "vulnerability" if v_subdomain_id else "subdomain",
                     "created_at": v_created,
                     "issue": v_name,  # backward compat
                     "name": v_name,
@@ -233,7 +236,7 @@ def list_all_findings(
                     "cvss_vector": v_vec,
                     "recommendation": v_rec,
                     "reference": v_ref,
-                    "endpoint": domain_name,
+                    "endpoint": subdomain_name or domain_name,
                     "asset_url": subdomain_name or domain_name,
                     "severity": sev or None,
                     "evidence": None,
@@ -256,7 +259,7 @@ def list_all_findings(
             out.append(
                 {
                     "scan_id": None,
-                    "scan_type": "subdomain" if v_subdomain_id else "dd",
+                    "scan_type": "vulnerability" if v_subdomain_id else "subdomain",
                     "created_at": None,
                     "issue": v_name,
                     "name": v_name,
@@ -265,7 +268,7 @@ def list_all_findings(
                     "cvss_vector": None,
                     "recommendation": None,
                     "reference": None,
-                    "endpoint": domain_name,
+                    "endpoint": subdomain_name or domain_name,
                     "asset_url": subdomain_name or domain_name,
                     "severity": sev or None,
                     "evidence": None,

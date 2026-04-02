@@ -322,10 +322,11 @@ const Reporting = () => {
                   <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
                     <option value="">Select API asset</option>
                     {(apiScansForDomain || [])
+                      .filter((s) => s.asset_url && String(s.status).toUpperCase() === 'COMPLETED')
                       .slice(0, 200)
                       .map((s) => (
                         <option key={s.scan_id} value={s.scan_id}>
-                          {s.asset_url || s.asset_name || s.scan_name} ({s.status})
+                          {s.asset_url}
                         </option>
                       ))}
                   </select>

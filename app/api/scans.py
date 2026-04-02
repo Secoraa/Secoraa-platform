@@ -8,7 +8,7 @@ import os
 
 from app.schemas.scan import CreateScanRequest
 from app.scanners.registry import SCANNERS
-from app.storage.file_storage import save_scan_result
+from app.storage.file_storage import save_scan_result, _safe_name
 from app.storage.minio_client import upload_file_to_minio
 from app.database.session import SessionLocal
 import json
@@ -25,7 +25,7 @@ from app.storage.minio_client import MINIO_BUCKET
 from app.database.session import get_db
 from sqlalchemy.orm import Session, selectinload
 from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
-from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
+from app.scanners.subdomain_scanner.discovery.passive import fetch_all_passive
 from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
 
 router = APIRouter(
@@ -319,7 +319,10 @@ def run_scan_with_control(scan_id: str, scan_type: str, payload_dict: dict, paus
         scanner = SCANNERS.get(scan_type)
         if not scanner:
             raise ValueError(f"Invalid scan type: {scan_type}")
-        return scanner.run(payload_dict)
+        logger.info(f"[DEBUG] Running scanner '{scan_type}' with payload: {payload_dict}")
+        result = scanner.run(payload_dict)
+        logger.info(f"[DEBUG] Scanner '{scan_type}' returned: reachable={result.get('preflight_checks', {}).get('reachable')}, findings={len(result.get('findings', {}))}, errors={result.get('messages', {}).get('errors', [])}")
+        return result
     
     # For dd scanner, use Popen for control
     domain = payload_dict.get("domain")
@@ -340,7 +343,7 @@ def run_scan_with_control(scan_id: str, scan_type: str, payload_dict: dict, paus
 
     _check_terminated()
     _wait_if_paused()
-    passive = fetch_from_crtsh(domain)
+    passive = fetch_all_passive(domain)
 
     _check_terminated()
     _wait_if_paused()
@@ -485,7 +488,7 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                         except Exception:
                             pass
             
-            if subdomains and domain_name:
+            if subdomains and domain_name and scan_type != "vulnerability":
                 logger.info(f"Saving {len(subdomains)} subdomains to database for domain: {domain_name}")
                 
                 # 3a. Get or create Domain record (normalize domain name for lookup)
@@ -628,7 +631,7 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                                 cvss_score = None
                                 if isinstance(cvss_raw, (int, float, str)):
                                     try:
-                                        cvss_score = int(round(float(cvss_raw)))
+                                        cvss_score = round(float(cvss_raw), 1)
                                     except Exception:
                                         cvss_score = None
                                 db.add(
@@ -861,6 +864,112 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                 if not subdomains:
                     logger.warning("No subdomains found in scan output")
 
+            # 3g. Persist vulnerabilities for vulnerability scan type
+            if scan_type == "vulnerability":
+                try:
+                    findings_dict = scan_output.get("findings") or {}
+                    scan_meta = scan_output.get("scan") or {}
+                    asset_value = scan_meta.get("asset_value") or payload_dict.get("asset_value") or ""
+                    vuln_domain = scan_meta.get("domain") or payload_dict.get("domain") or ""
+
+                    # Get or create domain
+                    vuln_domain_row = None
+                    if vuln_domain:
+                        stmt = Select(Domain).filter(Domain.domain_name == vuln_domain.strip().lower())
+                        vuln_domain_row = db.execute(stmt).scalars().first()
+                        if not vuln_domain_row:
+                            vuln_domain_row = Domain(
+                                domain_name=vuln_domain.strip().lower(),
+                                discovery_source="vulnerability_scan",
+                                created_by=created_by,
+                                updated_by=created_by,
+                            )
+                            db.add(vuln_domain_row)
+                            db.commit()
+                            db.refresh(vuln_domain_row)
+
+                    # Find subdomain row for FK — search by name across all domains
+                    # (handles cases where domain has trailing spaces or duplicates)
+                    sub_id = None
+                    if asset_value:
+                        sub_row = (
+                            db.query(Subdomain)
+                            .filter(Subdomain.subdomain_name == asset_value)
+                            .first()
+                        )
+                        sub_id = getattr(sub_row, "id", None) if sub_row else None
+                        # Also use the subdomain's domain for the FK if found
+                        if sub_row and not vuln_domain_row:
+                            vuln_domain_row = db.query(Domain).filter(Domain.id == sub_row.domain_id).first()
+
+                    # Also save a ScanResult row so the scan history page shows the asset
+                    try:
+                        db.add(ScanResult(scan_id=scan.id, domain=vuln_domain, subdomain=asset_value))
+                        db.commit()
+                    except Exception:
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+
+                    # Persist each finding as a Vulnerability row
+                    added = 0
+                    domain_id = getattr(vuln_domain_row, "id", None)
+                    for plugin_name, finding in findings_dict.items():
+                        if not isinstance(finding, dict):
+                            continue
+                        vuln = finding.get("vulnerability") if isinstance(finding.get("vulnerability"), dict) else {}
+                        name = str(vuln.get("name") or plugin_name).strip()
+                        if not name:
+                            continue
+                        sev = str(vuln.get("severity") or "").upper() or None
+                        cvss_raw = vuln.get("cvss_score")
+                        cvss_score = None
+                        if isinstance(cvss_raw, (int, float, str)):
+                            try:
+                                cvss_score = round(float(cvss_raw), 1)
+                            except Exception:
+                                cvss_score = None
+                        cvss_vector = vuln.get("cvss_vector")
+                        created_at = datetime.utcnow()
+                        db.add(
+                            Vulnerability(
+                                domain_id=domain_id,
+                                subdomain_id=sub_id,
+                                vuln_name=name,
+                                description=vuln.get("description"),
+                                recommendation=vuln.get("recommendation"),
+                                severity=sev,
+                                cvss_score=cvss_score,
+                                cvss_vector=cvss_vector,
+                                created_at=created_at,
+                                updated_at=created_at,
+                                created_by=created_by,
+                                updated_by=created_by,
+                            )
+                        )
+                        added += 1
+
+                    if added:
+                        try:
+                            db.commit()
+                            logger.info(f"✅ Persisted {added} vulnerability row(s) for vulnerability scan {scan.id}")
+                        except Exception as e:
+                            logger.error(f"❌ Failed to commit vulnerabilities: {e}", exc_info=True)
+                            try:
+                                db.rollback()
+                            except Exception:
+                                pass
+                    else:
+                        logger.info(f"No findings to persist for vulnerability scan {scan.id}")
+
+                except Exception as e:
+                    logger.error(f"❌ Failed to persist vulnerability scan findings: {e}", exc_info=True)
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
+
             # 4️⃣ Build final JSON
             final_result = {
                 "scan_id": str(scan.id),
@@ -872,8 +981,9 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
             }
 
             # 5️⃣ Save JSON locally
+            store_name = f"{scan.scan_name}_vs" if scan_type == "vulnerability" else scan.scan_name
             file_path = save_scan_result(
-                scan_name=scan.scan_name,
+                scan_name=store_name,
                 scan_id=str(scan.id),
                 scan_type=scan_type,
                 data=final_result,
@@ -934,6 +1044,10 @@ def create_scan(
     scan_type = request.scan_type
     created_by = str(claims.get("sub") or claims.get("username") or "manual").strip()
     payload_dict = request.payload.model_dump()
+
+    # Inject tenant from auth claims into payload for scanners that need it
+    if not payload_dict.get("tenant"):
+        payload_dict["tenant"] = str(claims.get("tenant") or "default").strip()
 
     try:
         if str(scan_type or "").lower() == "asset_group":
@@ -1214,6 +1328,11 @@ def get_all_scans(
                 "scan_name": scan.scan_name,
                 "scan_type": scan.scan_type,
                 "status": scan.status,
+                "progress": getattr(scan, 'progress', 0) or 0,
+                "current_phase": getattr(scan, 'current_phase', None),
+                "findings_count": getattr(scan, 'findings_count', 0) or 0,
+                "endpoints_total": getattr(scan, 'endpoints_total', 0) or 0,
+                "endpoints_scanned": getattr(scan, 'endpoints_scanned', 0) or 0,
                 "created_at": scan.created_at,
                 "created_by": getattr(scan, 'created_by', None),
                 "asset_url": api_assets.get(scan.id),
@@ -1402,7 +1521,13 @@ def get_scan_results(
             # Prefer MinIO (DD-style)
             if getattr(api_report, "minio_object_name", None):
                 try:
-                    report = download_json(api_report.minio_object_name)
+                    minio_data = download_json(api_report.minio_object_name)
+                    # MinIO wrapper shape: { ..., "result": { "findings": [...] } }
+                    # Unwrap to get the inner report
+                    if isinstance(minio_data, dict) and isinstance(minio_data.get("result"), dict):
+                        report = minio_data["result"]
+                    else:
+                        report = minio_data
                 except Exception:
                     report = None
             # Fallback to DB copy
@@ -1436,7 +1561,7 @@ def get_scan_results(
 
         # For subdomain scan, also return the detailed report (includes vulnerabilities)
         if scan.scan_type == "subdomain":
-            object_name = f"{scan.scan_type}_{scan.scan_name}_{scan_id}.json"
+            object_name = f"{scan.scan_type}_{_safe_name(scan.scan_name)}_{scan_id}.json"
             report_obj = None
             try:
                 if object_exists(object_name):

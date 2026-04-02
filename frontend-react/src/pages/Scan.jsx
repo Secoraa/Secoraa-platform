@@ -66,6 +66,8 @@ const Scan = ({ onViewResults }) => {
   const [editScheduleTime, setEditScheduleTime] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [apiScanResult, setApiScanResult] = useState(null);
+  const [authType, setAuthType] = useState('none');
+  const [authConfig, setAuthConfig] = useState({ token: '', header_name: '', value: '', username: '', password: '', param_name: '' });
   const [postmanFileName, setPostmanFileName] = useState('');
   const [apiEndpoints, setApiEndpoints] = useState([]);
   const [selectedEndpointKeys, setSelectedEndpointKeys] = useState(() => new Set());
@@ -138,7 +140,7 @@ const Scan = ({ onViewResults }) => {
   };
 
   useEffect(() => {
-    if (activeTab === 'run' && runStep === 2 && scanForm.type === 'subdomain') {
+    if (activeTab === 'run' && runStep === 2 && (scanForm.type === 'subdomain' || scanForm.type === 'vulnerability')) {
       loadSubdomains();
     }
   }, [activeTab, runStep, scanForm.type]);
@@ -543,11 +545,49 @@ const Scan = ({ onViewResults }) => {
           setNotification({ message: 'Please select at least one endpoint', type: 'error' });
           return;
         }
-        const result = await runApiTestingScan(scanForm.name, scanForm.assetUrl, selected);
-        setApiScanResult(result);
-        setNotification({ message: `API Scan "${scanForm.name}" completed.`, type: 'success' });
+        // Validate auth fields if auth type is selected
+        if (authType === 'bearer' && !authConfig.token.trim()) {
+          setNotification({ message: 'Please enter a Bearer token or set Authentication to None', type: 'error' });
+          return;
+        }
+        if (authType === 'api_key' && (!authConfig.header_name.trim() || !authConfig.value.trim())) {
+          setNotification({ message: 'Please enter both Header Name and API Key Value', type: 'error' });
+          return;
+        }
+        if (authType === 'api_key_query' && (!authConfig.param_name.trim() || !authConfig.value.trim())) {
+          setNotification({ message: 'Please enter both Query Parameter Name and API Key Value', type: 'error' });
+          return;
+        }
+        if (authType === 'basic' && !authConfig.username.trim()) {
+          setNotification({ message: 'Please enter a Username for Basic Auth', type: 'error' });
+          return;
+        }
+
+        const scanName = scanForm.name;
+        // Fire the scan without awaiting — redirect to history immediately
+        const authPayload = authType !== 'none' ? { type: authType, ...authConfig } : null;
+        runApiTestingScan(scanForm.name, scanForm.assetUrl, selected, authPayload)
+          .then((result) => {
+            setApiScanResult(result);
+            loadScans();
+          })
+          .catch((err) => {
+            setNotification({ message: `API Scan "${scanName}" failed: ${err.message}`, type: 'error' });
+            loadScans();
+          });
+        setNotification({ message: `API Scan "${scanName}" started! Check scan history for progress.`, type: 'success' });
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
+        setAuthType('none');
+        setAuthConfig({ token: '', header_name: '', value: '', username: '', password: '', param_name: '' });
         await loadScans();
         setActiveTab('history');
+
+        // Poll for status updates every 3 seconds
+        const pollInterval = setInterval(async () => {
+          await loadScans();
+        }, 3000);
+        // Stop polling after 10 minutes
+        setTimeout(() => clearInterval(pollInterval), 600000);
       } else if (scanForm.type === 'asset_group') {
         if (!scanForm.assetGroupId) {
           setNotification({ message: 'Please select an asset group', type: 'error' });
@@ -635,6 +675,47 @@ const Scan = ({ onViewResults }) => {
               message: currentScan.status === 'COMPLETED'
                 ? `Scan "${result.scan_name}" completed successfully!`
                 : `Scan "${result.scan_name}" failed. Please check the logs.`,
+              type: currentScan.status === 'COMPLETED' ? 'success' : 'error',
+            });
+          }
+        }, 2000);
+
+        setTimeout(() => clearInterval(pollInterval), 300000);
+      } else if (scanForm.type === 'vulnerability') {
+        if (!selectedSubdomain) {
+          setNotification({ message: 'Please select a subdomain to scan', type: 'error' });
+          return;
+        }
+        const subName = String(selectedSubdomain.subdomain_name || selectedSubdomain.name || '').trim();
+        const domainName = String(selectedSubdomain.domain_name || '').trim();
+        const derivedDomain = domainName || subName.split('.').slice(-2).join('.');
+
+        const result = await createScanWithPayload(scanForm.name, 'vulnerability', {
+          domain: derivedDomain,
+          asset_value: subName,
+        });
+
+        setNotification({
+          message: `Vulnerability scan "${result.scan_name}" started successfully! Check scan history for progress.`,
+          type: 'success',
+        });
+
+        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
+        await loadScans();
+        setActiveTab('history');
+
+        const pollInterval = setInterval(async () => {
+          const updatedScansData = await getAllScans();
+          const updatedScans = updatedScansData.data || [];
+          await loadScans();
+
+          const currentScan = updatedScans.find(s => s.scan_id === result.scan_id);
+          if (currentScan && (currentScan.status === 'COMPLETED' || currentScan.status === 'FAILED')) {
+            clearInterval(pollInterval);
+            setNotification({
+              message: currentScan.status === 'COMPLETED'
+                ? `Vulnerability scan "${result.scan_name}" completed successfully!`
+                : `Vulnerability scan "${result.scan_name}" failed. Please check the logs.`,
               type: currentScan.status === 'COMPLETED' ? 'success' : 'error',
             });
           }
@@ -887,6 +968,7 @@ const Scan = ({ onViewResults }) => {
                       <option value="dd">Domain Discovery</option>
                       <option value="api">API Testing</option>
                       <option value="subdomain">Subdomain Scan</option>
+                      <option value="vulnerability">Vulnerability Scan</option>
                       <option value="asset_group">Asset Group Scan</option>
                       <option value="network">Network Scan</option>
                     </select>
@@ -945,6 +1027,86 @@ const Scan = ({ onViewResults }) => {
                       />
                       <div className="helper-text">
                         Showing 20 results per page. Type to search, then click a subdomain to select.
+                      </div>
+
+                      <div className="api-endpoints" style={{ marginTop: 10 }}>
+                        <div className="api-endpoints-header">
+                          <div>
+                            Results ({filteredSubdomainData.start + 1}-{filteredSubdomainData.end} of {filteredSubdomainData.total})
+                          </div>
+                          <div className="api-endpoints-actions">
+                            <button
+                              type="button"
+                              className="btn-secondary btn-small"
+                              onClick={() => setSubdomainPage((p) => Math.max(1, p - 1))}
+                              disabled={subdomainLoading || filteredSubdomainData.page <= 1}
+                            >
+                              Prev
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary btn-small"
+                              onClick={() => setSubdomainPage((p) => Math.min(filteredSubdomainData.totalPages, p + 1))}
+                              disabled={subdomainLoading || filteredSubdomainData.page >= filteredSubdomainData.totalPages}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        </div>
+                        <div className="api-endpoints-list">
+                          {filteredSubdomainData.items.length === 0 ? (
+                            <div className="helper-text" style={{ padding: '8px 12px' }}>
+                              {subdomainLoading ? 'Loading…' : 'No matches.'}
+                            </div>
+                          ) : (
+                            filteredSubdomainData.items.map((s) => {
+                              const id = String(s.id);
+                              const name = String(s.subdomain_name || s.name || '');
+                              const isSelected = String(scanForm.subdomainId) === id;
+                              return (
+                                <label
+                                  key={id}
+                                  className={`subdomain-option-row ${isSelected ? 'selected' : ''}`}
+                                >
+                                  <input
+                                    className="subdomain-option-checkbox"
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const nextId = e.target.checked ? id : '';
+                                      setScanForm({ ...scanForm, subdomainId: nextId });
+                                      setSubdomainQuery(e.target.checked ? name : '');
+                                    }}
+                                  />
+                                  <span className="subdomain-option-name">{name}</span>
+                                  <span className="subdomain-option-domain">{s.domain_name || ''}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {scanForm.type === 'vulnerability' && (
+                  <>
+                    <div className="form-group">
+                      <label>Target Subdomain</label>
+                      <input
+                        type="text"
+                        className="scan-search-input"
+                        placeholder={subdomainLoading ? 'Loading subdomains...' : 'Search and select subdomain to scan'}
+                        value={subdomainQuery}
+                        onChange={(e) => {
+                          setSubdomainQuery(e.target.value);
+                          setScanForm({ ...scanForm, subdomainId: '' });
+                        }}
+                        disabled={subdomainLoading}
+                      />
+                      <div className="helper-text">
+                        Select a subdomain to run a vulnerability scan against. Type to search.
                       </div>
 
                       <div className="api-endpoints" style={{ marginTop: 10 }}>
@@ -1123,6 +1285,104 @@ const Scan = ({ onViewResults }) => {
                           : 'Tip: Upload a JSON file for the selected documentation type.'}
                       </div>
                     </div>
+
+                    <div className="form-group">
+                      <label>Authentication</label>
+                      <select
+                        value={authType}
+                        onChange={(e) => {
+                          setAuthType(e.target.value);
+                          setAuthConfig({ token: '', header_name: '', value: '', username: '', password: '', param_name: '' });
+                        }}
+                      >
+                        <option value="none">None</option>
+                        <option value="bearer">Bearer Token</option>
+                        <option value="api_key">API Key (Header)</option>
+                        <option value="api_key_query">API Key (Query Param)</option>
+                        <option value="basic">Basic Auth</option>
+                      </select>
+                    </div>
+
+                    {authType === 'bearer' && (
+                      <div className="form-group">
+                        <label>Bearer Token</label>
+                        <input
+                          type="text"
+                          placeholder="Enter your Bearer/JWT token"
+                          value={authConfig.token}
+                          onChange={(e) => setAuthConfig({ ...authConfig, token: e.target.value })}
+                        />
+                      </div>
+                    )}
+
+                    {authType === 'api_key' && (
+                      <>
+                        <div className="form-group">
+                          <label>Header Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. api_key, X-API-Key"
+                            value={authConfig.header_name}
+                            onChange={(e) => setAuthConfig({ ...authConfig, header_name: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>API Key Value</label>
+                          <input
+                            type="text"
+                            placeholder="Enter API key value"
+                            value={authConfig.value}
+                            onChange={(e) => setAuthConfig({ ...authConfig, value: e.target.value })}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {authType === 'api_key_query' && (
+                      <>
+                        <div className="form-group">
+                          <label>Query Parameter Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. api_key, key"
+                            value={authConfig.param_name}
+                            onChange={(e) => setAuthConfig({ ...authConfig, param_name: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>API Key Value</label>
+                          <input
+                            type="text"
+                            placeholder="Enter API key value"
+                            value={authConfig.value}
+                            onChange={(e) => setAuthConfig({ ...authConfig, value: e.target.value })}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {authType === 'basic' && (
+                      <>
+                        <div className="form-group">
+                          <label>Username</label>
+                          <input
+                            type="text"
+                            placeholder="Username"
+                            value={authConfig.username}
+                            onChange={(e) => setAuthConfig({ ...authConfig, username: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Password</label>
+                          <input
+                            type="password"
+                            placeholder="Password"
+                            value={authConfig.password}
+                            onChange={(e) => setAuthConfig({ ...authConfig, password: e.target.value })}
+                          />
+                        </div>
+                      </>
+                    )}
 
                     {apiEndpoints.length > 0 && (
                       <div className="api-endpoints">
@@ -1495,8 +1755,8 @@ const Scan = ({ onViewResults }) => {
                       <td>
                         <span
                           className={`status-badge ${
-                            scan.status === 'COMPLETED' 
-                              ? 'success' 
+                            scan.status === 'COMPLETED'
+                              ? 'success'
                               : scan.status === 'FAILED'
                               ? 'error'
                               : scan.status === 'TERMINATED'
@@ -1510,6 +1770,15 @@ const Scan = ({ onViewResults }) => {
                         >
                           {scan.status === 'IN_PROGRESS' ? 'IN PROGRESS' : scan.status}
                         </span>
+                        {scan.status === 'IN_PROGRESS' && scan.progress > 0 && (
+                          <div className="scan-progress-bar">
+                            <div className="scan-progress-fill" style={{ width: `${scan.progress}%` }} />
+                            <span className="scan-progress-text">{scan.progress}%{scan.current_phase ? ` — ${scan.current_phase}` : ''}</span>
+                          </div>
+                        )}
+                        {scan.status === 'COMPLETED' && scan.findings_count > 0 && (
+                          <span className="findings-count-badge">{scan.findings_count} findings</span>
+                        )}
                       </td>
                       <td>
                         {new Date(scan.created_at).toLocaleString()}

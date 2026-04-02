@@ -1,6 +1,7 @@
 import json
 import logging
 from sqlalchemy import Select
+from sqlalchemy.exc import IntegrityError
 from app.storage.minio_client import get_minio_client
 
 logger = logging.getLogger(__name__)
@@ -100,8 +101,35 @@ def ingest_from_minio(bucket: str, object_name: str, db):
         db.add(subdomain)
         created_count += 1
 
-    db.commit()
-    
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        logger.warning(
+            f"IntegrityError committing subdomains for {domain_name} "
+            f"(race condition with scan pipeline): {e}"
+        )
+        # Retry one-by-one so non-conflicting rows still get inserted
+        for subdomain_name in subdomains:
+            if not subdomain_name or not subdomain_name.strip():
+                continue
+            stmt = Select(Subdomain).filter(
+                Subdomain.domain_id == domain.id,
+                Subdomain.subdomain_name == subdomain_name
+            )
+            if db.execute(stmt).scalars().first():
+                continue
+            try:
+                db.add(Subdomain(
+                    domain_id=domain.id,
+                    subdomain_name=subdomain_name,
+                    created_by="pratik",
+                    updated_by="pratik"
+                ))
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+
     logger.info(
         f"Domain {domain_name}: Created {created_count} subdomains, "
         f"skipped {skipped_count} duplicates"

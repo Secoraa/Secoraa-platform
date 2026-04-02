@@ -66,6 +66,17 @@ class AssetGroupRequestBody(BaseModel):
     description: Optional[str] = None
 
 
+class IPBlockRequestBody(BaseModel):
+    domain_id: UUID
+    name: str = Field(..., example="Corporate Range")
+    ip_ids: Optional[List[UUID]] = None
+    cidr: Optional[str] = Field(
+        default=None,
+        example="192.168.1.0/24",
+    )
+    description: Optional[str] = None
+
+
 
 class SubdomainScanRequest(BaseModel):
     domain: str

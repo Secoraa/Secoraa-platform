@@ -5,8 +5,10 @@ import {
   getSubdomains,
   createSubdomain,
   getIPAddresses,
+  getIpBlocks,
   getUrls,
   createIPAddress,
+  createIpBlock,
   createUrl,
   getAssetGroups,
   createAssetGroup,
@@ -57,11 +59,13 @@ const AssetDiscovery = () => {
   const [domains, setDomains] = useState([]);
   const [subdomains, setSubdomains] = useState([]);
   const [ipAddresses, setIpAddresses] = useState([]);
+  const [ipBlocks, setIpBlocks] = useState([]);
   const [urls, setUrls] = useState([]);
   const [assetGroups, setAssetGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [subdomainLoading, setSubdomainLoading] = useState(false);
   const [ipLoading, setIpLoading] = useState(false);
+  const [ipBlockLoading, setIpBlockLoading] = useState(false);
   const [urlLoading, setUrlLoading] = useState(false);
   const [assetGroupLoading, setAssetGroupLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -71,20 +75,24 @@ const AssetDiscovery = () => {
   const [labelsFilter, setLabelsFilter] = useState('All Labels');
   const [subdomainDomainFilter, setSubdomainDomainFilter] = useState('All Domains');
   const [ipDomainFilter, setIpDomainFilter] = useState('All Domains');
+  const [ipBlockDomainFilter, setIpBlockDomainFilter] = useState('All Domains');
   const [urlDomainFilter, setUrlDomainFilter] = useState('All Domains');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddSubdomainModal, setShowAddSubdomainModal] = useState(false);
   const [showAddIpModal, setShowAddIpModal] = useState(false);
+  const [showAddIpBlockModal, setShowAddIpBlockModal] = useState(false);
   const [showAddUrlModal, setShowAddUrlModal] = useState(false);
   const [showAddAssetGroupModal, setShowAddAssetGroupModal] = useState(false);
   const [newDomain, setNewDomain] = useState({ name: '', tags: '' });
   const [newSubdomain, setNewSubdomain] = useState({ domainId: '', name: '', tags: '' });
   const [newIpAddress, setNewIpAddress] = useState({ domainId: '', ip: '', tags: '' });
+  const [newIpBlock, setNewIpBlock] = useState({ name: '', domainId: '', description: '', ipIds: [] });
   const [newUrl, setNewUrl] = useState({ domainId: '', url: '', tags: '' });
   const [newAssetGroup, setNewAssetGroup] = useState({ name: '', domainId: '', assetType: 'SUBDOMAIN', description: '', assetIds: [] });
   const [currentPage, setCurrentPage] = useState(1);
   const [subdomainCurrentPage, setSubdomainCurrentPage] = useState(1);
   const [ipCurrentPage, setIpCurrentPage] = useState(1);
+  const [ipBlockCurrentPage, setIpBlockCurrentPage] = useState(1);
   const [urlCurrentPage, setUrlCurrentPage] = useState(1);
   const [assetGroupCurrentPage, setAssetGroupCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -94,6 +102,7 @@ const AssetDiscovery = () => {
     // Prefetch counts so tab badges don't show 0 before user clicks into tabs
     loadDomains();
     loadIPAddresses();
+    loadIpBlocks();
     loadUrls();
     loadAssetGroups();
   }, []);
@@ -105,6 +114,9 @@ const AssetDiscovery = () => {
     if (activeTab === 'ip-addresses') {
       // Lazy-load fallback (in case prefetch failed)
       if (!ipAddresses || ipAddresses.length === 0) loadIPAddresses();
+    }
+    if (activeTab === 'ip-blocks') {
+      if (!ipBlocks || ipBlocks.length === 0) loadIpBlocks();
     }
     if (activeTab === 'url') {
       // Lazy-load fallback (in case prefetch failed)
@@ -168,6 +180,19 @@ const AssetDiscovery = () => {
       setError(err.message);
     } finally {
       setIpLoading(false);
+    }
+  };
+
+  const loadIpBlocks = async () => {
+    try {
+      setIpBlockLoading(true);
+      const data = await getIpBlocks();
+      setIpBlocks(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIpBlockLoading(false);
     }
   };
 
@@ -254,6 +279,35 @@ const AssetDiscovery = () => {
       loadIPAddresses();
     } catch (err) {
       alert(`Failed to add IP address: ${err.message}`);
+    }
+  };
+
+  const handleAddIpBlock = async (e) => {
+    e.preventDefault();
+    try {
+      if (!newIpBlock.domainId) {
+        alert('Please select a domain');
+        return;
+      }
+      if (!newIpBlock.name.trim()) {
+        alert('Please enter a name');
+        return;
+      }
+      if (!newIpBlock.ipIds || newIpBlock.ipIds.length === 0) {
+        alert('Please select at least one IP');
+        return;
+      }
+      if (newIpBlock.ipIds.length > 5) {
+        alert('You can select up to 5 IPs');
+        return;
+      }
+      await createIpBlock(newIpBlock.domainId, newIpBlock.name.trim(), newIpBlock.ipIds, newIpBlock.description);
+      setShowAddIpBlockModal(false);
+      setNewIpBlock({ name: '', domainId: '', description: '', ipIds: [] });
+      setIpBlockCurrentPage(1);
+      loadIpBlocks();
+    } catch (err) {
+      alert(`Failed to add IP block: ${err.message}`);
     }
   };
 
@@ -377,6 +431,26 @@ const AssetDiscovery = () => {
   const ipEndIndex = ipStartIndex + rowsPerPage;
   const paginatedIPs = filteredIPs.slice(ipStartIndex, ipEndIndex);
 
+  // Filter IP blocks
+  let filteredIpBlocks = ipBlocks;
+  if (activeTab === 'ip-blocks' && ipBlockDomainFilter !== 'All Domains') {
+    filteredIpBlocks = filteredIpBlocks.filter((b) => b.domain_name === ipBlockDomainFilter);
+  }
+  if (searchQuery && activeTab === 'ip-blocks') {
+    const q = searchQuery.toLowerCase();
+    filteredIpBlocks = filteredIpBlocks.filter((b) =>
+      String(b.name || '').toLowerCase().includes(q) ||
+      String(b.cidr || '').toLowerCase().includes(q) ||
+      String(b.domain_name || '').toLowerCase().includes(q) ||
+      String(b.description || '').toLowerCase().includes(q) ||
+      String((b.ips || []).join(', ')).toLowerCase().includes(q)
+    );
+  }
+  const ipBlockTotalPages = Math.ceil(filteredIpBlocks.length / rowsPerPage);
+  const ipBlockStartIndex = (ipBlockCurrentPage - 1) * rowsPerPage;
+  const ipBlockEndIndex = ipBlockStartIndex + rowsPerPage;
+  const paginatedIpBlocks = filteredIpBlocks.slice(ipBlockStartIndex, ipBlockEndIndex);
+
   // Filter URLs
   let filteredUrls = urls;
   if (activeTab === 'url' && urlDomainFilter !== 'All Domains') {
@@ -420,6 +494,11 @@ const AssetDiscovery = () => {
     return (ipAddresses || []).filter((ip) => String(ip.domain_id) === String(newAssetGroup.domainId));
   }, [ipAddresses, newAssetGroup.domainId]);
 
+  const selectedDomainIpBlocks = useMemo(() => {
+    if (!newIpBlock.domainId) return [];
+    return (ipAddresses || []).filter((ip) => String(ip.domain_id) === String(newIpBlock.domainId));
+  }, [ipAddresses, newIpBlock.domainId]);
+
   const toggleAssetSelection = (assetId) => {
     setNewAssetGroup((prev) => {
       const exists = prev.assetIds.includes(assetId);
@@ -431,12 +510,23 @@ const AssetDiscovery = () => {
     });
   };
 
+  const toggleIpBlockSelection = (ipId) => {
+    setNewIpBlock((prev) => {
+      const exists = prev.ipIds.includes(ipId);
+      if (exists) {
+        return { ...prev, ipIds: prev.ipIds.filter((id) => id !== ipId) };
+      }
+      if (prev.ipIds.length >= 5) return prev;
+      return { ...prev, ipIds: [...prev.ipIds, ipId] };
+    });
+  };
+
   const tabs = [
     { id: 'domains', label: 'Domains', count: domains.length },
     { id: 'subdomains', label: 'Subdomains', count: totalSubdomains > 999 ? '999+' : totalSubdomains },
     { id: 'ip-addresses', label: 'IP Addresses', count: ipAddresses.length },
     { id: 'url', label: 'URL', count: urls.length },
-    { id: 'ip-blocks', label: 'IP Blocks', count: 0 },
+    { id: 'ip-blocks', label: 'IP Blocks', count: ipBlocks.length },
     { id: 'asset-groups', label: 'Asset Groups', count: assetGroups.length },
   ];
 
@@ -887,6 +977,126 @@ const AssetDiscovery = () => {
         </>
       )}
 
+      {/* IP Blocks Tab */}
+      {activeTab === 'ip-blocks' && (
+        <>
+          <div className="filters-row">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Q Search CIDR"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIpBlockCurrentPage(1);
+              }}
+            />
+            <select
+              className="filter-select"
+              value={ipBlockDomainFilter}
+              onChange={(e) => {
+                setIpBlockDomainFilter(e.target.value);
+                setIpBlockCurrentPage(1);
+              }}
+            >
+              <option>All Domains</option>
+              {domainNameOptions.map((dn) => (
+                <option key={dn} value={dn}>{dn}</option>
+              ))}
+            </select>
+            <button
+              className="add-domain-btn-filter"
+              onClick={() => setShowAddIpBlockModal(true)}
+            >
+              ➕ Add IP Block
+            </button>
+          </div>
+
+          {ipBlockLoading ? (
+            <div className="loading">Loading IP blocks...</div>
+          ) : error ? (
+            <div className="error">Error: {error}</div>
+          ) : (
+            <div className="table-container">
+              <div className="asset-table-wrapper">
+                <table className="asset-table">
+                  <thead>
+                    <tr>
+                      <th>NAME</th>
+                      <th>IP ADDRESSES</th>
+                      <th>DOMAIN NAME</th>
+                      <th>DESCRIPTION</th>
+                      <th>CREATED BY</th>
+                      <th>UPDATED BY</th>
+                      <th>CREATED AT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedIpBlocks.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" className="empty-state">No IP blocks found</td>
+                      </tr>
+                    ) : (
+                      paginatedIpBlocks.map((block) => (
+                        <tr key={block.id}>
+                          <td>{block.name || '-'}</td>
+                          <td className="domain-name">{(block.ips || []).join(', ') || '-'}</td>
+                          <td>{block.domain_name || '-'}</td>
+                          <td>{block.description || '-'}</td>
+                          <td>{block.created_by || '-'}</td>
+                          <td>{block.updated_by || '-'}</td>
+                          <td>{block.created_at ? new Date(block.created_at).toLocaleDateString() : '-'}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination">
+                <div className="pagination-left">
+                  <span>Rows per page:</span>
+                  <select
+                    className="pagination-select"
+                    value={rowsPerPage}
+                    onChange={(e) => {
+                      setRowsPerPage(Number(e.target.value));
+                      setIpBlockCurrentPage(1);
+                    }}
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+                <div className="pagination-right">
+                  <span>
+                    {ipBlockStartIndex + 1}-{Math.min(ipBlockEndIndex, filteredIpBlocks.length)} of {filteredIpBlocks.length}
+                  </span>
+                  <div className="pagination-arrows">
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setIpBlockCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={ipBlockCurrentPage === 1}
+                    >
+                      ←
+                    </button>
+                    <button
+                      className="pagination-btn"
+                      onClick={() => setIpBlockCurrentPage(prev => Math.min(ipBlockTotalPages, prev + 1))}
+                      disabled={ipBlockCurrentPage === ipBlockTotalPages}
+                    >
+                      →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
       {/* URL Tab */}
       {activeTab === 'url' && (
         <>
@@ -1118,7 +1328,7 @@ const AssetDiscovery = () => {
       )}
 
       {/* Other tabs placeholder */}
-      {activeTab !== 'domains' && activeTab !== 'subdomains' && activeTab !== 'ip-addresses' && activeTab !== 'url' && activeTab !== 'asset-groups' && (
+      {activeTab !== 'domains' && activeTab !== 'subdomains' && activeTab !== 'ip-addresses' && activeTab !== 'ip-blocks' && activeTab !== 'url' && activeTab !== 'asset-groups' && (
         <div className="coming-soon">Coming soon</div>
       )}
 
@@ -1285,6 +1495,91 @@ const AssetDiscovery = () => {
                   type="button"
                   className="btn-secondary"
                   onClick={() => setShowAddIpModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add IP Block Modal */}
+      {showAddIpBlockModal && (
+        <div className="modal-overlay" onClick={() => setShowAddIpBlockModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Add IP Block</h2>
+            <form onSubmit={handleAddIpBlock}>
+              <div className="form-group">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={newIpBlock.name}
+                  onChange={(e) =>
+                    setNewIpBlock({ ...newIpBlock, name: e.target.value })
+                  }
+                  placeholder="Corporate IP Range"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Domain</label>
+                <select
+                  value={newIpBlock.domainId}
+                  onChange={(e) =>
+                    setNewIpBlock({ ...newIpBlock, domainId: e.target.value, ipIds: [] })
+                  }
+                  required
+                >
+                  <option value="">Select a domain</option>
+                  {domains.map((domain) => (
+                    <option key={domain.id} value={domain.id}>
+                      {domain.domain_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Select IPs (max 5)</label>
+                <div className="asset-select-list">
+                  {selectedDomainIpBlocks.length === 0 ? (
+                    <div className="empty-state">No IPs found for selected domain</div>
+                  ) : (
+                    selectedDomainIpBlocks.map((ip) => {
+                      const checked = newIpBlock.ipIds.includes(ip.id);
+                      return (
+                        <label key={ip.id} className="asset-select-row">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleIpBlockSelection(ip.id)}
+                          />
+                          <span>{ip.ipaddress_name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Description (optional)</label>
+                <input
+                  type="text"
+                  value={newIpBlock.description}
+                  onChange={(e) =>
+                    setNewIpBlock({ ...newIpBlock, description: e.target.value })
+                  }
+                  placeholder="Corporate network range"
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary">
+                  Add IP Block
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowAddIpBlockModal(false)}
                 >
                   Cancel
                 </button>

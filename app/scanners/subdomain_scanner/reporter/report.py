@@ -3,7 +3,7 @@
 from typing import Dict
 
 from app.scanners.subdomain_scanner.discovery.bruteforce import bruteforce_subdomains
-from app.scanners.subdomain_scanner.discovery.passive import fetch_from_crtsh
+from app.scanners.subdomain_scanner.discovery.passive import fetch_all_passive
 from app.scanners.subdomain_scanner.validation.dns_check import validate_dns
 from app.scanners.subdomain_scanner.validation.http_probe import probe_http
 
@@ -24,7 +24,7 @@ def run_subdomain_scan(domain: str) -> Dict:
 
     # 1. Discovery
     brute = set(bruteforce_subdomains(domain))
-    passive = fetch_from_crtsh(domain)
+    passive = fetch_all_passive(domain)
 
     discovered = list(brute.union(passive))
 

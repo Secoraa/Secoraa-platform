@@ -906,13 +906,20 @@ def _build_api_details_pdf(
     )
     pdf.ln(3)
 
+    # Column widths: Endpoint=70, Finding=70, Severity=20, Score=20 = 180
+    col_ep = 70
+    col_fn = 70
+    col_sv = 20
+    col_sc = 20
+    x_start = 10  # left margin
+
     def table_header():
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(245, 245, 245)
-        pdf.cell(85, 7, _safe_pdf_text("Endpoint"), 1, 0, "L", True)
-        pdf.cell(55, 7, _safe_pdf_text("Finding"), 1, 0, "L", True)
-        pdf.cell(20, 7, _safe_pdf_text("Severity"), 1, 0, "C", True)
-        pdf.cell(20, 7, _safe_pdf_text("Score"), 1, 1, "C", True)
+        pdf.cell(col_ep, 7, _safe_pdf_text("Endpoint"), 1, 0, "L", True)
+        pdf.cell(col_fn, 7, _safe_pdf_text("Finding"), 1, 0, "L", True)
+        pdf.cell(col_sv, 7, _safe_pdf_text("Severity"), 1, 0, "C", True)
+        pdf.cell(col_sc, 7, _safe_pdf_text("Score"), 1, 1, "C", True)
         pdf.set_font("Helvetica", "", 8)
 
     table_header()
@@ -926,15 +933,23 @@ def _build_api_details_pdf(
             return bytes(raw)
         return str(raw).encode("latin-1")
 
+    sev_colors = {
+        "CRITICAL": (220, 38, 38),
+        "HIGH": (234, 88, 12),
+        "MEDIUM": (202, 138, 4),
+        "LOW": (22, 163, 74),
+        "INFORMATIONAL": (59, 130, 246),
+    }
+
     for row in findings_rows:
         endpoint = str(row.get("endpoint") or "-").replace("\n", " ")
-        finding = str(row.get("issue") or row.get("name") or "-").replace("\n", " ")
+        finding = str(row.get("issue") or row.get("name") or row.get("title") or "-").replace("\n", " ")
         severity = str(row.get("severity") or "INFO").upper()
         score = row.get("score")
         score_text = f"{float(score):.1f}" if score not in (None, "") else "-"
 
-        endpoint_lines = wrap_text(endpoint, 82)
-        finding_lines = wrap_text(finding, 52)
+        endpoint_lines = wrap_text(endpoint, col_ep - 3)
+        finding_lines = wrap_text(finding, col_fn - 3)
         lines = max(len(endpoint_lines), len(finding_lines))
         row_h = 5 * lines
 
@@ -945,19 +960,84 @@ def _build_api_details_pdf(
             table_header()
 
         y_start = pdf.get_y()
-        pdf.multi_cell(85, 5, _safe_pdf_text("\n".join(endpoint_lines)), 1, "L")
-        y_after = pdf.get_y()
 
-        pdf.set_xy(95, y_start)
-        pdf.multi_cell(55, 5, _safe_pdf_text("\n".join(finding_lines)), 1, "L")
+        # Endpoint column
+        pdf.set_xy(x_start, y_start)
+        pdf.multi_cell(col_ep, 5, _safe_pdf_text("\n".join(endpoint_lines)), 1, "L")
+        y_after_ep = pdf.get_y()
 
-        pdf.set_xy(150, y_start)
-        pdf.cell(20, row_h, _safe_pdf_text(severity), 1, 0, "C")
-        pdf.cell(20, row_h, _safe_pdf_text(score_text), 1, 1, "C")
+        # Finding column
+        pdf.set_xy(x_start + col_ep, y_start)
+        pdf.multi_cell(col_fn, 5, _safe_pdf_text("\n".join(finding_lines)), 1, "L")
+        y_after_fn = pdf.get_y()
 
-        pdf.set_y(max(y_after, y_start + row_h))
+        # Severity column (colored text)
+        pdf.set_xy(x_start + col_ep + col_fn, y_start)
+        sc = sev_colors.get(severity, (0, 0, 0))
+        pdf.set_text_color(*sc)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(col_sv, row_h, _safe_pdf_text(severity), 1, 0, "C")
+        pdf.set_text_color(*dark)
+        pdf.set_font("Helvetica", "", 8)
+
+        # Score column
+        pdf.cell(col_sc, row_h, _safe_pdf_text(score_text), 1, 1, "C")
+
+        pdf.set_y(max(y_after_ep, y_after_fn, y_start + row_h))
 
     footer()
+
+    # -------------------------
+    # Detailed Findings
+    # -------------------------
+    for idx, row in enumerate(findings_rows):
+        finding_name = str(row.get("issue") or row.get("name") or row.get("title") or "Finding")
+        severity = str(row.get("severity") or "INFO").upper()
+        score = row.get("score")
+        score_text = f"{float(score):.1f}" if score not in (None, "") else "-"
+        endpoint = str(row.get("endpoint") or "-")
+        desc = str(row.get("description") or "").strip()
+        impact = str(row.get("impact") or "").strip()
+        remediation = str(row.get("remediation") or "").strip()
+        cvss_vector = str(row.get("cvss_vector") or "").strip()
+        confidence = str(row.get("confidence") or "").strip()
+
+        pdf.add_page()
+        section_heading(f"Finding {idx + 1}: {finding_name}")
+        pdf.ln(2)
+
+        # Severity + Score bar
+        sc = sev_colors.get(severity, (0, 0, 0))
+        pdf.set_fill_color(*sc)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Helvetica", "B", 10)
+        label = f"  {severity}   |   CVSS: {score_text}"
+        if cvss_vector:
+            label += f"   |   {cvss_vector}"
+        pdf.cell(180, 8, _safe_pdf_text(label), 0, 1, "L", True)
+        pdf.set_text_color(*dark)
+        pdf.ln(4)
+
+        # Detail fields
+        def detail_field(label: str, value: str):
+            if not value:
+                return
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(*blue)
+            pdf.cell(0, 6, _safe_pdf_text(label), ln=1)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_text_color(*dark)
+            safe_full_width(value)
+            pdf.ln(2)
+
+        detail_field("Endpoint", endpoint)
+        detail_field("Description", desc)
+        detail_field("Impact", impact)
+        detail_field("Remediation", remediation)
+        if confidence:
+            detail_field("Confidence", confidence)
+
+        footer()
 
     raw = pdf.output(dest="S")
     if isinstance(raw, (bytes, bytearray)):
@@ -1960,7 +2040,7 @@ def create_report(
         for f in findings:
             if not isinstance(f, dict):
                 continue
-            issue = str(f.get("issue") or f.get("name") or "Finding").strip() or "Finding"
+            issue = str(f.get("title") or f.get("issue") or f.get("name") or "Finding").strip() or "Finding"
             sev = str(f.get("severity") or "INFO").upper()
             endpoint = (
                 f.get("endpoint")
@@ -1980,6 +2060,11 @@ def create_report(
                     "issue": issue,
                     "severity": sev,
                     "score": score,
+                    "description": f.get("description") or "",
+                    "impact": f.get("impact") or "",
+                    "remediation": f.get("remediation") or "",
+                    "cvss_vector": f.get("cvss_vector") or f.get("vector") or "",
+                    "confidence": f.get("confidence") or "",
                 }
             )
             g = by_issue.setdefault(issue, {"count": 0, "severity": sev})

@@ -38,18 +38,18 @@ function App() {
   }, [token]);
 
   useEffect(() => {
-    // Support opening domain details in a NEW BROWSER TAB via query param: ?domain=<uuid>
+    // Always land on dashboard on refresh — clear any stale query params
     if (!token) return;
     try {
       const url = new URL(window.location.href);
-      const domainId = url.searchParams.get('domain');
-      if (domainId) {
-        setSelectedDomainId(domainId);
-        setActivePage('domain-details');
+      if (url.searchParams.has('domain')) {
+        url.searchParams.delete('domain');
+        window.history.replaceState({}, '', url.toString());
       }
     } catch {
       // ignore
     }
+    setActivePage('dashboard');
   }, [token]);
 
   const handleBackToScan = () => {

@@ -57,6 +57,10 @@ opentelemetry-exporter-otlp-proto-http==1.38.0
 opentelemetry-exporter-otlp-proto-common==1.38.0
 opentelemetry-semantic-conventions==0.59b0
 
+# --- Background Jobs (Celery + Redis) ---
+celery==5.4.0
+redis==5.2.1
+
 # --- Utils ---
 rich==14.2.0
 tenacity==9.1.2

@@ -1,7 +1,8 @@
+import asyncio
 from typing import List, Optional
 
 from app.scanners.base import BaseScanner
-from app.scanners.web_scanner.scanner import run_scan
+from app.scanners.vulnerability_scanner.orchestrator import run_scan
 
 
 class SubdomainScanner(BaseScanner):
@@ -29,7 +30,22 @@ class SubdomainScanner(BaseScanner):
 
         target = selected[0] if selected else domain
         tenant = payload.get("tenant") or payload.get("tenant_name")
-        report = run_scan(target, tenant=tenant)
+
+        # Bridge to async vulnerability scanner
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            report = loop.run_until_complete(
+                run_scan(
+                    domain=domain,
+                    asset_value=target,
+                    tenant=tenant or "",
+                    asset_uuid=payload.get("asset_uuid", ""),
+                )
+            )
+        finally:
+            loop.close()
+
         resolved = [target]
 
         # Return in the same shape DD expects so scan results persistence works.

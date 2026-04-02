@@ -2,7 +2,7 @@ from ctypes import Array
 from logging import CRITICAL
 import uuid
 from annotated_types import LowerCase
-from sqlalchemy import ARRAY, Boolean, Column, Integer, Nullable, String, DateTime, ForeignKey, Text, UniqueConstraint, null, text
+from sqlalchemy import ARRAY, Boolean, Column, Float, Integer, Nullable, String, DateTime, ForeignKey, Text, UniqueConstraint, null, text
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from enum import Enum
@@ -49,6 +49,13 @@ class Scan(Base):
     status = Column(String, nullable=False, default="Running")
     created_at = Column(DateTime, default=datetime.utcnow)
     created_by = Column(String, nullable=True)  # Optional - table may not have this column yet
+
+    # Progress tracking columns
+    progress = Column(Integer, default=0)            # 0-100 percentage
+    current_phase = Column(String, nullable=True)     # PARSING, GLOBAL_CHECKS, ENDPOINT_SCANNING, etc.
+    findings_count = Column(Integer, default=0)       # Running count of findings
+    endpoints_total = Column(Integer, default=0)      # Total endpoints to scan
+    endpoints_scanned = Column(Integer, default=0)    # Endpoints completed
 
 
 class ScheduledScan(Base):
@@ -219,8 +226,8 @@ class Vulnerability(Base):
 
     vuln_name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    cvss_score = Column(Integer, nullable=True)
-    cvss_vectore = Column(Integer, nullable=True)
+    cvss_score = Column(Float, nullable=True)
+    cvss_vector = Column(String, nullable=True)
     recommendation = Column(Text, nullable=True)
     reference = Column(Text, nullable=True)
     severity = Column(String, nullable=True)
@@ -269,6 +276,64 @@ class IPAddress(Base):
     domain = relationship(
         "Domain",
         backref="ip_addresses",
+    )
+
+
+class IPBlock(Base):
+    __tablename__ = "ip_blocks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    domain_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("domains.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    name = Column(String, nullable=False)
+    cidr = Column(String, nullable=True)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    created_by = Column(String)
+    updated_by = Column(String)
+
+    domain = relationship(
+        "Domain",
+        backref="ip_blocks",
+    )
+
+    items = relationship(
+        "IPBlockItem",
+        back_populates="block",
+        cascade="all, delete-orphan",
+    )
+
+
+class IPBlockItem(Base):
+    __tablename__ = "ip_block_items"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    ip_block_id = Column(UUID(as_uuid=True), ForeignKey("ip_blocks.id", ondelete="CASCADE"), nullable=False)
+    ip_id = Column(UUID(as_uuid=True), ForeignKey("ipaddress.id", ondelete="CASCADE"), nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    block = relationship(
+        "IPBlock",
+        back_populates="items",
+    )
+
+    ip_address = relationship(
+        "IPAddress",
+        backref="ip_block_items",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("ip_block_id", "ip_id"),
     )
 
 
