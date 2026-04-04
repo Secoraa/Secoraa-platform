@@ -92,43 +92,43 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01 | Pending | Pending |
-| SCAN-02 | Pending | Pending |
-| SCAN-03 | Pending | Pending |
-| SCAN-04 | Pending | Pending |
-| SCAN-05 | Pending | Pending |
-| SCAN-06 | Pending | Pending |
-| SCAN-07 | Pending | Pending |
-| SARIF-01 | Pending | Pending |
-| SARIF-02 | Pending | Pending |
-| SARIF-03 | Pending | Pending |
-| SARIF-04 | Pending | Pending |
-| SARIF-05 | Pending | Pending |
-| GHA-01 | Pending | Pending |
-| GHA-02 | Pending | Pending |
-| GHA-03 | Pending | Pending |
-| GHA-04 | Pending | Pending |
-| GHA-05 | Pending | Pending |
-| PR-01 | Pending | Pending |
-| PR-02 | Pending | Pending |
-| PR-03 | Pending | Pending |
-| PR-04 | Pending | Pending |
-| PLAT-01 | Pending | Pending |
-| PLAT-02 | Pending | Pending |
-| PLAT-03 | Pending | Pending |
-| PLAT-04 | Pending | Pending |
-| PLAT-05 | Pending | Pending |
-| PLAT-06 | Pending | Pending |
-| PLAT-07 | Pending | Pending |
-| DOC-01 | Pending | Pending |
-| DOC-02 | Pending | Pending |
-| DOC-03 | Pending | Pending |
+| SCAN-01 | Phase 1 | Pending |
+| SCAN-02 | Phase 1 | Pending |
+| SCAN-03 | Phase 1 | Pending |
+| SCAN-04 | Phase 1 | Pending |
+| SCAN-05 | Phase 1 | Pending |
+| SCAN-06 | Phase 1 | Pending |
+| SCAN-07 | Phase 1 | Pending |
+| SARIF-01 | Phase 2 | Pending |
+| SARIF-02 | Phase 2 | Pending |
+| SARIF-03 | Phase 2 | Pending |
+| SARIF-04 | Phase 2 | Pending |
+| SARIF-05 | Phase 2 | Pending |
+| GHA-01 | Phase 2 | Pending |
+| GHA-02 | Phase 2 | Pending |
+| GHA-03 | Phase 2 | Pending |
+| GHA-04 | Phase 2 | Pending |
+| GHA-05 | Phase 2 | Pending |
+| PR-01 | Phase 3 | Pending |
+| PR-02 | Phase 3 | Pending |
+| PR-03 | Phase 3 | Pending |
+| PR-04 | Phase 3 | Pending |
+| PLAT-01 | Phase 4 | Pending |
+| PLAT-02 | Phase 4 | Pending |
+| PLAT-03 | Phase 4 | Pending |
+| PLAT-04 | Phase 4 | Pending |
+| PLAT-05 | Phase 4 | Pending |
+| PLAT-07 | Phase 4 | Pending |
+| PLAT-06 | Phase 5 | Pending |
+| DOC-01 | Phase 5 | Pending |
+| DOC-02 | Phase 5 | Pending |
+| DOC-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 31 total
-- Mapped to phases: 0
-- Unmapped: 31 (pending roadmap creation)
+- Mapped to phases: 31
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation*
