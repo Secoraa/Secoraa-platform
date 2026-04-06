@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-04-04)
 
 Phase: 1 of 5 (Scanner Foundation)
 Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-04-04 — Roadmap created, phases derived from requirements
+Status: Context complete, ready to plan
+Last activity: 2026-04-04 — Phase 1 discuss-phase complete, CONTEXT.md written
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -46,6 +46,11 @@ Recent decisions affecting current work:
 - Init: Docker container action on GHCR chosen over Docker Hub to avoid rate limits on shared runners
 - Init: Three exit codes (0/1/2) required — using only 0/1 causes infra errors to look like findings
 - Init: Platform callback is fire-and-forget (10s timeout, exceptions swallowed) so CI gate never depends on Secoraa uptime
+- P1: SQLAlchemy decoupled via TYPE_CHECKING guard (only line 8 of main.py needs change)
+- P1: Entrypoint lives at github-action/entrypoint.py — dedicated directory for Action files
+- P1: Auth inputs: separate auth-type (default bearer) + auth-token; entrypoint builds dict
+- P1: Severity threshold is cumulative (HIGH = CRITICAL+HIGH trigger exit 1), default HIGH
+- P1: Entrypoint reads spec file from disk, parses JSON, passes to run_api_scan() — no signature changes
 
 ### Pending Todos
 
@@ -60,5 +65,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-04-04
-Stopped at: Roadmap and STATE.md written. REQUIREMENTS.md traceability updated. Ready to plan Phase 1.
-Resume file: None
+Stopped at: Phase 1 discuss-phase complete. 01-CONTEXT.md written with 5 decisions. Ready to plan Phase 1.
+Resume file: .planning/phases/01-scanner-foundation/01-CONTEXT.md
