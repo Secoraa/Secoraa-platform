@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Entrypoint exits 0 when no findings meet the configured threshold, exits 1 when findings meet or exceed it, and exits 2 when the scanner itself errors
   4. Setting INPUT_FAIL_ON_SEVERITY=HIGH means CRITICAL and HIGH findings trigger exit 1 but MEDIUM and LOW do not
   5. Entrypoint emits ::add-mask:: for the API key value before any log output
-**Plans**: TBD
+**Plans**: 2 (01: SQLAlchemy decoupling, 02: entrypoint.py)
 
 ### Phase 2: SARIF + Docker Packaging
 **Goal**: A Docker image on GHCR runs the scanner and uploads a valid SARIF file to the GitHub Security tab
@@ -88,7 +88,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Scanner Foundation | 0/TBD | Not started | - |
+| 1. Scanner Foundation | 0/2 | Planned | - |
 | 2. SARIF + Docker Packaging | 0/TBD | Not started | - |
 | 3. PR Integration | 0/TBD | Not started | - |
 | 4. Platform Backend | 0/TBD | Not started | - |
