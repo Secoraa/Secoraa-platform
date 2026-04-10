@@ -12,13 +12,16 @@
   column-gap: 18px;
   padding: 0 16px;
   z-index: 999;
+  transition: left 0.25s ease;
+}
+
+.sidebar-collapsed .header {
+  left: 64px;
 }
 
 .header-left {
   justify-self: start;
 }
-
-/* Header left content removed */
 
 .header-center {
   justify-self: center;
@@ -33,6 +36,10 @@
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 0.875rem;
+}
+
+.header-search::placeholder {
+  color: var(--text-secondary);
 }
 
 .header-search:focus {
@@ -50,10 +57,10 @@
 .header-tenant-label {
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.75);
+  color: var(--text-primary);
   padding: 0.45rem 0.75rem;
-  background: rgba(0, 0, 0, 0.02);
-  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
   border-radius: 10px;
   white-space: nowrap;
 }
@@ -65,7 +72,7 @@
 
 .notification-icon {
   font-size: 1.5rem;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -74,7 +81,7 @@
 }
 
 .notification-icon svg {
-  color: var(--text-primary);
+  color: var(--text-secondary);
   width: 100%;
   height: 100%;
 }
@@ -128,37 +135,39 @@
   top: calc(100% + 10px);
   right: 0;
   width: 260px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 10px;
   z-index: 2000;
 }
 
 .profile-dropdown-user {
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border-color);
   margin-bottom: 8px;
 }
 
 .profile-dropdown-email {
   font-weight: 700;
   font-size: 13px;
-  color: rgba(0, 0, 0, 0.85);
+  color: var(--text-primary);
   word-break: break-word;
 }
 
 .profile-dropdown-logout {
   width: 100%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
   border-radius: 10px;
   padding: 10px;
   cursor: pointer;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .profile-dropdown-logout:hover {
   border-color: var(--primary-color);
+  background: rgba(37, 99, 235, 0.06);
 }

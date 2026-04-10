@@ -377,12 +377,11 @@ const AssetDiscovery = () => {
     filteredDomains = filteredDomains.filter((d) => (d.is_active ?? true) === false || (d.is_archived ?? false) === true);
   }
 
-  // Labels filter (maps to tags)
-  if (labelsFilter && labelsFilter !== 'All Labels') {
-    const label = labelsFilter.toLowerCase();
-    filteredDomains = filteredDomains.filter((d) =>
-      Array.isArray(d.tags) && d.tags.some((t) => String(t).toLowerCase() === label)
-    );
+  // Labels filter (discovery source)
+  if (labelsFilter === 'Manually Added') {
+    filteredDomains = filteredDomains.filter((d) => d.discovery_source === 'manual');
+  } else if (labelsFilter === 'Auto Discovered') {
+    filteredDomains = filteredDomains.filter((d) => d.discovery_source !== 'manual');
   }
 
   // Pagination
@@ -401,8 +400,13 @@ const AssetDiscovery = () => {
   if (activeTab === 'subdomains' && subdomainDomainFilter !== 'All Domains') {
     filteredSubdomains = filteredSubdomains.filter((s) => s.domain_name === subdomainDomainFilter);
   }
+  if (labelsFilter === 'Manually Added') {
+    filteredSubdomains = filteredSubdomains.filter((s) => s.discovery_source === 'manual');
+  } else if (labelsFilter === 'Auto Discovered') {
+    filteredSubdomains = filteredSubdomains.filter((s) => s.discovery_source !== 'manual');
+  }
   if (searchQuery && activeTab === 'subdomains') {
-    filteredSubdomains = subdomains.filter((subdomain) =>
+    filteredSubdomains = filteredSubdomains.filter((subdomain) =>
       subdomain.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       subdomain.domain_name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -521,6 +525,18 @@ const AssetDiscovery = () => {
     });
   };
 
+  const handleAddAsset = () => {
+    switch (activeTab) {
+      case 'domains': setShowAddModal(true); break;
+      case 'subdomains': setShowAddSubdomainModal(true); break;
+      case 'ip-addresses': setShowAddIpModal(true); break;
+      case 'ip-blocks': setShowAddIpBlockModal(true); break;
+      case 'url': setShowAddUrlModal(true); break;
+      case 'asset-groups': setShowAddAssetGroupModal(true); break;
+      default: break;
+    }
+  };
+
   const tabs = [
     { id: 'domains', label: 'Domains', count: domains.length },
     { id: 'subdomains', label: 'Subdomains', count: totalSubdomains > 999 ? '999+' : totalSubdomains },
@@ -534,6 +550,9 @@ const AssetDiscovery = () => {
     <div className="asset-discovery">
       <div className="page-header">
         <h1 className="page-title">ASSET DISCOVERY</h1>
+        <button className="add-asset-btn" onClick={handleAddAsset}>
+          + Add Asset
+        </button>
       </div>
 
       {/* Tabs */}
@@ -579,16 +598,9 @@ const AssetDiscovery = () => {
               onChange={(e) => setLabelsFilter(e.target.value)}
             >
               <option>All Labels</option>
-              <option>Production</option>
-              <option>External</option>
-              <option>Internal</option>
+              <option>Manually Added</option>
+              <option>Auto Discovered</option>
             </select>
-            <button 
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddModal(true)}
-            >
-              ➕ Add Domain
-            </button>
           </div>
 
           {/* Table */}
@@ -742,16 +754,9 @@ const AssetDiscovery = () => {
               onChange={(e) => setLabelsFilter(e.target.value)}
             >
               <option>All Labels</option>
-              <option>Production</option>
-              <option>External</option>
-              <option>Internal</option>
+              <option>Manually Added</option>
+              <option>Auto Discovered</option>
             </select>
-            <button 
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddSubdomainModal(true)}
-            >
-              ➕ Add Subdomain
-            </button>
           </div>
 
           {/* Table */}
@@ -767,9 +772,9 @@ const AssetDiscovery = () => {
                     <tr>
                       <th>NAME</th>
                       <th>DOMAIN NAME</th>
+                      <th>ASSET LABELS</th>
                       <th>TAGS</th>
                       <th>CREATED BY</th>
-                      <th>UPDATED BY</th>
                       <th>CREATED AT</th>
                     </tr>
                   </thead>
@@ -786,6 +791,11 @@ const AssetDiscovery = () => {
                         <td className="domain-name">{subdomain.name || subdomain.subdomain_name}</td>
                         <td>{subdomain.domain_name || '-'}</td>
                         <td>
+                          {subdomain.discovery_source === 'auto_discovered'
+                            ? 'Auto Discovered'
+                            : 'Manually Added'}
+                        </td>
+                        <td>
                           <TagsDisplay 
                             tags={subdomain.tags} 
                             itemId={subdomain.id}
@@ -794,7 +804,6 @@ const AssetDiscovery = () => {
                           />
                         </td>
                         <td>{subdomain.created_by || '-'}</td>
-                        <td>{subdomain.updated_by || '-'}</td>
                         <td>
                           {subdomain.created_at 
                             ? new Date(subdomain.created_at).toLocaleDateString()
@@ -879,12 +888,6 @@ const AssetDiscovery = () => {
                 <option key={dn} value={dn}>{dn}</option>
               ))}
             </select>
-            <button
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddIpModal(true)}
-            >
-              ➕ Add IP Address
-            </button>
           </div>
 
           {ipLoading ? (
@@ -1004,12 +1007,6 @@ const AssetDiscovery = () => {
                 <option key={dn} value={dn}>{dn}</option>
               ))}
             </select>
-            <button
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddIpBlockModal(true)}
-            >
-              ➕ Add IP Block
-            </button>
           </div>
 
           {ipBlockLoading ? (
@@ -1124,12 +1121,6 @@ const AssetDiscovery = () => {
                 <option key={dn} value={dn}>{dn}</option>
               ))}
             </select>
-            <button
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddUrlModal(true)}
-            >
-              ➕ Add URL
-            </button>
           </div>
 
           {urlLoading ? (
@@ -1236,12 +1227,6 @@ const AssetDiscovery = () => {
                 setAssetGroupCurrentPage(1);
               }}
             />
-            <button
-              className="add-domain-btn-filter"
-              onClick={() => setShowAddAssetGroupModal(true)}
-            >
-              ➕ Add Asset Group
-            </button>
           </div>
 
           {assetGroupLoading ? (

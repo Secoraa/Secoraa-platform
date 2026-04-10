@@ -248,10 +248,10 @@
 }
 
 .summary-total .summary-number { color: var(--text-primary); }
-.summary-critical .summary-number { color: #ff4757; }
-.summary-high .summary-number { color: #ff6b35; }
-.summary-medium .summary-number { color: #ffa502; }
-.summary-low .summary-number { color: #2ed573; }
+.summary-critical .summary-number { color: #dc2626; }
+.summary-high .summary-number { color: #ea580c; }
+.summary-medium .summary-number { color: #d97706; }
+.summary-low .summary-number { color: #16a34a; }
 
 /* Findings Section */
 .findings-section {
@@ -307,10 +307,10 @@
   border-color: var(--primary-color);
 }
 
-.filter-btn.active.filter-critical { background: #ff4757; border-color: #ff4757; }
-.filter-btn.active.filter-high { background: #ff6b35; border-color: #ff6b35; }
-.filter-btn.active.filter-medium { background: #ffa502; border-color: #ffa502; }
-.filter-btn.active.filter-low { background: #2ed573; border-color: #2ed573; }
+.filter-btn.active.filter-critical { background: #dc2626; border-color: #dc2626; }
+.filter-btn.active.filter-high { background: #ea580c; border-color: #ea580c; }
+.filter-btn.active.filter-medium { background: #d97706; border-color: #d97706; }
+.filter-btn.active.filter-low { background: #16a34a; border-color: #16a34a; }
 
 .filter-count {
   background: rgba(255, 255, 255, 0.2);
@@ -450,18 +450,18 @@
 }
 
 .confidence-high {
-  background: rgba(46, 213, 115, 0.15);
-  color: #2ed573;
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
 }
 
 .confidence-medium {
-  background: rgba(255, 165, 2, 0.15);
-  color: #ffa502;
+  background: rgba(217, 119, 6, 0.1);
+  color: #d97706;
 }
 
 .confidence-low {
-  background: rgba(112, 161, 255, 0.15);
-  color: #70a1ff;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
 }
 
 .ref-link {

@@ -4,8 +4,9 @@ import { getAllFindings, getDomains, getIPAddresses, getSubdomains, getUrls, get
 import './Dashboard.css';
 
 const severityWeight = (sev) => {
-  const s = String(sev || 'INFO').toUpperCase();
-  return { CRITICAL: 100, HIGH: 80, MEDIUM: 55, LOW: 25, INFO: 10 }.hasOwnProperty(s) ? { CRITICAL: 100, HIGH: 80, MEDIUM: 55, LOW: 25, INFO: 10 }[s] : 10;
+  const s = String(sev || 'INFORMATIONAL').toUpperCase();
+  const weights = { CRITICAL: 100, HIGH: 80, MEDIUM: 55, LOW: 25, INFORMATIONAL: 10 };
+  return weights[s] ?? 10;
 };
 
 const safeArray = (v) => (Array.isArray(v) ? v : (Array.isArray(v?.data) ? v.data : []));
@@ -31,7 +32,7 @@ const Dashboard = () => {
     HIGH: true,
     MEDIUM: true,
     LOW: true,
-    INFO: true,
+    INFORMATIONAL: true,
   });
 
   const load = async () => {
@@ -82,9 +83,9 @@ const Dashboard = () => {
   }, [domains, subdomains, ips, urls, findings]);
 
   const sevCounts = useMemo(() => {
-    const out = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0 };
+    const out = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFORMATIONAL: 0 };
     for (const f of findings || []) {
-      const s = String(f.severity || 'INFO').toUpperCase();
+      const s = String(f.severity || 'INFORMATIONAL').toUpperCase();
       out[s] = (out[s] || 0) + 1;
     }
     return out;
@@ -158,15 +159,15 @@ const Dashboard = () => {
       HIGH: initCounts(),
       MEDIUM: initCounts(),
       LOW: initCounts(),
-      INFO: initCounts(),
+      INFORMATIONAL: initCounts(),
     };
 
     for (const f of findings || []) {
-      const sev = String(f.severity || 'INFO').toUpperCase();
+      const sev = String(f.severity || 'INFORMATIONAL').toUpperCase();
       const k = monthKey(f.created_at);
       if (!k) continue;
       if (!String(k).startsWith(String(year))) continue;
-      const bucket = bySev[sev] ? sev : 'INFO';
+      const bucket = bySev[sev] ? sev : 'INFORMATIONAL';
       bySev[bucket][k] = (bySev[bucket][k] || 0) + 1;
     }
 
@@ -175,10 +176,10 @@ const Dashboard = () => {
       HIGH: '#fb7185',
       MEDIUM: '#f59e0b',
       LOW: '#38bdf8',
-      INFO: '#94a3b8',
+      INFORMATIONAL: '#16a34a',
     };
 
-    return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'].map((sev) => ({
+    return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFORMATIONAL'].map((sev) => ({
       key: sev,
       color: colors[sev],
       points: months.map((m) => ({ month: m, value: bySev[sev][m] || 0 })),
@@ -206,9 +207,6 @@ const Dashboard = () => {
 
       <div className="dash-header">
         <div className="dash-breadcrumb">ASM / <span>Dashboard</span></div>
-        <button className="dash-refresh" type="button" onClick={load} disabled={loading}>
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
       </div>
 
       {serviceHealth && serviceHealth.status !== 'healthy' && (
@@ -307,13 +305,13 @@ const Dashboard = () => {
             emptyLabel="No vulnerability trend data yet."
           />
           <div className="dash-legend">
-            {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']).map((sev) => {
+            {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFORMATIONAL']).map((sev) => {
               const cls =
                 sev === 'CRITICAL' ? 'critical' :
                 sev === 'HIGH' ? 'high' :
                 sev === 'MEDIUM' ? 'medium' :
-                sev === 'LOW' ? 'low' : 'info';
-              const label = sev === 'INFO' ? 'Informational' : (sev[0] + sev.slice(1).toLowerCase());
+                sev === 'LOW' ? 'low' : 'informational';
+              const label = sev === 'INFORMATIONAL' ? 'Informational' : (sev[0] + sev.slice(1).toLowerCase());
               const isOn = !!visibleSeverities?.[sev];
               // Keep at least 1 series visible
               const canToggleOff = isOn ? (Object.values(visibleSeverities || {}).filter(Boolean).length > 1) : true;
@@ -383,7 +381,7 @@ const Dashboard = () => {
                   <tr key={`${f.issue || f.name || 'f'}-${idx}`}>
                     <td>{f.issue || f.name || '-'}</td>
                     <td className="dash-mono">{(f.asset_url || '-')}</td>
-                    <td><span className={`pill ${String(f.severity || 'info').toLowerCase()}`}>{String(f.severity || 'INFO').toUpperCase()}</span></td>
+                    <td><span className={`pill ${String(f.severity || 'informational').toLowerCase()}`}>{String(f.severity || 'INFORMATIONAL').toUpperCase()}</span></td>
                   </tr>
                 ))
               )}
@@ -412,9 +410,17 @@ const SeverityPill = ({ weight }) => {
     weight >= 100 ? 'critical' :
     weight >= 80 ? 'high' :
     weight >= 55 ? 'medium' :
-    weight >= 25 ? 'low' : 'info';
+    weight >= 25 ? 'low' : 'informational';
   const label = sev.toUpperCase();
   return <span className={`pill ${sev}`}>{label}</span>;
+};
+
+const getRiskMeta = (v) => {
+  if (v >= 9)  return { label: 'Critical', color: '#dc2626' };
+  if (v >= 7)  return { label: 'High',     color: '#ef4444' };
+  if (v >= 4)  return { label: 'Medium',   color: '#f59e0b' };
+  if (v >= 1)  return { label: 'Low',      color: '#3b82f6' };
+  return { label: 'Info', color: '#22c55e' };
 };
 
 const Gauge = ({ value }) => {
@@ -431,16 +437,20 @@ const Gauge = ({ value }) => {
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   };
   const pNeedle = polar(ang);
+  const { label, color } = getRiskMeta(v);
   return (
-    <svg width="240" height="140" viewBox="0 0 240 140" className="dash-gauge">
-      <path d={arcPath(cx, cy, r, 200, 235)} stroke="#22c55e" strokeWidth="10" fill="none" strokeLinecap="round" />
-      <path d={arcPath(cx, cy, r, 236, 280)} stroke="#3b82f6" strokeWidth="10" fill="none" strokeLinecap="round" />
-      <path d={arcPath(cx, cy, r, 281, 310)} stroke="#f59e0b" strokeWidth="10" fill="none" strokeLinecap="round" />
-      <path d={arcPath(cx, cy, r, 311, 340)} stroke="#ef4444" strokeWidth="10" fill="none" strokeLinecap="round" />
-      <line x1={cx} y1={cy} x2={pNeedle.x} y2={pNeedle.y} stroke="#0f172a" strokeWidth="3" />
-      <circle cx={cx} cy={cy} r="6" fill="#0f172a" />
-      <text x="120" y="95" textAnchor="middle" className="dash-gauge-value">{v.toFixed(1)}</text>
-    </svg>
+    <div>
+      <svg width="300" height="175" viewBox="0 0 240 140" className="dash-gauge">
+        <path d={arcPath(cx, cy, r, 200, 235)} stroke="#22c55e" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d={arcPath(cx, cy, r, 236, 280)} stroke="#3b82f6" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d={arcPath(cx, cy, r, 281, 310)} stroke="#f59e0b" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <path d={arcPath(cx, cy, r, 311, 340)} stroke="#ef4444" strokeWidth="10" fill="none" strokeLinecap="round" />
+        <line x1={cx} y1={cy} x2={pNeedle.x} y2={pNeedle.y} stroke="#0f172a" strokeWidth="3" />
+        <circle cx={cx} cy={cy} r="6" fill="#0f172a" />
+        <text x="120" y="95" textAnchor="middle" className="dash-gauge-value" fill={color}>{v.toFixed(1)}</text>
+      </svg>
+      <div className="dash-gauge-label" style={{ color }}>{label}</div>
+    </div>
   );
 };
 
@@ -512,11 +522,11 @@ const TrendChart = ({ points }) => {
     <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-trend">
       {/* grid */}
       {[0.25, 0.5, 0.75, 1].map((t) => (
-        <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(148,163,184,0.15)" />
+        <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(107,114,128,0.15)" />
       ))}
       <path d={d} fill="none" stroke="#60a5fa" strokeWidth="2.5" />
       {pts.map((p, i) => (
-        <circle key={p.month} cx={xFor(i)} cy={yFor(p.value)} r="3.2" fill="#e2e8f0" />
+        <circle key={p.month} cx={xFor(i)} cy={yFor(p.value)} r="3.2" fill="#2563eb" />
       ))}
       {/* x labels */}
       {pts.map((p, i) => {
@@ -569,7 +579,7 @@ const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
       <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-trend">
         {/* grid */}
         {[0.25, 0.5, 0.75, 1].map((t) => (
-          <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(148,163,184,0.15)" />
+          <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(107,114,128,0.15)" />
         ))}
 
         {!hasData ? (
@@ -581,7 +591,7 @@ const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
             <g key={line.key}>
               <path d={pathFor(line.points)} fill="none" stroke={line.color} strokeWidth="2.5" />
               {(line.points || []).map((p, i) => (
-                <circle key={`${line.key}-${p.month}`} cx={xFor(i)} cy={yFor(Number(p.value || 0))} r="2.8" fill="#e2e8f0" />
+                <circle key={`${line.key}-${p.month}`} cx={xFor(i)} cy={yFor(Number(p.value || 0))} r="2.8" fill={line.color} />
               ))}
             </g>
           ))
@@ -616,7 +626,7 @@ const BarChart = ({ bars }) => {
   return (
     <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-bars">
       {[0.25, 0.5, 0.75, 1].map((t) => (
-        <line key={t} x1={padL} x2={w - padR} y1={padT + (h - padT - padB) * (1 - t)} y2={padT + (h - padT - padB) * (1 - t)} stroke="rgba(148,163,184,0.15)" />
+        <line key={t} x1={padL} x2={w - padR} y1={padT + (h - padT - padB) * (1 - t)} y2={padT + (h - padT - padB) * (1 - t)} stroke="rgba(107,114,128,0.15)" />
       ))}
       {items.map((b, i) => {
         const x = padL + (i + 0.25) * ((w - padL - padR) / items.length);
@@ -642,7 +652,7 @@ const StackedSeverityBar = ({ counts }) => {
     { key: 'HIGH', value: Number(c.HIGH || 0), color: '#fb7185' },
     { key: 'MEDIUM', value: Number(c.MEDIUM || 0), color: '#f59e0b' },
     { key: 'LOW', value: Number(c.LOW || 0), color: '#38bdf8' },
-    { key: 'INFO', value: Number(c.INFO || 0), color: '#94a3b8' },
+    { key: 'INFORMATIONAL', value: Number(c.INFORMATIONAL || 0), color: '#16a34a' },
   ];
   const total = parts.reduce((a, b) => a + b.value, 0);
   return (

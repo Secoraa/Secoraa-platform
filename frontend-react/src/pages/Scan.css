@@ -1,7 +1,7 @@
 .scan-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,6 +15,7 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .scan-modal-content h3 {
@@ -524,8 +525,8 @@
   border-radius: 10px;
   font-size: 0.65rem;
   font-weight: 600;
-  background: rgba(255, 71, 87, 0.15);
-  color: #ff4757;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 .scan-actions {
@@ -649,7 +650,7 @@
   border-top: 1px solid var(--border-color);
   margin-top: 12px;
   z-index: 5;
-  box-shadow: 0 -6px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .btn-primary svg {

@@ -4,7 +4,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   z-index: 2000;
   overflow: hidden;
 }
@@ -57,9 +57,9 @@
 }
 
 .dhm-tab.active {
-  background: rgba(59, 130, 246, 0.10);
-  border-color: rgba(59, 130, 246, 0.25);
-  color: var(--text-primary);
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--primary-color);
 }
 
 .dhm-body {
@@ -111,9 +111,9 @@
   flex-shrink: 0;
 }
 
-.dhm-sev.sev-critical { background: rgba(239, 68, 68, 0.10); border-color: rgba(239, 68, 68, 0.22); color: #991b1b; }
-.dhm-sev.sev-high { background: rgba(244, 63, 94, 0.10); border-color: rgba(244, 63, 94, 0.22); color: #9f1239; }
-.dhm-sev.sev-medium { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.22); color: #92400e; }
-.dhm-sev.sev-low { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.22); color: #075985; }
-.dhm-sev.sev-info { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.22); color: #334155; }
-
+.dhm-sev.sev-critical { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #dc2626; }
+.dhm-sev.sev-high { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.3); color: #e11d48; }
+.dhm-sev.sev-medium { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #d97706; }
+.dhm-sev.sev-low { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #0284c7; }
+.dhm-sev.sev-info { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }
+.dhm-sev.sev-informational { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }

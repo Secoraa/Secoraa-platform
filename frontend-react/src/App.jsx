@@ -20,6 +20,7 @@ function App() {
   const [selectedDomainId, setSelectedDomainId] = useState(null);
   const [token, setToken] = useState(() => getStoredToken());
   const [userClaims, setUserClaims] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   useEffect(() => {
     const t = getStoredToken();
@@ -38,13 +39,14 @@ function App() {
   }, [token]);
 
   useEffect(() => {
-    // Always land on dashboard on refresh — clear any stale query params
     if (!token) return;
     try {
       const url = new URL(window.location.href);
-      if (url.searchParams.has('domain')) {
-        url.searchParams.delete('domain');
-        window.history.replaceState({}, '', url.toString());
+      const domainParam = url.searchParams.get('domain');
+      if (domainParam) {
+        setSelectedDomainId(domainParam);
+        setActivePage('domain-details');
+        return;
       }
     } catch {
       // ignore
@@ -52,8 +54,11 @@ function App() {
     setActivePage('dashboard');
   }, [token]);
 
+  const [scanInitialTab, setScanInitialTab] = useState(null);
+
   const handleBackToScan = () => {
     setSelectedScanId(null);
+    setScanInitialTab('history');
     setActivePage('scan');
   };
 
@@ -79,8 +84,9 @@ function App() {
       case 'domain-details':
         return <DomainDetails domainId={selectedDomainId} onBack={handleCloseDomainDetails} />;
       case 'scan':
-        return <Scan onViewResults={(scanId) => {
+        return <Scan initialTab={scanInitialTab} onViewResults={(scanId) => {
           setSelectedScanId(scanId);
+          setScanInitialTab(null);
           setActivePage('scan-results');
         }} />;
       case 'scan-results':
@@ -91,7 +97,7 @@ function App() {
         return <Reporting />;
       case 'settings':
         return (
-          <div style={{ marginLeft: '260px', padding: '2rem' }}>
+          <div style={{ padding: '2rem' }}>
             <h1>SETTINGS</h1>
             <p>Settings - Coming soon</p>
           </div>
@@ -115,12 +121,14 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
       <Sidebar 
         activePage={activePage} 
         setActivePage={setActivePage}
         tenant={userClaims?.tenant}
         username={userClaims?.sub}
+        collapsed={sidebarCollapsed}
+        onToggle={() => setSidebarCollapsed(prev => !prev)}
       />
       <Header
         tenant={userClaims?.tenant}

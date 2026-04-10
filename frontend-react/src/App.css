@@ -11,5 +11,9 @@
   margin-top: 64px;
   min-height: calc(100vh - 64px);
   background-color: var(--bg-primary);
+  transition: margin-left 0.25s ease;
 }
 
+.sidebar-collapsed .main-content {
+  margin-left: 64px;
+}

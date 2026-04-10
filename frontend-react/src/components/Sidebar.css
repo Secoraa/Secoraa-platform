@@ -1,26 +1,74 @@
+/* ── Base sidebar (light background matching reference) ── */
 .sidebar {
+  --text-primary: #1e293b;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --bg-secondary: #f0f2f5;
+  --bg-tertiary: #f8f9fa;
+
   width: 260px;
   height: 100vh;
   background-color: var(--bg-sidebar);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid #e5e7eb;
   position: fixed;
   left: 0;
   top: 0;
   z-index: 1000;
+  transition: width 0.25s ease;
+  overflow: hidden;
 }
 
+/* ── Collapsed (resting) ── */
+.sidebar.collapsed {
+  width: 64px;
+}
+
+/* ── Collapsed + hovered → expand as overlay ── */
+.sidebar.collapsed:hover {
+  width: 260px;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ===========================
+   HEADER
+   =========================== */
 .sidebar-header {
-  padding: 1.5rem 1rem;
+  padding: 1.25rem 1rem;
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 64px;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 1.25rem 0.75rem;
+}
+
+.sidebar.collapsed:hover .sidebar-header {
+  justify-content: space-between;
+  padding: 1.25rem 1rem;
 }
 
 .sidebar-logo {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .sidebar-logo {
+  justify-content: center;
+}
+
+.sidebar.collapsed:hover .sidebar-logo {
+  justify-content: flex-start;
 }
 
 .logo-image {
@@ -37,22 +85,68 @@
 .logo-text {
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #FF8C42 0%, #00A8FF 100%);
+  background: linear-gradient(135deg, #3b5998 0%, #2c4a85 50%, #1e3a6e 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
+/* Hide logo text & toggle when collapsed (show on hover) */
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .sidebar-toggle {
+  display: none;
+}
+
+.sidebar.collapsed:hover .logo-text,
+.sidebar.collapsed:hover .sidebar-toggle {
+  display: flex;
+}
+
+/* ── Toggle button ── */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.sidebar-toggle:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background-color: var(--bg-secondary);
+}
+
+/* ===========================
+   SECTION CONTENT
+   =========================== */
 .sidebar-section {
   flex: 1;
   padding: 1rem 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* ASM Section */
+/* ── ASM section ── */
 .asm-section {
+  margin-bottom: 1rem;
+}
+
+.sidebar.collapsed .asm-section {
+  margin-bottom: 0;
+}
+
+.sidebar.collapsed:hover .asm-section {
   margin-bottom: 1rem;
 }
 
@@ -85,13 +179,15 @@
   align-items: center;
   justify-content: center;
   width: 1.5rem;
-  height: 1.25rem;
+  height: 1.5rem;
   color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .asm-icon svg {
   color: inherit;
+  width: 100%;
+  height: 100%;
 }
 
 .asm-header:hover .asm-icon {
@@ -104,6 +200,7 @@
   text-transform: uppercase;
   color: var(--text-secondary);
   letter-spacing: 0.05em;
+  white-space: nowrap;
 }
 
 .asm-arrow {
@@ -117,14 +214,45 @@
   transform: rotate(180deg);
 }
 
-.asm-nav {
-  padding-left: 0.5rem;
+/* Collapsed: hide ASM label, arrow, sub-items */
+.sidebar.collapsed .section-label,
+.sidebar.collapsed .asm-arrow,
+.sidebar.collapsed .asm-nav {
+  display: none;
 }
 
+/* Collapsed: center the ASM header icon */
+.sidebar.collapsed .asm-header {
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
+}
+
+/* Collapsed + hover: restore everything */
+.sidebar.collapsed:hover .section-label,
+.sidebar.collapsed:hover .asm-arrow {
+  display: inline-block;
+}
+
+.sidebar.collapsed:hover .asm-nav {
+  display: flex;
+}
+
+.sidebar.collapsed:hover .asm-header {
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+
+/* ===========================
+   NAV ITEMS
+   =========================== */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.asm-nav {
+  padding-left: 0.5rem;
 }
 
 .nav-item {
@@ -132,7 +260,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  padding-left: 2.5rem; /* Indent for ASM items */
+  padding-left: 2.5rem;
   background: none;
   border: none;
   color: var(--text-primary);
@@ -141,10 +269,12 @@
   font-size: 0.875rem;
   transition: all 0.2s;
   border-left: 3px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-.sidebar-nav:not(.asm-nav) .nav-item {
-  padding-left: 1rem; /* Normal padding for non-ASM items */
+.other-nav .nav-item {
+  padding-left: 1rem;
 }
 
 .nav-item:hover {
@@ -153,9 +283,16 @@
 }
 
 .nav-item.active {
-  background-color: var(--bg-secondary);
-  color: var(--primary-color);
-  border-left-color: var(--primary-color);
+  background-color: var(--primary-color);
+  color: #ffffff;
+  border-left-color: transparent;
+  border-radius: 8px;
+  margin: 0 0.5rem;
+}
+
+.nav-item.active:hover {
+  background-color: var(--primary-hover);
+  color: #ffffff;
 }
 
 .nav-icon {
@@ -176,18 +313,51 @@
   height: 100%;
 }
 
-/* Ensure Help icon is white */
-.nav-item .nav-icon svg[style*="color: white"] {
-  color: white !important;
-}
-
 .nav-label {
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
+/* Collapsed: hide nav labels, center parent icons */
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+
+.sidebar.collapsed .other-nav .nav-item {
+  justify-content: center;
+  padding: 0.75rem 0;
+  padding-left: 0;
+}
+
+/* Collapsed + hover: restore labels and padding */
+.sidebar.collapsed:hover .nav-label {
+  display: inline;
+}
+
+.sidebar.collapsed:hover .other-nav .nav-item {
+  justify-content: flex-start;
+  padding: 0.75rem 1rem;
+}
+
+.sidebar.collapsed:hover .asm-nav .nav-item {
+  padding-left: 2.5rem;
+}
+
+/* ===========================
+   FOOTER
+   =========================== */
 .sidebar-footer {
   padding: 1rem;
   border-top: 1px solid var(--border-color);
+}
+
+.sidebar.collapsed .sidebar-footer {
+  display: none;
+}
+
+.sidebar.collapsed:hover .sidebar-footer {
+  display: block;
 }
 
 .user-info {
@@ -203,4 +373,12 @@
 
 .user-org {
   font-size: 0.75rem;
+}
+
+.sidebar-copyright {
+  margin-top: 0.75rem;
+  font-size: 0.625rem;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  text-align: center;
 }

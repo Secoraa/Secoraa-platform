@@ -1,17 +1,18 @@
-/* Secoraa Light Theme */
+/* Secoraa Light Professional Theme */
 :root {
-  --primary-color: #4F46E5;
-  --primary-hover: #4338CA;
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F9FAFB;
-  --bg-tertiary: #F3F4F6;
-  --bg-sidebar: #FFFFFF;
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --border-color: #E5E7EB;
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8f9fa;
+  --bg-sidebar: #ffffff;
+  --text-primary: #1e293b;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
   --success-color: #10B981;
   --error-color: #EF4444;
   --warning-color: #F59E0B;
+  --accent-primary: #2563eb;
 }
 
 /* Scrollbar styling */
@@ -21,15 +22,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: #f0f2f5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #D1D5DB;
+  background: #94a3b8;
 }
-
