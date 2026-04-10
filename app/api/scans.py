@@ -52,42 +52,47 @@ class UpdateScheduledScanRequest(BaseModel):
     scheduled_for: datetime
 
 
-def _create_scan_record_and_start_thread(db: SessionLocal, scan_name: str, scan_type: str, payload_dict: dict, created_by: str):
+def _create_scan_record_and_start_thread(
+    db: SessionLocal,
+    scan_name: str,
+    scan_type: str,
+    payload_dict: dict,
+    created_by: str,
+    tenant_users: Optional[List[str]] = None,
+):
     """
     Shared helper used by both the HTTP endpoint and the scheduler worker.
     Creates Scan row and starts background processing for dd/subdomain scans.
+
+    tenant_users: list of usernames belonging to the current tenant.
+                  Duplicate-name check is scoped to this list so two tenants
+                  can independently use the same scan name.
     """
     scanner = SCANNERS.get(scan_type)
     if not scanner:
         raise HTTPException(status_code=400, detail="Invalid scan type")
 
-    # Make scan_name unique if needed
-    try:
-        scan = Scan(
-            scan_name=scan_name,
-            scan_type=scan_type,
-            status="IN_PROGRESS",
-            created_at=datetime.utcnow(),
-            created_by=created_by,
+    # Scope duplicate check to the current tenant's users only
+    dup_query = db.query(Scan).filter(Scan.scan_name == scan_name)
+    if tenant_users:
+        dup_query = dup_query.filter(Scan.created_by.in_(tenant_users))
+    existing = dup_query.first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail=f"A scan named '{scan_name}' already exists in your organisation. Please choose a different name.",
         )
-        db.add(scan)
-        db.commit()
-        db.refresh(scan)
-    except Exception as db_error:
-        if "unique" in str(db_error).lower() or "duplicate" in str(db_error).lower():
-            scan_name = f"{scan_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-            scan = Scan(
-                scan_name=scan_name,
-                scan_type=scan_type,
-                status="IN_PROGRESS",
-                created_at=datetime.utcnow(),
-                created_by=created_by,
-            )
-            db.add(scan)
-            db.commit()
-            db.refresh(scan)
-        else:
-            raise
+
+    scan = Scan(
+        scan_name=scan_name,
+        scan_type=scan_type,
+        status="IN_PROGRESS",
+        created_at=datetime.utcnow(),
+        created_by=created_by,
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     thread = threading.Thread(
         target=process_scan_background,
@@ -491,12 +496,14 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
             if subdomains and domain_name and scan_type != "vulnerability":
                 logger.info(f"Saving {len(subdomains)} subdomains to database for domain: {domain_name}")
                 
-                # 3a. Get or create Domain record (normalize domain name for lookup)
-                stmt = Select(Domain).filter(Domain.domain_name == domain_name)
+                # 3a. Get or create Domain record (tenant-scoped lookup)
+                stmt = Select(Domain).filter(
+                    Domain.domain_name == domain_name,
+                    Domain.created_by == created_by
+                )
                 domain = db.execute(stmt).scalars().first()
                 
                 if not domain:
-                    # Create domain if it doesn't exist (auto-discovered from scan)
                     domain = Domain(
                         domain_name=domain_name,
                         discovery_source="auto_discovered",
@@ -560,6 +567,7 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             subdomain = Subdomain(
                                 domain_id=domain.id,
                                 subdomain_name=subdomain_name,
+                                discovery_source="auto_discovered",
                                 created_by=created_by,
                                 updated_by=created_by
                             )
@@ -1050,12 +1058,15 @@ def create_scan(
         payload_dict["tenant"] = str(claims.get("tenant") or "default").strip()
 
     try:
+        # Resolve all usernames in this tenant once — used for both asset-group
+        # ownership checks and the per-tenant duplicate scan-name check.
+        tenant_users = get_tenant_usernames(db, claims)
+
         if str(scan_type or "").lower() == "asset_group":
             asset_group_id = payload_dict.get("asset_group_id")
             if not asset_group_id:
                 raise HTTPException(status_code=400, detail="asset_group_id is required for asset group scan")
 
-            tenant_users = get_tenant_usernames(db, claims)
             group = (
                 db.query(AssetGroup)
                 .options(
@@ -1095,6 +1106,7 @@ def create_scan(
                         "subdomain",
                         {"domain": domain_name, "subdomains": [sub_name]},
                         created_by,
+                        tenant_users=tenant_users,
                     )
                     started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "subdomain"})
                 elif item.ip_id:
@@ -1108,6 +1120,7 @@ def create_scan(
                         "network",
                         {"target_ip": ip_value},
                         created_by,
+                        tenant_users=tenant_users,
                     )
                     started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "network"})
 
@@ -1120,7 +1133,9 @@ def create_scan(
                 "scans": started,
             }
 
-        scan, final_scan_name = _create_scan_record_and_start_thread(db, scan_name, scan_type, payload_dict, created_by)
+        scan, final_scan_name = _create_scan_record_and_start_thread(
+            db, scan_name, scan_type, payload_dict, created_by, tenant_users=tenant_users
+        )
         logger.info(f"Started background thread for scan {scan.id}")
 
         # 3️⃣ Return immediately with scan info
@@ -1131,12 +1146,12 @@ def create_scan(
             "message": "Scan started successfully"
         }
 
+    except HTTPException:
+        raise
     except Exception as exc:
         db.rollback()
         logger.error(f"Error creating scan: {exc}", exc_info=True)
-        import traceback
-        error_detail = f"{str(exc)}\n\nTraceback:\n{traceback.format_exc()}"
-        raise HTTPException(status_code=500, detail=error_detail)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while creating the scan.")
 
     finally:
         db.close()

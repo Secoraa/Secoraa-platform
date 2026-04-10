@@ -130,7 +130,8 @@ def get_subdomain(
             result.append({
                 "id": str(subdomain.id),
                 "name": subdomain.subdomain_name,
-                "subdomain_name": subdomain.subdomain_name,  # Keep for backward compatibility
+                "subdomain_name": subdomain.subdomain_name,
+                "discovery_source": subdomain.discovery_source or "manual",
                 "tags": subdomain.tags or [],
                 "domain_name": domain_name,
                 "domain_id": str(subdomain.domain_id) if subdomain.domain_id else None,

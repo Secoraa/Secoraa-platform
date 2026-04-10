@@ -4,6 +4,7 @@
 .env
 .env.*
 .envrc
+.minio-*.password
 
 # =========================
 # Python

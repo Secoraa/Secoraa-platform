@@ -37,14 +37,27 @@ def get_minio_client() -> Minio:
         return client
 
     minio_endpoint = os.getenv("MINIO_ENDPOINT")
-    minio_access_key = os.getenv("MINIO_ACCESS_KEY")
-    minio_secret_key = os.getenv("MINIO_SECRET_KEY")
-    minio_secure = os.getenv("MINIO_SECURE", "true").lower() == "true"
+    # Docker/README use MINIO_ROOT_* for the container; app client expects ACCESS/SECRET.
+    minio_access_key = os.getenv("MINIO_ACCESS_KEY") or os.getenv("MINIO_ROOT_USER")
+    minio_secret_key = os.getenv("MINIO_SECRET_KEY") or os.getenv("MINIO_ROOT_PASSWORD")
+
+    raw_secure = os.getenv("MINIO_SECURE")
+    if raw_secure is not None:
+        minio_secure = raw_secure.lower() == "true"
+    else:
+        # Local MinIO is plain HTTP unless you terminate TLS in front of it.
+        ep = (minio_endpoint or "").lower()
+        minio_secure = not (
+            "localhost" in ep
+            or ep.startswith("127.0.0.1")
+            or ep.startswith("0.0.0.0")
+        )
 
     if not all([minio_endpoint, minio_access_key, minio_secret_key]):
         raise RuntimeError(
             "MinIO is not configured. "
-            "Please set MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY."
+            "Please set MINIO_ENDPOINT and either "
+            "(MINIO_ACCESS_KEY, MINIO_SECRET_KEY) or (MINIO_ROOT_USER, MINIO_ROOT_PASSWORD)."
         )
 
     client = Minio(
