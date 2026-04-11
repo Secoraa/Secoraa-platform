@@ -492,6 +492,9 @@ export const createScanWithPayload = async (scanName, scanType, payload) => {
     if (error.code === 'ECONNABORTED') {
       throw new Error('Scan is taking longer than expected. Please check scan history for results.');
     }
+    // Prefer the API's detail message (e.g. 409 duplicate name) over the generic axios message
+    const detail = error?.response?.data?.detail;
+    if (detail) throw new Error(detail);
     throw new Error(`Failed to run scan: ${error.message}`);
   }
 };

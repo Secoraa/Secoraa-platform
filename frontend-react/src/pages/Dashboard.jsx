@@ -236,18 +236,25 @@ const Dashboard = () => {
       )}
 
       <div className="dash-grid-top">
-        <div className="dash-card dash-card-gauge">
-          <div className="dash-card-title">OVERALL RISK</div>
-          <Gauge value={totals.risk10} />
-          <div className="dash-card-sub">How is this calculated?</div>
-        </div>
+        {(() => {
+          const rv = Math.max(0, Math.min(10, Number(totals.risk10 || 0)));
+          const rm = getRiskMeta(rv);
+          return (
+            <div className="dash-card dash-card-centered">
+              <div className="dash-kpi-value dash-kpi-value--lg" style={{ color: rm.color }}>
+                {rv.toFixed(1)}
+              </div>
+              <div className="dash-kpi-label">OVERALL RISK</div>
+              <div className="dash-risk-badge" style={{ color: rm.color, background: rm.bg, border: `1px solid ${rm.color}33` }}>
+                {rm.label}
+              </div>
+            </div>
+          );
+        })()}
 
-        <div className="dash-card">
-          <div className="dash-card-kpi">
-            <div className="dash-kpi-value">{totals.totalAssets.toLocaleString()}</div>
-            <div className="dash-kpi-label">TOTAL ASSETS</div>
-          </div>
-          <MiniAssetDonut counts={assetTypeCounts} onClick={() => setShowAssetBreakdown(true)} />
+        <div className="dash-card dash-card-centered dash-card-clickable" onClick={() => setShowAssetBreakdown(true)}>
+          <div className="dash-kpi-value dash-kpi-value--lg">{totals.totalAssets.toLocaleString()}</div>
+          <div className="dash-kpi-label">TOTAL ASSETS</div>
         </div>
 
         <div className="dash-card">
@@ -255,17 +262,9 @@ const Dashboard = () => {
             <div className="dash-kpi-value">{totals.totalVulns.toLocaleString()}</div>
             <div className="dash-kpi-label">VULNERABILITIES</div>
           </div>
-          <div className="dash-mini-note">From scans + stored findings</div>
           <StackedSeverityBar counts={sevCounts} />
         </div>
 
-        <div className="dash-card">
-          <div className="dash-card-kpi">
-            <div className="dash-kpi-value">9K</div>
-            <div className="dash-kpi-label">CREDENTIAL BREACH</div>
-          </div>
-          <div className="dash-mini-note">Coming soon</div>
-        </div>
       </div>
 
       {showAssetBreakdown && (
@@ -284,10 +283,9 @@ const Dashboard = () => {
               </div>
 
               <div className="dash-breakdown-grid">
-                <BreakdownRow label="Domains" value={assetTypeCounts.DOMAINS} color="#60a5fa" />
-                <BreakdownRow label="Subdomains" value={assetTypeCounts.SUBDOMAINS} color="#38bdf8" />
-                <BreakdownRow label="IP Addresses" value={assetTypeCounts.IPS} color="#22c55e" />
-                <BreakdownRow label="URLs" value={assetTypeCounts.URLS} color="#f59e0b" />
+                <BreakdownRow label="Subdomains" value={assetTypeCounts.SUBDOMAINS} color="#E0B12B" />
+                <BreakdownRow label="IP Addresses" value={assetTypeCounts.IPS} color="#18A999" />
+                <BreakdownRow label="URLs" value={assetTypeCounts.URLS} color="#9b7fe8" />
               </div>
             </div>
           </div>
@@ -416,53 +414,35 @@ const SeverityPill = ({ weight }) => {
 };
 
 const getRiskMeta = (v) => {
-  if (v >= 9)  return { label: 'Critical', color: '#dc2626' };
-  if (v >= 7)  return { label: 'High',     color: '#ef4444' };
-  if (v >= 4)  return { label: 'Medium',   color: '#f59e0b' };
-  if (v >= 1)  return { label: 'Low',      color: '#3b82f6' };
-  return { label: 'Info', color: '#22c55e' };
+  if (v >= 9)  return { label: 'Critical', color: '#FF4C4C', bg: 'rgba(255,76,76,0.12)',  band: 4 };
+  if (v >= 7)  return { label: 'High',     color: '#FF8A00', bg: 'rgba(255,138,0,0.12)',  band: 3 };
+  if (v >= 4)  return { label: 'Medium',   color: '#E0B12B', bg: 'rgba(224,177,43,0.12)', band: 2 };
+  if (v >= 1)  return { label: 'Low',      color: '#18A999', bg: 'rgba(24,169,153,0.12)', band: 1 };
+  return             { label: 'Secure',    color: '#28C76F', bg: 'rgba(40,199,111,0.12)', band: 0 };
 };
 
-const Gauge = ({ value }) => {
-  const v = Math.max(0, Math.min(10, Number(value || 0)));
-  const pct = v / 10;
-  const start = 200;
-  const end = 340;
-  const ang = start + (end - start) * pct;
-  const cx = 120;
-  const cy = 88;
-  const r = 66;
-  const polar = (deg) => {
-    const rad = (deg * Math.PI) / 180;
-    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-  };
-  const pNeedle = polar(ang);
-  const { label, color } = getRiskMeta(v);
+
+const OverallRiskCard = ({ score, counts }) => {
+  const v = Math.max(0, Math.min(10, Number(score || 0)));
+  const { label, color, bg } = getRiskMeta(v);
+
   return (
-    <div>
-      <svg width="300" height="175" viewBox="0 0 240 140" className="dash-gauge">
-        <path d={arcPath(cx, cy, r, 200, 235)} stroke="#22c55e" strokeWidth="10" fill="none" strokeLinecap="round" />
-        <path d={arcPath(cx, cy, r, 236, 280)} stroke="#3b82f6" strokeWidth="10" fill="none" strokeLinecap="round" />
-        <path d={arcPath(cx, cy, r, 281, 310)} stroke="#f59e0b" strokeWidth="10" fill="none" strokeLinecap="round" />
-        <path d={arcPath(cx, cy, r, 311, 340)} stroke="#ef4444" strokeWidth="10" fill="none" strokeLinecap="round" />
-        <line x1={cx} y1={cy} x2={pNeedle.x} y2={pNeedle.y} stroke="#0f172a" strokeWidth="3" />
-        <circle cx={cx} cy={cy} r="6" fill="#0f172a" />
-        <text x="120" y="95" textAnchor="middle" className="dash-gauge-value" fill={color}>{v.toFixed(1)}</text>
-      </svg>
-      <div className="dash-gauge-label" style={{ color }}>{label}</div>
+    <div className="risk-card">
+      {/* Header */}
+      <div className="risk-card-header">
+        <span className="risk-card-label">OVERALL RISK</span>
+        <span className="risk-card-badge" style={{ color, background: bg, border: `1px solid ${color}33` }}>
+          {label}
+        </span>
+      </div>
+
+      {/* Score number — centered */}
+      <div className="risk-score-wrap">
+        <span className="risk-score-number" style={{ color }}>{v.toFixed(1)}</span>
+        <span className="risk-score-denom">/10</span>
+      </div>
     </div>
   );
-};
-
-const arcPath = (cx, cy, r, a0, a1) => {
-  const toXY = (a) => {
-    const rad = (a * Math.PI) / 180;
-    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
-  };
-  const [x0, y0] = toXY(a0);
-  const [x1, y1] = toXY(a1);
-  const large = a1 - a0 > 180 ? 1 : 0;
-  return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
 };
 
 const MiniAssetDonut = ({ counts, onClick }) => {

@@ -1,18 +1,12 @@
-/* ── Base sidebar (light background matching reference) ── */
+/* ── Base sidebar ── */
 .sidebar {
-  --text-primary: #1e293b;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
-  --bg-secondary: #f0f2f5;
-  --bg-tertiary: #f8f9fa;
-
   width: 260px;
   height: 100vh;
   background-color: var(--bg-sidebar);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #e5e7eb;
+  border-right: 1px solid rgba(224, 177, 43, 0.1);
   position: fixed;
   left: 0;
   top: 0;
@@ -29,7 +23,7 @@
 /* ── Collapsed + hovered → expand as overlay ── */
 .sidebar.collapsed:hover {
   width: 260px;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ===========================
@@ -37,7 +31,7 @@
    =========================== */
 .sidebar-header {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(224, 177, 43, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -85,7 +79,7 @@
 .logo-text {
   font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #3b5998 0%, #2c4a85 50%, #1e3a6e 100%);
+  background: linear-gradient(135deg, #E0B12B 0%, #C79A1F 50%, #F7DA9E 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -124,7 +118,7 @@
 .sidebar-toggle:hover {
   color: var(--primary-color);
   border-color: var(--primary-color);
-  background-color: var(--bg-secondary);
+  background-color: rgba(224, 177, 43, 0.08);
 }
 
 /* ===========================
@@ -158,14 +152,14 @@
   padding: 0.75rem 1rem;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: #6a6870;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .asm-header:hover {
   color: var(--text-primary);
-  background-color: var(--bg-secondary);
+  background-color: rgba(224, 177, 43, 0.06);
 }
 
 .asm-header-left {
@@ -263,7 +257,7 @@
   padding-left: 2.5rem;
   background: none;
   border: none;
-  color: var(--text-primary);
+  color: #8a8890;
   text-align: left;
   cursor: pointer;
   font-size: 0.875rem;
@@ -278,21 +272,21 @@
 }
 
 .nav-item:hover {
-  background-color: var(--bg-secondary);
+  background-color: transparent;
   color: var(--primary-color);
 }
 
 .nav-item.active {
-  background-color: var(--primary-color);
-  color: #ffffff;
-  border-left-color: transparent;
-  border-radius: 8px;
-  margin: 0 0.5rem;
+  background-color: rgba(224, 177, 43, 0.12);
+  color: #E0B12B;
+  border-left-color: #E0B12B;
+  border-radius: 0 8px 8px 0;
+  margin: 0 0.5rem 0 0;
 }
 
 .nav-item.active:hover {
-  background-color: var(--primary-hover);
-  color: #ffffff;
+  background-color: rgba(224, 177, 43, 0.18);
+  color: #E0B12B;
 }
 
 .nav-icon {
@@ -349,7 +343,7 @@
    =========================== */
 .sidebar-footer {
   padding: 1rem;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(224, 177, 43, 0.1);
 }
 
 .sidebar.collapsed .sidebar-footer {

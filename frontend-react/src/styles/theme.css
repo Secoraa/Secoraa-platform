@@ -1,35 +1,45 @@
-/* Secoraa Light Professional Theme */
+/* ============================================================
+   Secoraa — Cyber Gold + Deep Purple Theme
+   Matches login page color system exactly
+   ============================================================ */
 :root {
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-primary: #f0f2f5;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f8f9fa;
-  --bg-sidebar: #ffffff;
-  --text-primary: #1e293b;
-  --text-secondary: #6b7280;
-  --border-color: #e5e7eb;
-  --success-color: #10B981;
-  --error-color: #EF4444;
-  --warning-color: #F59E0B;
-  --accent-primary: #2563eb;
+  /* ── Accent — Cyber Gold ── */
+  --primary-color:    #E0B12B;
+  --primary-hover:    #C79A1F;
+  --accent-primary:   #E0B12B;
+
+  /* ── Backgrounds (match login page surfaces) ── */
+  --bg-primary:    #08090C;         /* page background — deep charcoal */
+  --bg-secondary:  #120F18;         /* card surface — dark purple-tinted */
+  --bg-tertiary:   #1A1721;         /* nested panel / service card */
+  --bg-sidebar:    #0D0A14;         /* sidebar — slightly deeper purple */
+
+  /* ── Text ── */
+  --text-primary:   #F5F3F7;
+  --text-secondary: #B8B6BA;
+
+  /* ── Borders ── */
+  --border-color:   rgba(255, 255, 255, 0.08);
+  --border-gold:    rgba(224, 177, 43, 0.22);
+
+  /* ── Semantic ── */
+  --success-color:  #28C76F;
+  --error-color:    #FF4C4C;
+  --warning-color:  #FF8A00;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ── Base page reset ── */
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #08090C;
+  color: #F5F3F7;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar-track {
-  background: #f0f2f5;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #08090C; }
+::-webkit-scrollbar-thumb { background: #1A1721; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #C79A1F; }

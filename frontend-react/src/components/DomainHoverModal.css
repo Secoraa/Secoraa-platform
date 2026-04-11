@@ -57,8 +57,8 @@
 }
 
 .dhm-tab.active {
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.25);
+  background: rgba(224, 177, 43, 0.1);
+  border-color: rgba(224, 177, 43, 0.3);
   color: var(--primary-color);
 }
 
@@ -111,9 +111,9 @@
   flex-shrink: 0;
 }
 
-.dhm-sev.sev-critical { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #dc2626; }
-.dhm-sev.sev-high { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.3); color: #e11d48; }
-.dhm-sev.sev-medium { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #d97706; }
-.dhm-sev.sev-low { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #0284c7; }
-.dhm-sev.sev-info { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }
-.dhm-sev.sev-informational { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }
+.dhm-sev.sev-critical { background: rgba(255, 76, 76, 0.12); border-color: rgba(255, 76, 76, 0.35); color: #FF4C4C; }
+.dhm-sev.sev-high { background: rgba(255, 76, 76, 0.08); border-color: rgba(255, 76, 76, 0.25); color: #ff6b6b; }
+.dhm-sev.sev-medium { background: rgba(255, 138, 0, 0.12); border-color: rgba(255, 138, 0, 0.3); color: #FF8A00; }
+.dhm-sev.sev-low { background: rgba(24, 169, 153, 0.12); border-color: rgba(24, 169, 153, 0.3); color: #18A999; }
+.dhm-sev.sev-info { background: rgba(40, 199, 111, 0.1); border-color: rgba(40, 199, 111, 0.25); color: #28C76F; }
+.dhm-sev.sev-informational { background: rgba(40, 199, 111, 0.1); border-color: rgba(40, 199, 111, 0.25); color: #28C76F; }

@@ -1,7 +1,7 @@
 .scan-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -15,7 +15,7 @@
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .scan-modal-content h3 {
@@ -272,11 +272,11 @@
   white-space: nowrap;
 }
 
-.api-method-get { background: #2563eb; }
-.api-method-post { background: #16a34a; }
-.api-method-put { background: #f59e0b; }
-.api-method-delete { background: #dc2626; }
-.api-method-patch { background: #7c3aed; }
+.api-method-get { background: rgba(40, 199, 111, 0.15); color: #28C76F; }
+.api-method-post { background: rgba(224, 177, 43, 0.15); color: #E0B12B; }
+.api-method-put { background: rgba(255, 138, 0, 0.15); color: #FF8A00; }
+.api-method-delete { background: rgba(255, 76, 76, 0.15); color: #FF4C4C; }
+.api-method-patch { background: rgba(24, 169, 153, 0.15); color: #18A999; }
 
 .api-path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -525,8 +525,8 @@
   border-radius: 10px;
   font-size: 0.65rem;
   font-weight: 600;
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: rgba(255, 76, 76, 0.1);
+  color: #FF4C4C;
 }
 
 .scan-actions {
@@ -540,7 +540,7 @@
 }
 
 .btn-pause:hover {
-  background-color: #D97706;
+  background-color: #cc6f00;
 }
 
 .btn-resume {
@@ -548,7 +548,7 @@
 }
 
 .btn-resume:hover {
-  background-color: #059669;
+  background-color: #1fa35a;
 }
 
 .btn-terminate {

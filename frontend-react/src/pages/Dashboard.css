@@ -32,13 +32,13 @@
 }
 
 .dash-service-dot.up {
-  background: #22c55e;
-  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+  background: #28C76F;
+  box-shadow: 0 0 4px rgba(40, 199, 111, 0.5);
 }
 
 .dash-service-dot.down {
-  background: #ef4444;
-  box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
+  background: #FF4C4C;
+  box-shadow: 0 0 4px rgba(255, 76, 76, 0.5);
   animation: pulse-dot 1.5s ease-in-out infinite;
 }
 
@@ -60,10 +60,10 @@
   gap: 10px;
   padding: 10px 16px;
   margin-bottom: 10px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(255, 76, 76, 0.08);
+  border: 1px solid rgba(255, 76, 76, 0.2);
   border-radius: 8px;
-  color: #dc2626;
+  color: #FF4C4C;
   font-size: 13px;
   font-weight: 500;
 }
@@ -74,7 +74,7 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  background: #ef4444;
+  background: #FF4C4C;
   color: #fff;
   border-radius: 50%;
   font-size: 13px;
@@ -115,7 +115,7 @@
 
 .dash-grid-top {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1.4fr;
   gap: 14px;
   margin-bottom: 14px;
   align-items: stretch;
@@ -144,8 +144,8 @@
 }
 
 .dash-card:hover {
-  border-color: rgba(37, 99, 235, 0.25);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: rgba(224, 177, 43, 0.2);
+  box-shadow: 0 4px 12px rgba(224, 177, 43, 0.1);
 }
 
 /* Make the 4 top KPI cards the same height */
@@ -153,6 +153,160 @@
   min-height: 180px;
   display: flex;
   flex-direction: column;
+}
+
+.dash-card-centered {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dash-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.dash-card-clickable:hover {
+  border-color: rgba(224, 177, 43, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(224, 177, 43, 0.15) !important;
+  transform: translateY(-2px);
+}
+
+.dash-card-click-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 0.4px;
+  margin-top: 6px;
+}
+
+.dash-card-clickable:hover .dash-card-click-hint {
+  color: rgba(224, 177, 43, 0.5);
+}
+
+.dash-kpi-value--lg {
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -2px;
+  color: var(--primary-color);
+  margin-bottom: 8px;
+}
+
+.dash-risk-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ── Overall Risk Card ── */
+.risk-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+}
+
+.risk-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.risk-card-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.risk-card-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* ── Score number ── */
+.risk-score-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  padding: 16px 0;
+}
+
+.risk-score-number {
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.risk-score-denom {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 4px;
+}
+
+/* ── Severity mini-bars ── */
+.risk-sev-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 6px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.risk-sev-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.risk-sev-key {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.risk-sev-bar-track {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.risk-sev-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.risk-sev-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .dash-card-gauge {
@@ -183,7 +337,7 @@
 }
 
 .dash-card-sub {
-  color: #f59e0b;
+  color: #E0B12B;
   font-size: 12px;
   margin-top: 6px;
 }
@@ -315,7 +469,7 @@
 }
 
 .pill-btn:focus {
-  outline: 2px solid rgba(59, 130, 246, 0.35);
+  outline: 2px solid rgba(224, 177, 43, 0.35);
   outline-offset: 2px;
 }
 
@@ -323,12 +477,12 @@
   opacity: 0.9;
 }
 
-.pill.critical { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: #dc2626; }
-.pill.high { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.3); color: #e11d48; }
-.pill.medium { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #d97706; }
-.pill.low { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #0284c7; }
-.pill.info { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }
-.pill.informational { background: rgba(22, 163, 106, 0.1); border-color: rgba(22, 163, 106, 0.25); color: #059669; }
+.pill.critical { background: rgba(255, 76, 76, 0.12); border-color: rgba(255, 76, 76, 0.3); color: #FF4C4C; }
+.pill.high { background: rgba(255, 76, 76, 0.08); border-color: rgba(255, 76, 76, 0.25); color: #ff6b6b; }
+.pill.medium { background: rgba(255, 138, 0, 0.12); border-color: rgba(255, 138, 0, 0.3); color: #FF8A00; }
+.pill.low { background: rgba(24, 169, 153, 0.12); border-color: rgba(24, 169, 153, 0.3); color: #18A999; }
+.pill.info { background: rgba(40, 199, 111, 0.1); border-color: rgba(40, 199, 111, 0.25); color: #28C76F; }
+.pill.informational { background: rgba(40, 199, 111, 0.1); border-color: rgba(40, 199, 111, 0.25); color: #28C76F; }
 
 .dash-gauge-value {
   font-size: 44px;
@@ -359,7 +513,7 @@
 }
 
 .dash-mini-donut-btn:focus {
-  outline: 2px solid rgba(59, 130, 246, 0.35);
+  outline: 2px solid rgba(224, 177, 43, 0.35);
   outline-offset: 4px;
   border-radius: 12px;
 }
@@ -523,7 +677,7 @@
 
 @media (max-width: 1100px) {
   .dash-grid-top {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
   .dash-grid-mid {
     grid-template-columns: 1fr;

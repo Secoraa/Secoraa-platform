@@ -61,12 +61,12 @@
 }
 
 .domain-details-tab.active {
-  border-color: rgba(37, 99, 235, 0.45);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: rgba(224, 177, 43, 0.45);
+  box-shadow: 0 0 0 3px rgba(224, 177, 43, 0.1);
 }
 
 .pill {
-  background: rgba(37, 99, 235, 0.08);
+  background: rgba(224, 177, 43, 0.1);
   color: var(--primary-color);
   border-radius: 999px;
   padding: 2px 8px;
@@ -188,7 +188,7 @@
 .desc-toggle {
   border: none;
   background: transparent;
-  color: var(--primary-color);
+  color: #E0B12B;
   cursor: pointer;
   padding: 0;
   font-size: 12px;

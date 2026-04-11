@@ -248,10 +248,10 @@
 }
 
 .summary-total .summary-number { color: var(--text-primary); }
-.summary-critical .summary-number { color: #dc2626; }
-.summary-high .summary-number { color: #ea580c; }
-.summary-medium .summary-number { color: #d97706; }
-.summary-low .summary-number { color: #16a34a; }
+.summary-critical .summary-number { color: #FF4C4C; }
+.summary-high .summary-number { color: #ff6b6b; }
+.summary-medium .summary-number { color: #FF8A00; }
+.summary-low .summary-number { color: #28C76F; }
 
 /* Findings Section */
 .findings-section {
@@ -303,14 +303,14 @@
 
 .filter-btn.active {
   background: var(--primary-color);
-  color: #fff;
+  color: #0D0D0D;
   border-color: var(--primary-color);
 }
 
-.filter-btn.active.filter-critical { background: #dc2626; border-color: #dc2626; }
-.filter-btn.active.filter-high { background: #ea580c; border-color: #ea580c; }
-.filter-btn.active.filter-medium { background: #d97706; border-color: #d97706; }
-.filter-btn.active.filter-low { background: #16a34a; border-color: #16a34a; }
+.filter-btn.active.filter-critical { background: #FF4C4C; border-color: #FF4C4C; color: #fff; }
+.filter-btn.active.filter-high { background: #ff6b6b; border-color: #ff6b6b; color: #fff; }
+.filter-btn.active.filter-medium { background: #FF8A00; border-color: #FF8A00; color: #fff; }
+.filter-btn.active.filter-low { background: #28C76F; border-color: #28C76F; color: #fff; }
 
 .filter-count {
   background: rgba(255, 255, 255, 0.2);
@@ -432,7 +432,7 @@
 
 .detail-value-code {
   font-size: 0.8rem;
-  color: var(--primary-color);
+  color: #E0B12B;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   background: var(--bg-secondary);
   padding: 0.25rem 0.5rem;
@@ -450,24 +450,24 @@
 }
 
 .confidence-high {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16a34a;
+  background: rgba(40, 199, 111, 0.12);
+  color: #28C76F;
 }
 
 .confidence-medium {
-  background: rgba(217, 119, 6, 0.1);
-  color: #d97706;
+  background: rgba(255, 138, 0, 0.12);
+  color: #FF8A00;
 }
 
 .confidence-low {
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+  background: rgba(24, 169, 153, 0.12);
+  color: #18A999;
 }
 
 .ref-link {
   display: block;
   font-size: 0.8rem;
-  color: var(--primary-color);
+  color: #E0B12B;
   text-decoration: none;
   word-break: break-all;
 }
