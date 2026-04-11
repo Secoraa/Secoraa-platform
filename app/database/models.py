@@ -44,7 +44,7 @@ class Scan(Base):
     __tablename__ = "scans"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scan_name = Column(String, unique=True, nullable=False)
+    scan_name = Column(String, nullable=False)
     scan_type = Column(String, nullable=False)
     status = Column(String, nullable=False, default="Running")
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -168,7 +168,6 @@ class Domain(Base):
     )
 
 
-# TODO: Manaully Added or autodiscovered
 class Subdomain(Base):
     __tablename__ = "subdomains"
 
@@ -177,14 +176,15 @@ class Subdomain(Base):
     domain_id = Column(
         UUID(as_uuid=True),
         ForeignKey("domains.id", ondelete="CASCADE"),
-        nullable=False,   # ❗ Subdomain MUST belong to a Domain
+        nullable=False,
     )
 
     subdomain_name = Column(String, nullable=False)
+    discovery_source = Column(String, default="manual")
     tags = Column(ARRAY(String), nullable=True)
     is_reachable = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
-    is_archived = Column(Boolean, default= False)
+    is_archived = Column(Boolean, default=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(

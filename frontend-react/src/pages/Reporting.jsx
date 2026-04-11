@@ -213,8 +213,8 @@ const Reporting = () => {
                           const variant = parts.slice(1).join('_') || '';
                           const assessmentLabel =
                             assessment === 'DOMAIN' ? 'Domain' :
-                            assessment === 'WEBSCAN' ? 'Webscan (Subdomain)' :
-                            assessment === 'API' || assessment === 'API_TESTING' ? 'API Testing' :
+                            assessment === 'WEBSCAN' ? 'Web Scan' :
+                            assessment === 'API' || assessment === 'API_TESTING' ? 'API Scan' :
                             assessment;
                           const variantLabel =
                             variant === 'EXEC_SUMMARY' ? 'Executive Summary' :
@@ -270,8 +270,8 @@ const Reporting = () => {
                   }}
                 >
                   <option value="DOMAIN">Domain</option>
-                  <option value="WEBSCAN">Webscan (Subdomain)</option>
-                  <option value="API_TESTING">API Testing</option>
+                  <option value="WEBSCAN">Web Scan</option>
+                  <option value="API_TESTING">API Scan</option>
                 </select>
               </div>
 

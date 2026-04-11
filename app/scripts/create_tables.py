@@ -1,5 +1,22 @@
 # app/scripts/create_tables.py
 
+import os
+from pathlib import Path
+
+# Load .env from repo root before any app imports so DATABASE_URL is available
+_env_file = Path(__file__).resolve().parents[2] / ".env"
+if _env_file.exists():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=_env_file, override=False)
+    except ImportError:
+        # dotenv not installed — parse manually
+        for line in _env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
+
 from sqlalchemy import text, inspect
 from app.database.session import engine
 from app.database.models import Base
@@ -51,11 +68,18 @@ def add_missing_columns():
 
     # subdomains table
     if inspector.has_table("subdomains"):
+        existing_columns = [c["name"] for c in inspector.get_columns("subdomains")]
+
         with engine.begin() as conn:
             conn.execute(text("""
                 ALTER TABLE subdomains
                 DROP CONSTRAINT IF EXISTS subdomains_domain_id_subdomain_name_key;
             """))
+
+            if "discovery_source" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE subdomains ADD COLUMN discovery_source VARCHAR DEFAULT 'manual';"
+                ))
 
     # ipaddress table
     if inspector.has_table("ipaddress"):
@@ -135,3 +159,6 @@ def run_migrations():
         raise
     print("✅ Database schema ready")
 
+
+if __name__ == "__main__":
+    run_migrations()

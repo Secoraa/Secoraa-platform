@@ -12,6 +12,15 @@ const SEVERITY_COLORS = {
   INFORMATIONAL: '#70a1ff',
 };
 
+const SCAN_TYPE_LABELS = {
+  dd: 'Domain Discovery Scan',
+  subdomain: 'Web Scan',
+  api: 'API Scan',
+  web: 'Web Scan',
+  network: 'Network Scan',
+  vulnerability: 'Vulnerability Scan',
+};
+
 const ScanResults = ({ scanId, onBack }) => {
   const [scanResults, setScanResults] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -273,7 +282,7 @@ const ScanResults = ({ scanId, onBack }) => {
                     </div>
                     <div className="info-item">
                       <span className="info-label">Scan Type</span>
-                      <span className="info-value">{scanResults.scan_type?.toUpperCase() || 'N/A'}</span>
+                      <span className="info-value">{SCAN_TYPE_LABELS[scanResults.scan_type] || scanResults.scan_type?.toUpperCase() || 'N/A'}</span>
                     </div>
                     <div className="info-item">
                       <span className="info-label">Domain</span>

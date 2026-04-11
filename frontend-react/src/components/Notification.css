@@ -6,7 +6,7 @@
   min-width: 300px;
   max-width: 500px;
   animation: slideIn 0.3s ease-out;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -30,21 +30,25 @@
 }
 
 .notification-success {
-  background-color: #10B981;
-  color: white;
-  border-left: 4px solid #059669;
+  background-color: #1E1B23;
+  color: #F5F3F7;
+  border-left: 4px solid #28C76F;
+  border: 1px solid rgba(40, 199, 111, 0.3);
+  border-left: 4px solid #28C76F;
 }
 
 .notification-error {
-  background-color: #EF4444;
-  color: white;
-  border-left: 4px solid #DC2626;
+  background-color: #1E1B23;
+  color: #F5F3F7;
+  border: 1px solid rgba(255, 76, 76, 0.3);
+  border-left: 4px solid #FF4C4C;
 }
 
 .notification-info {
-  background-color: var(--primary-color);
-  color: white;
-  border-left: 4px solid var(--primary-hover);
+  background-color: #1E1B23;
+  color: #F5F3F7;
+  border: 1px solid rgba(224, 177, 43, 0.3);
+  border-left: 4px solid var(--primary-color);
 }
 
 .notification-icon {
@@ -62,7 +66,7 @@
 .notification-close {
   background: none;
   border: none;
-  color: white;
+  color: #B8B6BA;
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0;

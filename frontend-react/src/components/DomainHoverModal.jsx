@@ -127,8 +127,8 @@ const DomainHoverModal = ({ domain, position, ipAddresses, findings, onClose }) 
               relatedFindings.slice(0, 10).map((f, idx) => (
                 <div key={`${f.issue || f.name}-${idx}`} className="dhm-row">
                   <div className="dhm-row-title">{f.issue || f.name}</div>
-                  <div className={`dhm-sev sev-${String(f.severity || 'info').toLowerCase()}`}>
-                    {String(f.severity || 'INFO').toUpperCase()}
+                  <div className={`dhm-sev sev-${String(f.severity || 'informational').toLowerCase()}`}>
+                    {String(f.severity || 'INFORMATIONAL').toUpperCase()}
                   </div>
                 </div>
               ))
