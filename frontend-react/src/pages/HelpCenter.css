@@ -52,8 +52,8 @@
 }
 
 .help-msg.user .help-bubble {
-  background: rgba(59, 130, 246, 0.10);
-  border-color: rgba(59, 130, 246, 0.18);
+  background: rgba(224, 177, 43, 0.07);
+  border-color: rgba(224, 177, 43, 0.2);
 }
 
 .help-text {
@@ -121,6 +121,7 @@
 
 .help-input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: #E0B12B;
+  box-shadow: 0 0 0 3px rgba(224, 177, 43, 0.12);
 }
 

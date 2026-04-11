@@ -95,6 +95,7 @@ def ingest_from_minio(bucket: str, object_name: str, db):
         subdomain = Subdomain(
             domain_id=domain.id,
             subdomain_name=subdomain_name,
+            discovery_source="auto_discovered",
             created_by="pratik",
             updated_by="pratik"
         )
@@ -109,7 +110,6 @@ def ingest_from_minio(bucket: str, object_name: str, db):
             f"IntegrityError committing subdomains for {domain_name} "
             f"(race condition with scan pipeline): {e}"
         )
-        # Retry one-by-one so non-conflicting rows still get inserted
         for subdomain_name in subdomains:
             if not subdomain_name or not subdomain_name.strip():
                 continue
@@ -123,6 +123,7 @@ def ingest_from_minio(bucket: str, object_name: str, db):
                 db.add(Subdomain(
                     domain_id=domain.id,
                     subdomain_name=subdomain_name,
+                    discovery_source="auto_discovered",
                     created_by="pratik",
                     updated_by="pratik"
                 ))

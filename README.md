@@ -8,7 +8,7 @@ This repository contains multiple Secoraa “products” (components):
 
 ### Quickstart (Local)
 
-#### 1) Start dependencies (Postgres, MinIO)
+#### 1) Start dependencies (Postgres, MinIO, Redis)
 
 This repo’s `docker-compose.yml` expects a `.env` file for credentials.
 
@@ -20,12 +20,18 @@ POSTGRES_USER=secoraa
 POSTGRES_PASSWORD=secoraa
 POSTGRES_HOST=localhost
 POSTGRES_PORT=15432
+DATABASE_URL=postgresql://secoraa:secoraa@localhost:15432/secoraa
 
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=minioadmin
 MINIO_API_PORT=9000
 MINIO_CONSOLE_PORT=9001
 MINIO_ENDPOINT=localhost:9000
+# Optional: app also accepts MINIO_ACCESS_KEY / MINIO_SECRET_KEY. If omitted, ROOT_* is used.
+# Local MinIO is HTTP — set explicitly if you do not use localhost:
+MINIO_SECURE=false
+
+REDIS_URL=redis://localhost:6379/0
 
 AUTH_TENANT=default
 JWT_SECRET=change-me-in-local-and-prod
@@ -35,7 +41,7 @@ JWT_EXPIRES_MINUTES=240
 - **Start containers**:
 
 ```bash
-docker-compose up -d postgres minio
+docker compose up -d postgres minio redis
 ```
 
 #### 2) Run DB schema migration

@@ -1,46 +1,26 @@
 import React from 'react';
 
-const HelpIcon = ({ size = 22 }) => {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ display: 'inline-block', verticalAlign: 'middle' }}
-    >
-      {/* Head */}
-      <circle cx="32" cy="16" r="12" fill="#E8EDF2" />
-      <ellipse cx="32" cy="18" rx="9" ry="7" fill="#1F3564" />
-
-      {/* Eyes */}
-      <circle cx="28" cy="18" r="2.2" fill="#6EC6F0" />
-      <circle cx="36" cy="18" r="2.2" fill="#6EC6F0" />
-
-      {/* Antenna */}
-      <rect x="29" y="2" width="6" height="6" rx="3" fill="#E8EDF2" />
-
-      {/* Body */}
-      <rect x="22" y="30" width="20" height="18" rx="6" fill="#E8EDF2" />
-      <rect x="24" y="32" width="16" height="14" rx="5" fill="#D5DBE3" />
-
-      {/* Left Arm */}
-      <rect x="14" y="32" width="6" height="14" rx="3" fill="#1F3564" />
-      <rect x="12" y="44" width="8" height="6" rx="3" fill="#E8EDF2" />
-
-      {/* Right Arm (wave) */}
-      <rect x="44" y="28" width="6" height="14" rx="3" fill="#1F3564" />
-      <rect x="44" y="22" width="8" height="6" rx="3" fill="#E8EDF2" />
-
-      {/* Legs */}
-      <rect x="24" y="48" width="6" height="10" rx="3" fill="#1F3564" />
-      <rect x="34" y="48" width="6" height="10" rx="3" fill="#1F3564" />
-
-      {/* Feet */}
-      <rect x="22" y="56" width="10" height="6" rx="3" fill="#E8EDF2" />
-      <rect x="32" y="56" width="10" height="6" rx="3" fill="#E8EDF2" />
-    </svg>
-  );
-};
+const HelpIcon = ({ size = 20 }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Lifebuoy outer ring */}
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="4" />
+    {/* Cross straps */}
+    <line x1="14.83" y1="14.83" x2="19.07" y2="19.07" />
+    <line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+    <line x1="14.83" y1="9.17" x2="19.07" y2="4.93" />
+    <line x1="4.93" y1="4.93" x2="9.17" y2="9.17" />
+  </svg>
+);
 
 export default HelpIcon;

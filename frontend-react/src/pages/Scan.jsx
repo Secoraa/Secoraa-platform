@@ -23,7 +23,21 @@ import ReportIcon from '../components/ReportIcon';
 import ScheduleScanIcon from '../components/ScheduleScanIcon';
 import './Scan.css';
 
-const Scan = ({ onViewResults }) => {
+const SCAN_TYPE_LABELS = {
+  dd: 'Domain Discovery Scan',
+  subdomain: 'Web Scan',
+  api: 'API Scan',
+  web: 'Web Scan',
+  network: 'Network Scan',
+  vulnerability: 'Vulnerability Scan',
+};
+
+const formatScanType = (type) => {
+  const key = String(type).toLowerCase();
+  return SCAN_TYPE_LABELS[key] || type.toUpperCase();
+};
+
+const Scan = ({ onViewResults, initialTab }) => {
   const [domains, setDomains] = useState([]);
   const [urlAssets, setUrlAssets] = useState([]);
   const [urlLoading, setUrlLoading] = useState(false);
@@ -33,7 +47,7 @@ const Scan = ({ onViewResults }) => {
   const [assetGroupLoading, setAssetGroupLoading] = useState(false);
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('run');
+  const [activeTab, setActiveTab] = useState(initialTab || 'run');
   const [runStep, setRunStep] = useState(1); // 1: scan details, 2: select asset/domain + run
   const [historyPage, setHistoryPage] = useState(1);
   const [historyRowsPerPage, setHistoryRowsPerPage] = useState(10);
@@ -654,7 +668,7 @@ const Scan = ({ onViewResults }) => {
         });
 
         setNotification({
-          message: `Subdomain scan "${result.scan_name}" started successfully! Check scan history for progress.`,
+          message: `Web scan "${result.scan_name}" started successfully! Check scan history for progress.`,
           type: 'success',
         });
 
@@ -725,7 +739,7 @@ const Scan = ({ onViewResults }) => {
       }
     } catch (err) {
       setNotification({
-        message: `Failed to start scan: ${err.message}`,
+        message: err.message,
         type: 'error',
       });
     } finally {
@@ -965,11 +979,10 @@ const Scan = ({ onViewResults }) => {
                         })
                       }
                     >
-                      <option value="dd">Domain Discovery</option>
-                      <option value="api">API Testing</option>
-                      <option value="subdomain">Subdomain Scan</option>
+                      <option value="dd">Domain Discovery Scan</option>
+                      <option value="api">API Scan</option>
+                      <option value="subdomain">Web Scan</option>
                       <option value="vulnerability">Vulnerability Scan</option>
-                      <option value="asset_group">Asset Group Scan</option>
                       <option value="network">Network Scan</option>
                     </select>
                   </div>
@@ -1489,7 +1502,7 @@ const Scan = ({ onViewResults }) => {
                   </div>
                 )}
 
-                {/* Subdomain scan runs through Scan History (DD-style), so no inline result here */}
+                {/* Web scan runs through Scan History, so no inline result here */}
               </>
             )}
           </form>
@@ -1531,8 +1544,8 @@ const Scan = ({ onViewResults }) => {
                     })
                   }
                 >
-                  <option value="dd">Domain Discovery (DD)</option>
-                  <option value="subdomain">Subdomain Scan</option>
+                  <option value="dd">Domain Discovery Scan</option>
+                  <option value="subdomain">Web Scan</option>
                   <option value="network">Network Scan</option>
                   <option value="api" disabled>API Scan (coming soon)</option>
                 </select>
@@ -1750,7 +1763,7 @@ const Scan = ({ onViewResults }) => {
                     {paginatedScans.map((scan) => (
                     <tr key={scan.scan_id}>
                       <td>{scan.scan_name}</td>
-                      <td>{scan.scan_type.toUpperCase()}</td>
+                      <td>{formatScanType(scan.scan_type)}</td>
                       <td>{scan.asset_name || '-'}</td>
                       <td>
                         <span
@@ -1891,18 +1904,6 @@ const Scan = ({ onViewResults }) => {
             Schedule Scan History
           </h2>
 
-          <div className="schedule-history-header">
-            <div />
-            <button
-              type="button"
-              className="btn-secondary btn-small"
-              onClick={loadScheduled}
-              disabled={scheduleLoading}
-            >
-              {scheduleLoading ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </div>
-
           {scheduleLoading ? (
             <div className="loading">Loading scheduled scans...</div>
           ) : (
@@ -1929,7 +1930,7 @@ const Scan = ({ onViewResults }) => {
                       .map((s) => (
                         <tr key={s.id}>
                           <td>{s.scan_name}</td>
-                          <td>{String(s.scan_type).toUpperCase()}</td>
+                          <td>{formatScanType(s.scan_type)}</td>
                           <td>{s.scheduled_for ? new Date(s.scheduled_for).toLocaleString() : '-'}</td>
                           <td>
                             <span className={`status-badge ${s.status === 'COMPLETED' ? 'success' : s.status === 'FAILED' ? 'error' : s.status === 'CANCELLED' ? 'error' : 'pending'}`}>

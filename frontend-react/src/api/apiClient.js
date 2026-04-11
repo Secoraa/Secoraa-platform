@@ -257,9 +257,9 @@ export const runSubdomainScan = async (domain, subdomains = null, exportJson = f
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data?.detail || `Subdomain scan failed: ${error.response.status} ${error.response.statusText}`);
+      throw new Error(error.response.data?.detail || `Web scan failed: ${error.response.status} ${error.response.statusText}`);
     }
-    throw new Error(`Subdomain scan failed: ${error.message}`);
+    throw new Error(`Web scan failed: ${error.message}`);
   }
 };
 
@@ -492,6 +492,9 @@ export const createScanWithPayload = async (scanName, scanType, payload) => {
     if (error.code === 'ECONNABORTED') {
       throw new Error('Scan is taking longer than expected. Please check scan history for results.');
     }
+    // Prefer the API's detail message (e.g. 409 duplicate name) over the generic axios message
+    const detail = error?.response?.data?.detail;
+    if (detail) throw new Error(detail);
     throw new Error(`Failed to run scan: ${error.message}`);
   }
 };

@@ -97,6 +97,7 @@ def migrate_scan_results_to_subdomains():
                 subdomain = Subdomain(
                     domain_id=domain.id,
                     subdomain_name=subdomain_name,
+                    discovery_source="auto_discovered",
                     created_by="migration_script",
                     updated_by="migration_script"
                 )
