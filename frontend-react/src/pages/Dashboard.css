@@ -123,7 +123,7 @@
 
 .dash-grid-mid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -132,6 +132,12 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+
+.dash-grid-mid .dash-card,
+.dash-grid-bottom .dash-card {
+  min-height: 0;
+  height: 100%;
 }
 
 .dash-card {
