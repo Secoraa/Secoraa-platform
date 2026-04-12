@@ -66,30 +66,35 @@ const Dashboard = () => {
     return () => clearInterval(hInterval);
   }, []);
 
+  // Deduplicate findings by (vuln name + asset_url) — same vuln on same asset across scans = once
+  const dedupedFindings = useMemo(() => {
+    const seen = new Set();
+    return (findings || []).filter((f) => {
+      const key = `${String(f.issue || f.name || '').trim().toLowerCase()}|${String(f.asset_url || '').trim().toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [findings]);
+
   const totals = useMemo(() => {
-    const totalAssets = (domains?.length || 0) + (subdomains?.length || 0) + (ips?.length || 0) + (urls?.length || 0);
-    const totalVulns = findings?.length || 0;
-
-    const weights = (findings || []).map((f) => severityWeight(f.severity));
+    // Exclude domains — only count subdomains, IPs, URLs as assets
+    const totalAssets = (subdomains?.length || 0) + (ips?.length || 0) + (urls?.length || 0);
+    const totalVulns = dedupedFindings.length;
+    const weights = dedupedFindings.map((f) => severityWeight(f.severity));
     const avgWeight = weights.length ? (weights.reduce((a, b) => a + b, 0) / weights.length) : 0;
-    const risk10 = avgWeight / 10; // 0-10 scale like your screenshot
-
-    return {
-      totalAssets,
-      totalVulns,
-      avgWeight,
-      risk10,
-    };
-  }, [domains, subdomains, ips, urls, findings]);
+    const risk10 = avgWeight / 10;
+    return { totalAssets, totalVulns, avgWeight, risk10 };
+  }, [subdomains, ips, urls, dedupedFindings]);
 
   const sevCounts = useMemo(() => {
     const out = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFORMATIONAL: 0 };
-    for (const f of findings || []) {
+    for (const f of dedupedFindings) {
       const s = String(f.severity || 'INFORMATIONAL').toUpperCase();
       out[s] = (out[s] || 0) + 1;
     }
     return out;
-  }, [findings]);
+  }, [dedupedFindings]);
 
   const vulnByRiskBars = useMemo(() => {
     const keys = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -97,23 +102,39 @@ const Dashboard = () => {
   }, [sevCounts]);
 
   const recentVulns = useMemo(() => {
-    const rows = [...(findings || [])];
-    rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    // Deduplicate by vulnerability name, collecting unique assets per vuln
+    const map = new Map();
+    for (const f of dedupedFindings) {
+      const key = String(f.issue || f.name || '').trim() || 'Unknown';
+      const asset = String(f.asset_url || '').trim();
+      const ts = new Date(f.created_at || 0).getTime();
+      if (!map.has(key)) {
+        map.set(key, { ...f, _assets: new Set(asset ? [asset] : []), _latestTs: ts });
+      } else {
+        const ex = map.get(key);
+        if (asset) ex._assets.add(asset);
+        if (ts > ex._latestTs) { ex._latestTs = ts; ex.created_at = f.created_at; }
+      }
+    }
+    const rows = Array.from(map.values()).map((r) => ({ ...r, assetCount: r._assets.size }));
+    rows.sort((a, b) => b._latestTs - a._latestTs);
     return rows.slice(0, 6);
-  }, [findings]);
+  }, [dedupedFindings]);
 
   const topAssets = useMemo(() => {
     const map = new Map();
-    for (const f of findings || []) {
+    for (const f of dedupedFindings) {
       const asset = String(f.asset_url || f.asset || f.url || 'Unknown').trim() || 'Unknown';
-      const prev = map.get(asset) || { asset, count: 0, maxWeight: 0 };
-      const w = severityWeight(f.severity);
-      map.set(asset, { asset, count: prev.count + 1, maxWeight: Math.max(prev.maxWeight, w) });
+      const vulnKey = String(f.issue || f.name || '').trim().toLowerCase();
+      if (!map.has(asset)) map.set(asset, { asset, vulns: new Set(), maxWeight: 0 });
+      const entry = map.get(asset);
+      if (vulnKey) entry.vulns.add(vulnKey);
+      entry.maxWeight = Math.max(entry.maxWeight, severityWeight(f.severity));
     }
-    const rows = Array.from(map.values());
+    const rows = Array.from(map.values()).map((e) => ({ asset: e.asset, count: e.vulns.size, maxWeight: e.maxWeight }));
     rows.sort((a, b) => (b.count - a.count) || (b.maxWeight - a.maxWeight) || a.asset.localeCompare(b.asset));
     return rows.slice(0, 6);
-  }, [findings]);
+  }, [dedupedFindings]);
 
   const assetTrend = useMemo(() => {
     // Build a 12-month trend for the current year using created_at on assets (fallback: flat line).
@@ -162,7 +183,7 @@ const Dashboard = () => {
       INFORMATIONAL: initCounts(),
     };
 
-    for (const f of findings || []) {
+    for (const f of dedupedFindings) {
       const sev = String(f.severity || 'INFORMATIONAL').toUpperCase();
       const k = monthKey(f.created_at);
       if (!k) continue;
@@ -184,7 +205,7 @@ const Dashboard = () => {
       color: colors[sev],
       points: months.map((m) => ({ month: m, value: bySev[sev][m] || 0 })),
     }));
-  }, [findings]);
+  }, [dedupedFindings]);
 
   const toggleSeverity = (sev) => {
     setVisibleSeverities((prev) => ({ ...prev, [sev]: !prev[sev] }));
@@ -367,7 +388,7 @@ const Dashboard = () => {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Assets Impacted</th>
+                <th style={{ textAlign: 'center' }}>Assets Impacted</th>
                 <th>Severity</th>
               </tr>
             </thead>
@@ -378,7 +399,7 @@ const Dashboard = () => {
                 recentVulns.map((f, idx) => (
                   <tr key={`${f.issue || f.name || 'f'}-${idx}`}>
                     <td>{f.issue || f.name || '-'}</td>
-                    <td className="dash-mono">{(f.asset_url || '-')}</td>
+                    <td style={{ textAlign: 'center' }}>{f.assetCount > 0 ? f.assetCount : '-'}</td>
                     <td><span className={`pill ${String(f.severity || 'informational').toLowerCase()}`}>{String(f.severity || 'INFORMATIONAL').toUpperCase()}</span></td>
                   </tr>
                 ))
@@ -543,13 +564,29 @@ const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
   const pts = (s[0]?.points || []);
   const xFor = (i) => padL + (i * (w - padL - padR)) / Math.max(1, pts.length - 1);
   const yFor = (v) => padT + (h - padT - padB) * (1 - v / max);
+  const baseline = yFor(0);
 
-  const pathFor = (points) => {
+  // Smooth cubic-bezier wave path between data points
+  const wavePathFor = (points) => {
     if (!Array.isArray(points) || points.length === 0) return '';
     const coords = points.map((p, i) => ({ x: xFor(i), y: yFor(Number(p.value || 0)) }));
-    if (coords.length < 2) return `M ${coords[0].x} ${coords[0].y}`;
-    // Straight line segments (reads more accurately for sparse / spiky data)
-    return coords.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+    let d = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 1; i < coords.length; i++) {
+      const prev = coords[i - 1];
+      const curr = coords[i];
+      const cpx = (prev.x + curr.x) / 2;
+      d += ` C ${cpx} ${prev.y} ${cpx} ${curr.y} ${curr.x} ${curr.y}`;
+    }
+    return d;
+  };
+
+  const areaPathFor = (points) => {
+    const line = wavePathFor(points);
+    if (!line || !Array.isArray(points) || points.length === 0) return '';
+    const lastX = xFor(points.length - 1);
+    const firstX = xFor(0);
+    return `${line} L ${lastX} ${baseline} L ${firstX} ${baseline} Z`;
   };
 
   const hasData = values.some((v) => v > 0);
@@ -557,10 +594,25 @@ const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
   return (
     <div className="dash-trend-wrap">
       <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-trend">
-        {/* grid */}
-        {[0.25, 0.5, 0.75, 1].map((t) => (
-          <line key={t} x1={padL} x2={w - padR} y1={yFor(max * t)} y2={yFor(max * t)} stroke="rgba(107,114,128,0.15)" />
-        ))}
+        <defs>
+          {enabled.map((line) => (
+            <linearGradient key={`grad-${line.key}`} id={`grad-${line.key}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={line.color} stopOpacity="0.22" />
+              <stop offset="100%" stopColor={line.color} stopOpacity="0" />
+            </linearGradient>
+          ))}
+        </defs>
+        {/* grid lines + y-axis labels */}
+        {[0.25, 0.5, 0.75, 1].map((t) => {
+          const val = Math.round(max * t);
+          const y = yFor(max * t);
+          return (
+            <g key={t}>
+              <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="rgba(107,114,128,0.15)" />
+              <text x={padL - 6} y={y + 4} textAnchor="end" className="dash-axis">{val}</text>
+            </g>
+          );
+        })}
 
         {!hasData ? (
           <text x={w / 2} y={h / 2} textAnchor="middle" className="dash-empty">
@@ -569,7 +621,15 @@ const MultiLineTrendChart = ({ series, visible, emptyLabel }) => {
         ) : (
           enabled.map((line) => (
             <g key={line.key}>
-              <path d={pathFor(line.points)} fill="none" stroke={line.color} strokeWidth="2.5" />
+              <path d={areaPathFor(line.points)} fill={`url(#grad-${line.key})`} />
+              <path
+                d={wavePathFor(line.points)}
+                fill="none"
+                stroke={line.color}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
               {(line.points || []).map((p, i) => (
                 <circle key={`${line.key}-${p.month}`} cx={xFor(i)} cy={yFor(Number(p.value || 0))} r="2.8" fill={line.color} />
               ))}
@@ -602,25 +662,39 @@ const BarChart = ({ bars }) => {
   const padB = 34;
   const padT = 12;
   const padR = 12;
-  const bw = ((w - padL - padR) / Math.max(1, items.length)) * 0.5;
+  // total slots = RISKS (label-only) + one per bar item
+  const totalSlots = items.length + 1;
+  const slotW = (w - padL - padR) / totalSlots;
+  const bw = slotW * 0.5;
+  const slotCenter = (slot) => padL + (slot + 0.5) * slotW;
   return (
     <svg width="100%" height="240" viewBox={`0 0 ${w} ${h}`} className="dash-bars">
-      {[0.25, 0.5, 0.75, 1].map((t) => (
-        <line key={t} x1={padL} x2={w - padR} y1={padT + (h - padT - padB) * (1 - t)} y2={padT + (h - padT - padB) * (1 - t)} stroke="rgba(107,114,128,0.15)" />
-      ))}
+      {/* grid lines + y-axis labels */}
+      {[0.25, 0.5, 0.75, 1].map((t) => {
+        const val = Math.round(max * t);
+        const y = padT + (h - padT - padB) * (1 - t);
+        return (
+          <g key={t}>
+            <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="rgba(107,114,128,0.15)" />
+            <text x={padL - 6} y={y + 4} textAnchor="end" className="dash-axis">{val}</text>
+          </g>
+        );
+      })}
+      {/* RISKS label in slot 0 */}
+      <text x={slotCenter(0)} y={h - 10} textAnchor="middle" className="dash-axis">RISKS</text>
+      {/* bars + labels in slots 1..n */}
       {items.map((b, i) => {
-        const x = padL + (i + 0.25) * ((w - padL - padR) / items.length);
+        const cx = slotCenter(i + 1);
         const barH = (h - padT - padB) * (b.value / max);
         const y = h - padB - barH;
         const color = b.key === 'LOW' ? '#38bdf8' : b.key === 'MEDIUM' ? '#f59e0b' : b.key === 'HIGH' ? '#ef4444' : '#fb7185';
         return (
           <g key={b.key}>
-            <rect x={x} y={y} width={bw} height={barH} fill={color} rx="4" />
-            <text x={x + bw / 2} y={h - 10} textAnchor="middle" className="dash-axis">{b.key}</text>
+            <rect x={cx - bw / 2} y={y} width={bw} height={barH} fill={color} rx="4" />
+            <text x={cx} y={h - 10} textAnchor="middle" className="dash-axis">{b.key}</text>
           </g>
         );
       })}
-      <text x={padL} y={h - 10} textAnchor="start" className="dash-axis">RISKS</text>
     </svg>
   );
 };

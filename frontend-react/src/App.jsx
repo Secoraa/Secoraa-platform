@@ -14,13 +14,25 @@ import './styles/theme.css';
 import './App.css';
 import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient';
 
+const PAGE_FALLBACKS = {
+  'scan-results': 'scan',
+  'domain-details': 'asset-discovery',
+};
+
 function App() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState(() => {
+    const stored = sessionStorage.getItem('activePage') || 'dashboard';
+    return PAGE_FALLBACKS[stored] ?? stored;
+  });
   const [selectedScanId, setSelectedScanId] = useState(null);
   const [selectedDomainId, setSelectedDomainId] = useState(null);
   const [token, setToken] = useState(() => getStoredToken());
   const [userClaims, setUserClaims] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  useEffect(() => {
+    sessionStorage.setItem('activePage', activePage);
+  }, [activePage]);
 
   useEffect(() => {
     const t = getStoredToken();
@@ -51,7 +63,7 @@ function App() {
     } catch {
       // ignore
     }
-    setActivePage('dashboard');
+    // Do NOT force-redirect to dashboard — sessionStorage already restored the right page
   }, [token]);
 
   const [scanInitialTab, setScanInitialTab] = useState(null);

@@ -1789,9 +1789,6 @@ const Scan = ({ onViewResults, initialTab }) => {
                             <span className="scan-progress-text">{scan.progress}%{scan.current_phase ? ` — ${scan.current_phase}` : ''}</span>
                           </div>
                         )}
-                        {scan.status === 'COMPLETED' && scan.findings_count > 0 && (
-                          <span className="findings-count-badge">{scan.findings_count} findings</span>
-                        )}
                       </td>
                       <td>
                         {new Date(scan.created_at).toLocaleString()}

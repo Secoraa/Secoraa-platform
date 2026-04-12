@@ -50,8 +50,25 @@ const ScanResults = ({ scanId, onBack }) => {
   };
 
   const report = scanResults?.report || {};
-  const findings = report.findings || [];
-  const severityCounts = report.severity_counts || {};
+  const rawFindings = report.findings || [];
+
+  // Deduplicate by vulnerability title — same vulnerability type shown only once
+  const findings = (() => {
+    const seen = new Set();
+    return rawFindings.filter((f) => {
+      const key = String(f.title || f.issue || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
+
+  // Recompute severity counts purely from deduplicated findings
+  const severityCounts = findings.reduce((acc, f) => {
+    const s = String(f.severity || 'INFORMATIONAL').toUpperCase();
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFORMATIONAL: 0 });
 
   const filteredFindings = severityFilter === 'ALL'
     ? findings
@@ -62,7 +79,7 @@ const ScanResults = ({ scanId, onBack }) => {
   };
 
   const renderApiScanResults = () => {
-    const totalFindings = report.total_findings || findings.length;
+    const totalFindings = findings.length;
     const duration = report.duration_seconds;
     const baseUrl = report.base_url || scanResults?.asset_url;
 
