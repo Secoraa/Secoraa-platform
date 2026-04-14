@@ -54,11 +54,12 @@ def get_minio_client() -> Minio:
         )
 
     if not all([minio_endpoint, minio_access_key, minio_secret_key]):
-        raise RuntimeError(
-            "MinIO is not configured. "
-            "Please set MINIO_ENDPOINT and either "
-            "(MINIO_ACCESS_KEY, MINIO_SECRET_KEY) or (MINIO_ROOT_USER, MINIO_ROOT_PASSWORD)."
+        import logging
+        logging.getLogger(__name__).warning(
+            "MinIO is not configured — file storage features disabled. "
+            "Set MINIO_ENDPOINT + MINIO_ACCESS_KEY/MINIO_SECRET_KEY to enable."
         )
+        return None
 
     client = Minio(
         endpoint=minio_endpoint,
@@ -70,10 +71,17 @@ def get_minio_client() -> Minio:
     return client
 
 
+def is_minio_configured() -> bool:
+    """Check if MinIO environment variables are set."""
+    return bool(os.getenv("MINIO_ENDPOINT"))
+
+
 def ensure_bucket():
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        return
 
     if not client.bucket_exists(MINIO_BUCKET):
         client.make_bucket(MINIO_BUCKET)
@@ -86,6 +94,10 @@ def upload_file_to_minio(file_path: str, object_name: str = None):
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        import logging
+        logging.getLogger(__name__).warning("MinIO not configured — skipping file upload")
+        return
 
     ensure_bucket()
 
@@ -122,6 +134,10 @@ def upload_bytes_to_minio(
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        import logging
+        logging.getLogger(__name__).warning("MinIO not configured — skipping bytes upload")
+        return ("", "")
 
     ensure_bucket()
 
@@ -147,6 +163,8 @@ def get_object_stream(object_name: str):
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        raise RuntimeError("MinIO not configured — cannot retrieve objects")
 
     return client.get_object(MINIO_BUCKET, object_name)
 
@@ -155,6 +173,8 @@ def get_object_content_type(object_name: str) -> Optional[str]:
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        return None
 
     try:
         stat = client.stat_object(MINIO_BUCKET, object_name)
@@ -167,6 +187,8 @@ def download_json(object_name: str):
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        raise RuntimeError("MinIO not configured — cannot download objects")
 
     response = client.get_object(MINIO_BUCKET, object_name)
     try:
@@ -180,6 +202,8 @@ def object_exists(object_name: str) -> bool:
     global client
     if client is None:
         client = get_minio_client()
+    if client is None:
+        return False
 
     try:
         client.stat_object(MINIO_BUCKET, object_name)

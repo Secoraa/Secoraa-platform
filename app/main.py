@@ -62,6 +62,8 @@ app.add_middleware(
         "https://secoraa-platform.vercel.app",
         "https://secorra-platform.vercel.app",
         "https://secoraa-platform-production.up.railway.app",
+        "https://secoraa-frontend.onrender.com",
+        "https://secoraa-backend.onrender.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -129,6 +131,8 @@ def _check_minio() -> dict:
     try:
         from app.storage.minio_client import get_minio_client, MINIO_BUCKET
         client = get_minio_client()
+        if client is None:
+            return {"status": "skipped", "error": "not configured"}
         client.bucket_exists(MINIO_BUCKET)
         return {"status": "up"}
     except Exception as e:
@@ -142,7 +146,7 @@ def health():
     minio_status = _check_minio()
 
     all_up = all(
-        s["status"] == "up" for s in [redis_status, db_status, minio_status]
+        s["status"] in ("up", "skipped") for s in [redis_status, db_status, minio_status]
     )
 
     return {

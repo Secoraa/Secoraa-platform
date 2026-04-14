@@ -1,0 +1,59 @@
+# render.yaml — Render Blueprint for Secoraa Platform
+# Deploy: Connect this repo in Render Dashboard → "New Blueprint Instance"
+
+databases:
+  - name: secoraa-db
+    plan: free
+    databaseName: secoraa
+    user: secoraa
+
+services:
+  # ── Backend API ──────────────────────────────────────────
+  - type: web
+    name: secoraa-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: secoraa-db
+          property: connectionURI
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          name: secoraa-redis
+          type: redis
+          property: connectionURI
+      - key: MINIO_ENDPOINT
+        value: ""  # MinIO not available on Render — storage features disabled
+      - key: PORT
+        value: "8000"
+    healthCheckPath: /health
+
+  # ── Frontend Static Site ─────────────────────────────────
+  - type: web
+    name: secoraa-frontend
+    runtime: static
+    plan: free
+    buildCommand: cd frontend-react && npm install && REACT_APP_API_URL=https://secoraa-backend.onrender.com npm run build
+    staticPublishPath: frontend-react/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://secoraa-backend.onrender.com
+
+  # ── Redis ────────────────────────────────────────────────
+  - type: redis
+    name: secoraa-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # only internal access
