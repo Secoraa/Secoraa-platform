@@ -291,6 +291,63 @@ def get_token_claims(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def verify_api_key(
+    creds: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Dependency for CI/CD endpoints: validates ``Authorization: Bearer sec_...``
+    against the api_keys table.  Returns a claims-like dict with sub, tenant,
+    user_id, scopes, and key_id so downstream code can treat it like a JWT.
+    """
+    from app.database.models import APIKey
+
+    token = creds.credentials
+
+    # Only accept keys with the sec_ prefix
+    if not token.startswith("sec_"):
+        raise HTTPException(status_code=401, detail="Invalid API key format")
+
+    # Look up all active keys and verify against the hash
+    active_keys = db.query(APIKey).filter(APIKey.is_active == True).all()  # noqa: E712
+
+    matched_key: Optional[APIKey] = None
+    for k in active_keys:
+        # Skip expired keys
+        if k.expires_at and k.expires_at < datetime.now(timezone.utc):
+            continue
+        try:
+            ph.verify(k.key_hash, token)
+            matched_key = k
+            break
+        except Exception:
+            continue
+
+    if not matched_key:
+        raise HTTPException(status_code=401, detail="Invalid or expired API key")
+
+    # Resolve user + tenant
+    user = db.query(User).filter(User.id == matched_key.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="API key owner is inactive")
+
+    # Update last_used_at
+    matched_key.last_used_at = datetime.now(timezone.utc)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {
+        "sub": user.username,
+        "tenant": user.tenant or "default",
+        "user_id": str(user.id),
+        "key_id": str(matched_key.id),
+        "scopes": matched_key.scopes or [],
+        "auth_method": "api_key",
+    }
+
+
 @router.get("/token", response_model=TokenClaimsResponse)
 def get_token(claims: Dict[str, Any] = Depends(get_token_claims)) -> TokenClaimsResponse:
     """

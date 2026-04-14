@@ -1,6 +1,17 @@
 import asyncio
 import logging
 
+# Configure logging so scanner logs are visible
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+# Reduce noise from third-party libs
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("hpack").setLevel(logging.WARNING)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,6 +23,8 @@ from app.api.auth import router as auth_router
 from app.api.vulnerabilities import router as vulnerabilities_router
 from app.api.reports import router as reports_router
 from app.api.help_center import router as help_center_router
+from app.api.settings import router as settings_router
+from app.api.ci import router as ci_router
 
 from app.endpoints.assets import router as asset_router
 from app.endpoints.subdomain import router as subdomain_router
@@ -73,6 +86,8 @@ app.include_router(reports_router)
 app.include_router(scans_router)
 app.include_router(api_scanner_router)
 app.include_router(help_center_router)
+app.include_router(settings_router)
+app.include_router(ci_router)
 
 app.include_router(asset_router)
 app.include_router(minio_events_router)

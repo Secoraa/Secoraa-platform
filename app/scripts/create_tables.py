@@ -116,6 +116,10 @@ def add_missing_columns():
         existing_columns = [c["name"] for c in inspector.get_columns("scans")]
 
         with engine.begin() as conn:
+            if "created_by" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE scans ADD COLUMN created_by VARCHAR;"
+                ))
             if "progress" not in existing_columns:
                 conn.execute(text(
                     "ALTER TABLE scans ADD COLUMN progress INTEGER DEFAULT 0;"
@@ -135,6 +139,66 @@ def add_missing_columns():
             if "endpoints_scanned" not in existing_columns:
                 conn.execute(text(
                     "ALTER TABLE scans ADD COLUMN endpoints_scanned INTEGER DEFAULT 0;"
+                ))
+
+    # api_keys table
+    if not inspector.has_table("api_keys"):
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name VARCHAR NOT NULL,
+                    key_prefix VARCHAR(8) NOT NULL,
+                    key_hash VARCHAR NOT NULL,
+                    scopes VARCHAR[] DEFAULT ARRAY['ci'],
+                    is_active BOOLEAN DEFAULT TRUE,
+                    last_used_at TIMESTAMP,
+                    expires_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT NOW()
+                );
+            """))
+
+    # vulnerabilities table — add columns that may be missing from older schemas
+    if inspector.has_table("vulnerabilities"):
+        existing_columns = [c["name"] for c in inspector.get_columns("vulnerabilities")]
+
+        with engine.begin() as conn:
+            if "cvss_vector" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN cvss_vector VARCHAR;"
+                ))
+            if "recommendation" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN recommendation TEXT;"
+                ))
+            if "reference" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN reference TEXT;"
+                ))
+            if "cvss_score" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN cvss_score FLOAT;"
+                ))
+            if "tags" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN tags VARCHAR[];"
+                ))
+            if "subdomain_id" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN subdomain_id UUID REFERENCES subdomains(id) ON DELETE CASCADE;"
+                ))
+            if "description" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN description TEXT;"
+                ))
+            if "created_by" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN created_by VARCHAR;"
+                ))
+            if "updated_by" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE vulnerabilities ADD COLUMN updated_by VARCHAR;"
                 ))
 
     # ip_blocks table (ensure cidr can be nullable for IP selection based blocks)

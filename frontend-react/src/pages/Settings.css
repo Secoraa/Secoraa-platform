@@ -1,0 +1,235 @@
+.settings-page {
+  padding: 2rem;
+  min-height: calc(100vh - 64px);
+  color: var(--text-primary);
+}
+
+.settings-page h1 {
+  font-size: 1.5rem;
+  margin: 0 0 0.25rem;
+}
+
+.settings-page .subtitle {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+/* ── Sections ── */
+.settings-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-section h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem;
+}
+
+.settings-section .section-desc {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+/* ── Profile card ── */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  max-width: 500px;
+}
+
+.profile-item label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.profile-item span {
+  font-size: 0.9rem;
+}
+
+/* ── API Key form ── */
+.apikey-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.apikey-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.apikey-form .field label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.apikey-form .field input,
+.apikey-form .field select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.apikey-form .field input:focus,
+.apikey-form .field select:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.btn-generate {
+  padding: 8px 18px;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-generate:hover {
+  background: #4f46e5;
+}
+
+.btn-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── New key banner ── */
+.new-key-banner {
+  background: #1a1a2e;
+  border: 1px solid #6366f1;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.new-key-banner .warning {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.new-key-banner .key-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.new-key-banner .key-value {
+  font-family: monospace;
+  font-size: 0.85rem;
+  background: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  flex: 1;
+  overflow-x: auto;
+  word-break: break-all;
+}
+
+.btn-copy {
+  padding: 8px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.btn-copy:hover {
+  border-color: #6366f1;
+}
+
+/* ── API Key table ── */
+.apikey-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.apikey-table th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.apikey-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.apikey-table tr:last-child td {
+  border-bottom: none;
+}
+
+.key-prefix {
+  font-family: monospace;
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.badge-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-revoked {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.btn-revoke {
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.btn-revoke:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}

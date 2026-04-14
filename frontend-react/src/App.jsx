@@ -10,6 +10,7 @@ import Reporting from './pages/Reporting';
 import Dashboard from './pages/Dashboard';
 import DomainDetails from './pages/DomainDetails';
 import HelpCenter from './pages/HelpCenter';
+import Settings from './pages/Settings';
 import './styles/theme.css';
 import './App.css';
 import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient';
@@ -108,12 +109,7 @@ function App() {
       case 'reporting':
         return <Reporting />;
       case 'settings':
-        return (
-          <div style={{ padding: '2rem' }}>
-            <h1>SETTINGS</h1>
-            <p>Settings - Coming soon</p>
-          </div>
-        );
+        return <Settings />;
       case 'help':
         return <HelpCenter />;
       default:

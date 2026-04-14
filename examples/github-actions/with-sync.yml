@@ -1,0 +1,44 @@
+name: API Security (with platform sync)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secoraa API Security Scan
+        id: scan
+        uses: secoraa/api-security-scan@v1
+        with:
+          target-url: ${{ secrets.STAGING_API_URL }}
+          openapi-spec: auto
+          auth-token: ${{ secrets.API_AUTH_TOKEN }}
+          auth-type: bearer
+          severity-threshold: HIGH
+          fail-on-findings: 'true'
+          # PR comment (posted automatically via GITHUB_TOKEN)
+          pr-comment: 'true'
+          # Sync results to Secoraa platform for centralized history
+          secoraa-url: ${{ secrets.SECORAA_PLATFORM_URL }}
+          secoraa-api-key: ${{ secrets.SECORAA_API_KEY }}
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: secoraa-results.sarif
+
+      - name: Fail if scan gate failed
+        if: steps.scan.outputs.gate-result == 'FAILED'
+        run: |
+          echo "::error::Secoraa API security gate failed"
+          exit 1

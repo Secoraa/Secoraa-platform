@@ -1,0 +1,48 @@
+# Secoraa API Security Scanner — CI/CD image
+#
+# Minimal image that packages only what the CLI needs to run the API scanner
+# against a target. No database, no MinIO, no FastAPI. Used by the
+# `secoraa/api-security-scan` GitHub Action.
+#
+# Build:
+#   docker build -f Dockerfile.ci -t secoraa-scanner:ci .
+# Run:
+#   docker run --rm \
+#     -e TARGET_URL=https://example.com \
+#     -e OPENAPI_SPEC_PATH=/work/openapi.json \
+#     -v "$PWD":/work \
+#     secoraa-scanner:ci api --output-format sarif --output-file /work/results.sarif
+
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# System deps needed by aiohttp/aiodns (c-ares) and pycryptodome.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        gcc \
+        libc6-dev \
+        libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps first for better layer caching.
+COPY requirements-ci.txt .
+RUN pip install --no-cache-dir -r requirements-ci.txt
+
+# Copy only the code the CLI actually touches.
+COPY app/__init__.py ./app/__init__.py
+COPY app/scanners/__init__.py ./app/scanners/__init__.py
+COPY app/scanners/api_scanner ./app/scanners/api_scanner
+COPY cli ./cli
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+# Default to the CLI; the Action's entrypoint.sh maps env vars to args.
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["api"]
