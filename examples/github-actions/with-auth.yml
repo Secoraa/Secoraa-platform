@@ -1,0 +1,42 @@
+name: API Security (authenticated)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secoraa API Security Scan
+        id: scan
+        uses: secoraa/api-security-scan@v1
+        with:
+          target-url: ${{ secrets.SECORAA_TARGET_URL }}
+          openapi-spec: ./docs/openapi.yaml
+          auth-token: ${{ secrets.SECORAA_AUTH_TOKEN }}
+          auth-type: bearer
+          secondary-token: ${{ secrets.SECORAA_SECONDARY_TOKEN }}
+          scan-mode: active
+          severity-threshold: HIGH
+          ignore-rules: 'API8:2023'
+          fail-on-findings: 'true'
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: secoraa-results.sarif
+
+      - name: Fail if scan gate failed
+        if: steps.scan.outputs.gate-result == 'FAILED'
+        run: |
+          echo "::error::Secoraa API security gate failed"
+          exit 1

@@ -1,0 +1,21 @@
+# .secoraa.yml — place this at the root of your repo
+#
+# Config precedence: CLI flags > env vars > this file > defaults
+
+scan:
+  target: https://staging.example.com
+  spec: ./docs/openapi.yaml        # or "auto" to auto-detect
+  mode: active                      # active | passive
+  auth:
+    type: bearer
+    token_env: API_AUTH_TOKEN       # reads the actual secret from this env var
+
+gate:
+  severity_threshold: HIGH          # CRITICAL | HIGH | MEDIUM | LOW
+  fail_on_findings: true
+  ignore_rules:
+    - API8:2023                     # skip security header checks in CI
+
+report:
+  format: sarif                     # sarif | json
+  output_file: secoraa-results.sarif

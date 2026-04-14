@@ -16,6 +16,7 @@ import {
   listScheduledScans,
   cancelScheduledScan,
   updateScheduledScan,
+  getCiScans,
 } from '../api/apiClient';
 import Notification from '../components/Notification';
 import ScanIcon from '../components/ScanIcon';
@@ -30,6 +31,8 @@ const SCAN_TYPE_LABELS = {
   web: 'Web Scan',
   network: 'Network Scan',
   vulnerability: 'Vulnerability Scan',
+  ci_api_security: 'CI/CD API Scan',
+  ci_subdomain: 'CI/CD Subdomain Scan',
 };
 
 const formatScanType = (type) => {
@@ -78,6 +81,11 @@ const Scan = ({ onViewResults, initialTab }) => {
   const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
   const [editScheduleId, setEditScheduleId] = useState('');
   const [editScheduleTime, setEditScheduleTime] = useState('');
+  const [ciScans, setCiScans] = useState([]);
+  const [ciLoading, setCiLoading] = useState(false);
+  const [ciSearchQuery, setCiSearchQuery] = useState('');
+  const [ciPage, setCiPage] = useState(1);
+  const [ciRowsPerPage, setCiRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
   const [apiScanResult, setApiScanResult] = useState(null);
   const [authType, setAuthType] = useState('none');
@@ -91,12 +99,27 @@ const Scan = ({ onViewResults, initialTab }) => {
   const [subdomainPage, setSubdomainPage] = useState(1);
   const SUBDOMAIN_PAGE_SIZE = 20;
 
+  const loadCiScans = async () => {
+    try {
+      setCiLoading(true);
+      const data = await getCiScans();
+      setCiScans(Array.isArray(data) ? data : []);
+    } catch {
+      setCiScans([]);
+    } finally {
+      setCiLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'history') {
       loadScans();
       setHistoryPage(1);
     } else if (activeTab === 'schedule-history') {
       loadScheduled();
+    } else if (activeTab === 'ci-scans') {
+      loadCiScans();
+      setCiPage(1);
     } else {
       // Reset wizard when entering Run tab
       setRunStep(1);
@@ -928,6 +951,12 @@ const Scan = ({ onViewResults, initialTab }) => {
           onClick={() => setActiveTab('schedule-history')}
         >
           Schedule Scan History
+        </button>
+        <button
+          className={`scan-tab ${activeTab === 'ci-scans' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ci-scans')}
+        >
+          CI/CD Scans
         </button>
       </div>
 
@@ -1982,6 +2011,118 @@ const Scan = ({ onViewResults, initialTab }) => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {activeTab === 'ci-scans' && (
+        <div className="scan-history-section">
+          <h2>CI/CD Scan History</h2>
+
+          <div className="scan-search-container">
+            <input
+              type="text"
+              className="scan-search-input"
+              placeholder="Search by scan name or type..."
+              value={ciSearchQuery}
+              onChange={(e) => setCiSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {ciLoading ? (
+            <div className="loading">Loading CI/CD scans...</div>
+          ) : (() => {
+            const filtered = ciScans.filter((s) => {
+              if (!ciSearchQuery.trim()) return true;
+              const q = ciSearchQuery.toLowerCase();
+              return (
+                s.scan_name?.toLowerCase().includes(q) ||
+                s.scan_type?.toLowerCase().includes(q) ||
+                s.status?.toLowerCase().includes(q)
+              );
+            });
+
+            const totalPages = Math.max(1, Math.ceil(filtered.length / ciRowsPerPage));
+            const safePage = Math.min(ciPage, totalPages);
+            const startIdx = (safePage - 1) * ciRowsPerPage;
+            const endIdx = startIdx + ciRowsPerPage;
+            const page = filtered.slice(startIdx, endIdx);
+
+            return filtered.length === 0 ? (
+              <div className="empty-state">
+                {ciScans.length === 0
+                  ? 'No CI/CD scans yet. Use a Secoraa API key in your GitHub Action to sync scan results here.'
+                  : 'No scans match your search'}
+              </div>
+            ) : (
+              <div className="scans-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Scan Name</th>
+                      <th>Type</th>
+                      <th>Findings</th>
+                      <th>Status</th>
+                      <th>Triggered By</th>
+                      <th>Created At</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {page.map((s) => (
+                      <tr key={s.id}>
+                        <td>{s.scan_name}</td>
+                        <td>{formatScanType(s.scan_type)}</td>
+                        <td>
+                          {s.findings_count > 0 ? (
+                            <span className="findings-count-badge">{s.findings_count} findings</span>
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)' }}>0</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`status-badge ${s.status === 'Completed' ? 'success' : s.status === 'FAILED' ? 'error' : 'pending'}`}>
+                            {s.status}
+                          </span>
+                        </td>
+                        <td>{s.created_by || '-'}</td>
+                        <td>{new Date(s.created_at).toLocaleString()}</td>
+                        <td>
+                          <button
+                            className="btn-small"
+                            onClick={() => handleViewResults(s.id)}
+                          >
+                            View Results
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="scan-pagination">
+                  <div className="scan-pagination-left">
+                    <span>Rows per page:</span>
+                    <select
+                      className="scan-pagination-select"
+                      value={ciRowsPerPage}
+                      onChange={(e) => { setCiRowsPerPage(Number(e.target.value)); setCiPage(1); }}
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                    </select>
+                  </div>
+                  <div className="scan-pagination-right">
+                    <span>{filtered.length === 0 ? 0 : startIdx + 1}-{Math.min(endIdx, filtered.length)} of {filtered.length}</span>
+                    <div className="scan-pagination-arrows">
+                      <button className="scan-pagination-btn" onClick={() => setCiPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}>←</button>
+                      <button className="scan-pagination-btn" onClick={() => setCiPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>→</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

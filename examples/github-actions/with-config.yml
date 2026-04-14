@@ -1,0 +1,32 @@
+name: API Security (.secoraa.yml)
+
+# This workflow reads config from .secoraa.yml at the repo root.
+# Only minimal secrets are wired in here; everything else is declared in the
+# repo's own config file so developers can tune thresholds without editing
+# the workflow.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secoraa API Security Scan
+        uses: secoraa/api-security-scan@v1
+        with:
+          target-url: ${{ secrets.SECORAA_TARGET_URL }}
+          auth-token: ${{ secrets.SECORAA_AUTH_TOKEN }}
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: secoraa-results.sarif

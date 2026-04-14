@@ -1,0 +1,91 @@
+name: 'Secoraa API Security Scanner'
+description: 'OWASP API security testing in your CI/CD pipeline. Scans your API on every PR and uploads SARIF results to the GitHub Security tab.'
+author: 'Secoraa'
+branding:
+  icon: 'shield'
+  color: 'orange'
+
+inputs:
+  target-url:
+    description: 'Base URL of the API to scan (e.g. https://staging.example.com)'
+    required: true
+  openapi-spec:
+    description: "Path to OpenAPI/Swagger spec file. Use 'auto' to auto-detect openapi.yaml/json or swagger.* in the repo."
+    required: false
+    default: 'auto'
+  auth-token:
+    description: 'Primary auth token for authenticated endpoints (bearer/api_key/basic)'
+    required: false
+    default: ''
+  auth-type:
+    description: 'Auth type: bearer | api_key | basic'
+    required: false
+    default: 'bearer'
+  secondary-token:
+    description: 'Second low-privilege token for BOLA/BFLA cross-user tests'
+    required: false
+    default: ''
+  scan-mode:
+    description: 'Scan mode: active | passive'
+    required: false
+    default: 'active'
+  severity-threshold:
+    description: 'Fail the build on findings at or above this severity: CRITICAL | HIGH | MEDIUM | LOW'
+    required: false
+    default: 'HIGH'
+  fail-on-findings:
+    description: 'Exit with code 1 when findings meet the threshold (blocks the PR merge if this step is required)'
+    required: false
+    default: 'true'
+  ignore-rules:
+    description: 'Comma-separated OWASP categories to ignore (e.g. "API8:2023,API9:2023")'
+    required: false
+    default: ''
+  output-format:
+    description: 'Output format: sarif | json'
+    required: false
+    default: 'sarif'
+  output-file:
+    description: 'Path to write the results file'
+    required: false
+    default: 'secoraa-results.sarif'
+  pr-comment:
+    description: 'Post a scan summary comment on the PR (requires GITHUB_TOKEN)'
+    required: false
+    default: 'true'
+  secoraa-url:
+    description: 'Secoraa platform URL to sync results for centralized history (e.g. https://secoraa-platform.up.railway.app)'
+    required: false
+    default: ''
+  secoraa-api-key:
+    description: 'Secoraa API key for syncing results back to the platform'
+    required: false
+    default: ''
+
+outputs:
+  results-file:
+    description: 'Path to the results file produced by the scan'
+  gate-result:
+    description: 'PASSED or FAILED — whether the scan met the severity threshold'
+
+runs:
+  using: 'docker'
+  image: 'docker://ghcr.io/secoraa/api-security-scanner:v1'
+  env:
+    TARGET_URL: ${{ inputs.target-url }}
+    OPENAPI_SPEC_PATH: ${{ inputs.openapi-spec }}
+    AUTH_TOKEN: ${{ inputs.auth-token }}
+    AUTH_TYPE: ${{ inputs.auth-type }}
+    SECONDARY_TOKEN: ${{ inputs.secondary-token }}
+    SCAN_MODE: ${{ inputs.scan-mode }}
+    SEVERITY_THRESHOLD: ${{ inputs.severity-threshold }}
+    FAIL_ON_FINDINGS: ${{ inputs.fail-on-findings }}
+    IGNORE_RULES: ${{ inputs.ignore-rules }}
+    OUTPUT_FORMAT: ${{ inputs.output-format }}
+    OUTPUT_FILE: ${{ inputs.output-file }}
+    PR_COMMENT: ${{ inputs.pr-comment }}
+    GITHUB_TOKEN: ${{ github.token }}
+    SECORAA_URL: ${{ inputs.secoraa-url }}
+    SECORAA_API_KEY: ${{ inputs.secoraa-api-key }}
+  args:
+    - api

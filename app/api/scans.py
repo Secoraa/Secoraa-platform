@@ -18,7 +18,7 @@ from typing import Any, Dict, Optional, List
 
 from app.database.models import Scan, ScanResult, Domain, Subdomain, IPAddress, ApiScanReport, Vulnerability, ScheduledScan, AssetGroup, AssetGroupItem
 from app.storage.minio_client import download_json, object_exists
-from sqlalchemy import Select
+from sqlalchemy import Select, select
 from app.api.auth import get_token_claims, get_tenant_usernames
 from app.scanners.api_scanner.main import run_api_scan
 from app.storage.minio_client import MINIO_BUCKET
@@ -877,13 +877,22 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                 try:
                     findings_dict = scan_output.get("findings") or {}
                     scan_meta = scan_output.get("scan") or {}
+                    preflight = scan_output.get("preflight_checks") or {}
+                    messages = scan_output.get("messages") or {}
                     asset_value = scan_meta.get("asset_value") or payload_dict.get("asset_value") or ""
                     vuln_domain = scan_meta.get("domain") or payload_dict.get("domain") or ""
+
+                    logger.info(
+                        f"[VULN-PERSIST] scan={scan.id} asset={asset_value} domain={vuln_domain} "
+                        f"reachable={preflight.get('reachable')} findings_count={len(findings_dict)} "
+                        f"finding_keys={list(findings_dict.keys())} "
+                        f"errors={messages.get('errors', [])} infos={messages.get('infos', [])}"
+                    )
 
                     # Get or create domain
                     vuln_domain_row = None
                     if vuln_domain:
-                        stmt = Select(Domain).filter(Domain.domain_name == vuln_domain.strip().lower())
+                        stmt = select(Domain).filter(Domain.domain_name == vuln_domain.strip().lower())
                         vuln_domain_row = db.execute(stmt).scalars().first()
                         if not vuln_domain_row:
                             vuln_domain_row = Domain(
@@ -895,9 +904,11 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             db.add(vuln_domain_row)
                             db.commit()
                             db.refresh(vuln_domain_row)
+                            logger.info(f"[VULN-PERSIST] Created domain: {vuln_domain} (ID: {vuln_domain_row.id})")
+                        else:
+                            logger.info(f"[VULN-PERSIST] Found existing domain: {vuln_domain} (ID: {vuln_domain_row.id})")
 
                     # Find subdomain row for FK — search by name across all domains
-                    # (handles cases where domain has trailing spaces or duplicates)
                     sub_id = None
                     if asset_value:
                         sub_row = (
@@ -906,9 +917,9 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             .first()
                         )
                         sub_id = getattr(sub_row, "id", None) if sub_row else None
-                        # Also use the subdomain's domain for the FK if found
                         if sub_row and not vuln_domain_row:
                             vuln_domain_row = db.query(Domain).filter(Domain.id == sub_row.domain_id).first()
+                        logger.info(f"[VULN-PERSIST] Subdomain lookup: asset={asset_value} sub_id={sub_id}")
 
                     # Also save a ScanResult row so the scan history page shows the asset
                     try:
@@ -925,6 +936,7 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                     domain_id = getattr(vuln_domain_row, "id", None)
                     for plugin_name, finding in findings_dict.items():
                         if not isinstance(finding, dict):
+                            logger.warning(f"[VULN-PERSIST] Skipping non-dict finding: {plugin_name}")
                             continue
                         vuln = finding.get("vulnerability") if isinstance(finding.get("vulnerability"), dict) else {}
                         name = str(vuln.get("name") or plugin_name).strip()
@@ -957,9 +969,13 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             )
                         )
                         added += 1
+                        logger.info(f"[VULN-PERSIST] Added: {name} ({sev}, CVSS={cvss_score})")
 
                     if added:
                         try:
+                            db.commit()
+                            # Update findings_count on the scan record
+                            scan.findings_count = added
                             db.commit()
                             logger.info(f"✅ Persisted {added} vulnerability row(s) for vulnerability scan {scan.id}")
                         except Exception as e:
@@ -969,7 +985,10 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             except Exception:
                                 pass
                     else:
-                        logger.info(f"No findings to persist for vulnerability scan {scan.id}")
+                        logger.warning(
+                            f"[VULN-PERSIST] No findings to persist for scan {scan.id}. "
+                            f"Reachable={preflight.get('reachable')}, raw findings keys={list(findings_dict.keys())}"
+                        )
 
                 except Exception as e:
                     logger.error(f"❌ Failed to persist vulnerability scan findings: {e}", exc_info=True)
@@ -1307,12 +1326,22 @@ def get_all_scans(
     db = SessionLocal()
     try:
         tenant_users = get_tenant_usernames(db, claims)
-        scans = (
-            db.query(Scan)
-            .filter(Scan.created_by.in_(tenant_users))
-            .order_by(Scan.created_at.desc())
-            .all()
-        )
+        try:
+            from sqlalchemy import or_
+            scans = (
+                db.query(Scan)
+                .filter(
+                    or_(
+                        Scan.created_by.in_(tenant_users),
+                        Scan.created_by.is_(None),
+                    )
+                )
+                .order_by(Scan.created_at.desc())
+                .all()
+            )
+        except Exception:
+            # Fallback if created_by column doesn't exist yet
+            scans = db.query(Scan).order_by(Scan.created_at.desc()).all()
         scan_ids = [s.id for s in scans]
         api_assets = {}
         if scan_ids:

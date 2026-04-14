@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from sqlalchemy.orm import Session
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 from app.scanners.api_scanner.engine.auth_handler import build_auth_headers
 from app.scanners.api_scanner.engine.oob_server import OOBTracker, get_callback_server, DEFAULT_OOB_BASE

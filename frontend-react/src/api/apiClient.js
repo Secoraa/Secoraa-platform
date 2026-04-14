@@ -611,3 +611,37 @@ export const updateScheduledScan = async (scheduleId, scheduledForIso) => {
     throw new Error(`Failed to update scheduled scan: ${error.message}`);
   }
 };
+
+// ==========================================
+// Settings — Profile & API Keys
+// ==========================================
+
+export const getUserProfile = async () => {
+  const response = await apiClient.get('/settings/profile');
+  return response.data;
+};
+
+export const getApiKeys = async () => {
+  const response = await apiClient.get('/settings/api-keys');
+  return response.data;
+};
+
+export const createApiKey = async (payload) => {
+  const response = await apiClient.post('/settings/api-keys', payload);
+  return response.data;
+};
+
+export const revokeApiKey = async (keyId) => {
+  const response = await apiClient.delete(`/settings/api-keys/${keyId}`);
+  return response.data;
+};
+
+// ==========================================
+// CI/CD Scans
+// ==========================================
+
+export const getCiScans = async () => {
+  const response = await apiClient.get('/api/v1/ci/dashboard/scans');
+  return response.data;
+};
+

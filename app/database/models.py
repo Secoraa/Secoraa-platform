@@ -40,6 +40,21 @@ class User(Base):
 
 
 
+class APIKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String, nullable=False)                  # Human label, e.g. "CI/CD key"
+    key_prefix = Column(String(8), nullable=False)         # First 8 chars, shown in UI
+    key_hash = Column(String, nullable=False)              # Argon2 hash of the full key
+    scopes = Column(ARRAY(String), default=["ci"])         # Allowed scopes
+    is_active = Column(Boolean, default=True)
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Scan(Base):
     __tablename__ = "scans"
 
