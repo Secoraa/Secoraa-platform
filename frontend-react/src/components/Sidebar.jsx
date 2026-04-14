@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import secoraaLogo from '../assets/secoraa-logo.jpg';
+import nexveilLogo from '../assets/nexveil-logo.png';
 import ASMIcon from './ASMIcon';
 import ScanIcon from './ScanIcon';
 import BugIcon from './BugIcon';
@@ -31,8 +31,8 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
       <div className="sidebar-header">
         <div className="sidebar-logo">
           <img
-            src={secoraaLogo}
-            alt="Secoraa Logo"
+            src={nexveilLogo}
+            alt="NEXVEIL"
             className="logo-image"
             onError={(e) => {
               e.target.style.display = 'none';
@@ -42,7 +42,7 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
             }}
           />
           <span className="logo-icon" style={{ display: 'none' }}>🛡️</span>
-          <span className="logo-text">SECORAA</span>
+          <span className="logo-text">NEXVEIL</span>
         </div>
         <button
           className="sidebar-toggle"
@@ -124,7 +124,7 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
 
       <div className="sidebar-footer">
         <div className="sidebar-copyright">
-          &copy; {new Date().getFullYear()} Secoraa. All rights reserved.
+          &copy; {new Date().getFullYear()} NEXVEIL. All rights reserved.
         </div>
       </div>
     </div>

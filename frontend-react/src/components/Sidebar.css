@@ -36,7 +36,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  min-height: 64px;
+  min-height: 72px;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -66,10 +66,19 @@
 }
 
 .logo-image {
-  width: 32px;
-  height: 32px;
+  height: 48px;
+  width: auto;
+  max-width: min(200px, 100%);
   object-fit: contain;
+  object-position: left center;
   flex-shrink: 0;
+}
+
+/* Collapsed rail: keep mark readable without overflowing */
+.sidebar.collapsed:not(:hover) .logo-image {
+  height: 36px;
+  max-width: 40px;
+  object-position: left center;
 }
 
 .logo-icon {
@@ -86,17 +95,30 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   white-space: nowrap;
+  display: inline;
 }
 
-/* Hide logo text & toggle when collapsed (show on hover) */
-.sidebar.collapsed .logo-text,
-.sidebar.collapsed .sidebar-toggle {
+/* Hide wordmark only in the narrow collapsed rail; show when sidebar is open or rail is hovered */
+.sidebar.collapsed:not(:hover) .sidebar-logo .logo-text {
   display: none;
 }
 
-.sidebar.collapsed:hover .logo-text,
+/* Broken / missing logo: show gradient wordmark even in the narrow rail */
+.sidebar.collapsed:not(:hover) .sidebar-logo:has(.logo-image[style*='display: none']) .logo-text {
+  display: inline;
+}
+
+/* Hide logo text & toggle when collapsed (show on hover) */
+.sidebar.collapsed:not(:hover) .sidebar-toggle {
+  display: none;
+}
+
 .sidebar.collapsed:hover .sidebar-toggle {
   display: flex;
+}
+
+.sidebar.collapsed:hover .logo-text {
+  display: inline;
 }
 
 /* ── Toggle button ── */

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import secoraaLogo from '../assets/secoraa-logo.jpg';
+import nexveilLogo from '../assets/nexveil-logo.png';
 import './Auth.css';
 import { login, signup, setStoredToken } from '../api/apiClient';
 
@@ -92,9 +92,17 @@ const Auth = ({ onAuthed }) => {
         <div className="auth-card">
           <div className="auth-logo-section">
             <div className="auth-logo">
-              <img src={secoraaLogo} alt="Secoraa" onError={(e) => { e.target.style.display = 'none'; }} />
+              <img
+                src={nexveilLogo}
+                alt="NEXVEIL Security"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  const fb = e.target.closest('.auth-logo-section')?.querySelector('.auth-logo-fallback');
+                  if (fb) fb.hidden = false;
+                }}
+              />
+              <span className="auth-logo-fallback" hidden>NEXVEIL</span>
             </div>
-            <span className="auth-brand-text">SECORAA</span>
           </div>
 
           <div className="auth-banner">
@@ -171,7 +179,7 @@ const Auth = ({ onAuthed }) => {
           <div className="auth-footer">
             {mode === 'login' ? (
               <span>
-                New to Secoraa?{' '}
+                New to NEXVEIL?{' '}
                 <button className="auth-link" type="button" onClick={() => setMode('signup')}>
                   Create an Account
                 </button>
@@ -187,7 +195,7 @@ const Auth = ({ onAuthed }) => {
           </div>
 
           <div className="auth-copyright">
-            &copy; Powered by Secoraa Inc. All Rights Reserved, {new Date().getFullYear()}
+            &copy; Powered by NEXVEIL. All Rights Reserved, {new Date().getFullYear()}
           </div>
         </div>
       </div>
