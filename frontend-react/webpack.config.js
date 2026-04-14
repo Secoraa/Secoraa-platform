@@ -38,8 +38,9 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: './public/index.html',
-      favicon: './public/images/secoraa-logo.jpg',
+      template: path.join(__dirname, 'public', 'index.html'),
+      // Favicon: use <link> tags in index.html only. Avoids HtmlWebpackPlugin
+      // failing if an old favicon path (e.g. secoraa-logo.jpg) is missing.
     }),
     new webpack.DefinePlugin({
       'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'http://localhost:8000'),

@@ -91,40 +91,41 @@
   backdrop-filter: blur(14px);
 }
 
-/* ── Logo section ── */
+/* ── Logo: full lockup image only (no extra frame or duplicate wordmark) ── */
 .auth-logo-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 34px 36px 20px;
+  padding: 28px 28px 16px;
 }
 
 .auth-logo {
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  overflow: hidden;
+  width: 100%;
+  max-width: min(320px, 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 2px solid rgba(224,177,43,0.4);
-  box-shadow: 0 0 18px rgba(224,177,43,0.25);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .auth-logo img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 110px;
+  object-fit: contain;
+  display: block;
 }
 
-.auth-brand-text {
+.auth-logo-fallback {
   font-weight: 800;
   font-size: 22px;
-  letter-spacing: 5px;
+  letter-spacing: 0.2em;
   color: #E0B12B;
-  text-shadow: 0 0 22px rgba(224,177,43,0.35);
+  text-shadow: 0 0 22px rgba(224, 177, 43, 0.35);
 }
 
 /* ── SIGN IN / CREATE ACCOUNT banner ── */
