@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from app.api.auth import get_token_claims
 from app.database.models import ApiScanReport, Scan
-from app.database.session import get_db
+from app.database.session import get_db, SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -135,99 +136,94 @@ async def start_api_scan(
     secondary_auth_dict = body.secondary_auth_config.model_dump() if body.secondary_auth_config else None
     scan_id = str(scan.id)
 
-    # ── Try Celery (background worker) ─────────────────────────────
-    if _celery_available():
-        try:
-            from app.worker.tasks import run_api_scan_task
+    # ── Run scan in background thread ──────────────────────────────
+    def _run_scan_bg():
+        import asyncio
+        from app.scanners.api_scanner.main import run_api_scan
+        from app.storage.file_storage import save_scan_result
+        from app.storage.minio_client import BUCKET, upload_file_to_minio
 
-            run_api_scan_task.delay(
-                scan_id=scan_id,
+        bg_db = SessionLocal()
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            report = loop.run_until_complete(run_api_scan(
                 scan_name=body.scan_name,
                 asset_url=body.asset_url,
+                postman_collection=body.postman_collection,
                 endpoints=body.endpoints,
                 openapi_spec=body.openapi_spec,
-                postman_collection=body.postman_collection,
                 auth_config=auth_dict,
                 secondary_auth_config=secondary_auth_dict,
                 scan_mode=body.scan_mode,
+                db=bg_db,
+                scan_id=scan_id,
+            ))
+            loop.close()
+
+            final_result = {
+                "scan_id": scan_id,
+                "scan_name": body.scan_name,
+                "scan_type": "api",
+                "status": "completed",
+                "created_at": datetime.utcnow().isoformat(),
+                "asset_url": body.asset_url,
+                "result": report,
+            }
+            file_path = save_scan_result(
+                scan_name=body.scan_name,
+                scan_id=scan_id,
+                scan_type="api",
+                data=final_result,
             )
 
-            logger.info("API scan '%s' queued to Celery worker", body.scan_name)
-            return JSONResponse(
-                status_code=202,
-                content={
-                    "scan_id": scan_id,
-                    "scan_name": body.scan_name,
-                    "status": "IN_PROGRESS",
-                    "message": "Scan queued. Poll /scanner/api/{scan_id}/status for progress.",
-                },
-            )
-        except Exception as exc:
-            logger.warning("Celery dispatch failed, falling back to sync: %s", exc)
+            object_name = Path(file_path).name
+            try:
+                upload_file_to_minio(file_path, object_name)
+            except Exception:
+                object_name = None
 
-    # ── Fallback: synchronous execution ────────────────────────────
-    try:
-        from app.scanners.api_scanner.main import run_api_scan
-        from app.storage.file_storage import save_scan_result
-        from app.storage.minio_client import MINIO_BUCKET, upload_file_to_minio
+            bg_scan = bg_db.query(Scan).filter(Scan.id == scan_id).first()
+            if bg_scan:
+                api_report = ApiScanReport(
+                    scan_id=bg_scan.id,
+                    asset_url=body.asset_url,
+                    minio_bucket=BUCKET if object_name else None,
+                    minio_object_name=object_name,
+                    report_json=json.dumps(report),
+                )
+                bg_db.add(api_report)
+                bg_scan.status = "COMPLETED"
+                bg_scan.progress = 100
+                bg_scan.current_phase = "COMPLETED"
+                bg_scan.findings_count = report.get("total_findings", 0)
+                bg_db.commit()
 
-        report = await run_api_scan(
-            scan_name=body.scan_name,
-            asset_url=body.asset_url,
-            postman_collection=body.postman_collection,
-            endpoints=body.endpoints,
-            openapi_spec=body.openapi_spec,
-            auth_config=auth_dict,
-            secondary_auth_config=secondary_auth_dict,
-            scan_mode=body.scan_mode,
-            db=db,
-            scan_id=scan_id,
-        )
+            logger.info("API scan '%s' completed — %d findings", body.scan_name, report.get("total_findings", 0))
 
-        final_result = {
+        except Exception as e:
+            logger.error("API scan '%s' failed: %s", body.scan_name, e)
+            try:
+                bg_scan = bg_db.query(Scan).filter(Scan.id == scan_id).first()
+                if bg_scan:
+                    bg_scan.status = "FAILED"
+                    bg_scan.current_phase = str(e)[:200]
+                    bg_db.commit()
+            except Exception:
+                bg_db.rollback()
+        finally:
+            bg_db.close()
+
+    thread = threading.Thread(target=_run_scan_bg, daemon=True)
+    thread.start()
+    logger.info("API scan '%s' started in background thread", body.scan_name)
+
+    return JSONResponse(
+        status_code=202,
+        content={
             "scan_id": scan_id,
-            "scan_name": scan.scan_name,
-            "scan_type": scan.scan_type,
-            "status": "completed",
-            "created_at": datetime.utcnow().isoformat(),
-            "asset_url": body.asset_url,
-            "result": report,
-        }
-        file_path = save_scan_result(
-            scan_name=scan.scan_name,
-            scan_id=scan_id,
-            scan_type="api",
-            data=final_result,
-        )
-
-        object_name = Path(file_path).name
-        try:
-            upload_file_to_minio(file_path, object_name)
-        except Exception:
-            object_name = None
-
-        api_report = ApiScanReport(
-            scan_id=scan.id,
-            asset_url=body.asset_url,
-            minio_bucket=MINIO_BUCKET if object_name else None,
-            minio_object_name=object_name,
-            report_json=json.dumps(report),
-        )
-        db.add(api_report)
-        scan.status = "COMPLETED"
-        scan.progress = 100
-        scan.current_phase = "COMPLETED"
-        db.commit()
-
-        logger.info("API scan '%s' completed (sync) — %d findings", body.scan_name, report.get("total_findings", 0))
-        return {"scan_id": scan_id, **report}
-
-    except HTTPException:
-        scan.status = "FAILED"
-        db.commit()
-        raise
-    except Exception as e:
-        logger.error("API scan '%s' failed: %s", body.scan_name, e)
-        scan.status = "FAILED"
-        db.commit()
-        raise HTTPException(status_code=500, detail=str(e))
+            "scan_name": body.scan_name,
+            "status": "IN_PROGRESS",
+            "message": "Scan started. Poll /scanner/api/{scan_id}/status for progress.",
+        },
+    )
