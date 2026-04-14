@@ -122,7 +122,9 @@ function App() {
       <Auth
         onAuthed={(t) => {
           setToken(t);
-          setActivePage('dashboard');
+          const restored = sessionStorage.getItem('activePage');
+          const fallback = restored ? (PAGE_FALLBACKS[restored] ?? restored) : 'dashboard';
+          setActivePage(fallback);
         }}
       />
     );
