@@ -36,7 +36,6 @@ services:
   - type: web
     name: secoraa-frontend
     runtime: static
-    plan: free
     buildCommand: cd frontend-react && npm install && REACT_APP_API_URL=https://secoraa-backend.onrender.com npm run build
     staticPublishPath: frontend-react/dist
     headers:
