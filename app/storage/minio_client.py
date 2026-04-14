@@ -32,6 +32,7 @@ MINIO_BUCKET = BUCKET
 # Lazy global client
 client = None
 _using_r2 = False
+_init_attempted = False
 
 
 def _build_client() -> Optional[Minio]:
@@ -100,9 +101,12 @@ def get_minio_client() -> Optional[Minio]:
     Get S3-compatible client with lazy initialization.
     Works with Cloudflare R2 and local MinIO.
     """
-    global client
+    global client, _init_attempted
     if client is not None:
         return client
+    if _init_attempted:
+        return None
+    _init_attempted = True
     client = _build_client()
     return client
 
