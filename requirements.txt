@@ -61,6 +61,9 @@ opentelemetry-semantic-conventions==0.59b0
 celery==5.4.0
 redis==5.2.1
 
+# --- CVSS Scoring ---
+cvss==3.6
+
 # --- Utils ---
 rich==14.2.0
 tenacity==9.1.2
