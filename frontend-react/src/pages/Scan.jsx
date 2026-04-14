@@ -51,6 +51,7 @@ const Scan = ({ onViewResults, initialTab }) => {
   const [scans, setScans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(initialTab || 'run');
+  const [confirmModal, setConfirmModal] = useState({ open: false, scanId: null });
   const [runStep, setRunStep] = useState(1); // 1: scan details, 2: select asset/domain + run
   const [historyPage, setHistoryPage] = useState(1);
   const [historyRowsPerPage, setHistoryRowsPerPage] = useState(10);
@@ -896,22 +897,19 @@ const Scan = ({ onViewResults, initialTab }) => {
     }
   };
 
-  const handleTerminateScan = async (scanId) => {
-    if (!window.confirm('Are you sure you want to terminate this scan? This action cannot be undone.')) {
-      return;
-    }
+  const handleTerminateScan = (scanId) => {
+    setConfirmModal({ open: true, scanId });
+  };
+
+  const confirmTerminate = async () => {
+    const scanId = confirmModal.scanId;
+    setConfirmModal({ open: false, scanId: null });
     try {
       await terminateScan(scanId);
-      setNotification({
-        message: 'Scan terminated successfully',
-        type: 'success',
-      });
+      setNotification({ message: 'Scan terminated successfully', type: 'success' });
       await loadScans();
     } catch (err) {
-      setNotification({
-        message: `Failed to terminate scan: ${err.message}`,
-        type: 'error',
-      });
+      setNotification({ message: `Failed to terminate scan: ${err.message}`, type: 'error' });
     }
   };
 
@@ -925,6 +923,19 @@ const Scan = ({ onViewResults, initialTab }) => {
           duration={5000}
         />
       )}
+
+      {confirmModal.open && (
+        <div className="confirm-overlay" onClick={() => setConfirmModal({ open: false, scanId: null })}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <p className="confirm-text">Are you sure you want to terminate this scan?</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => setConfirmModal({ open: false, scanId: null })}>Cancel</button>
+              <button className="confirm-btn confirm-btn-yes" onClick={confirmTerminate}>Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h1 className="page-title">SCAN</h1>
 
       <div className="scan-tabs">

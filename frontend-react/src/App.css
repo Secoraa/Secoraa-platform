@@ -17,3 +17,63 @@
 .sidebar-collapsed .main-content {
   margin-left: 64px;
 }
+
+/* ── Shared Confirm Modal ── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 24px 28px;
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.confirm-text {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-btn {
+  padding: 8px 24px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.confirm-btn:hover {
+  opacity: 0.85;
+}
+
+.confirm-btn-cancel {
+  background: var(--bg-tertiary, #2a2a3e);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.confirm-btn-yes {
+  background: #FF4C4C;
+  color: #fff;
+}

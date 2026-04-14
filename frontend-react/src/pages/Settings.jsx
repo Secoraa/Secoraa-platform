@@ -11,6 +11,7 @@ export default function Settings() {
   const [newKey, setNewKey] = useState(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+  const [confirmModal, setConfirmModal] = useState({ open: false, keyId: null });
 
   const loadProfile = useCallback(async () => {
     try {
@@ -63,8 +64,13 @@ export default function Settings() {
     }
   };
 
-  const handleRevoke = async (keyId) => {
-    if (!window.confirm('Revoke this API key? Any CI/CD pipelines using it will stop working.')) return;
+  const handleRevoke = (keyId) => {
+    setConfirmModal({ open: true, keyId });
+  };
+
+  const confirmRevoke = async () => {
+    const keyId = confirmModal.keyId;
+    setConfirmModal({ open: false, keyId: null });
     try {
       await revokeApiKey(keyId);
       loadKeys();
@@ -83,6 +89,17 @@ export default function Settings() {
 
   return (
     <div className="settings-page">
+      {confirmModal.open && (
+        <div className="confirm-overlay" onClick={() => setConfirmModal({ open: false, keyId: null })}>
+          <div className="confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <p className="confirm-text">Revoke this API key? Any CI/CD pipelines using it will stop working.</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn confirm-btn-cancel" onClick={() => setConfirmModal({ open: false, keyId: null })}>Cancel</button>
+              <button className="confirm-btn confirm-btn-yes" onClick={confirmRevoke}>Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
       <h1>Settings</h1>
       <p className="subtitle">Manage your account, API keys, and integrations.</p>
 
