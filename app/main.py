@@ -129,12 +129,19 @@ def _check_db() -> dict:
 
 def _check_minio() -> dict:
     try:
-        from app.storage.minio_client import get_minio_client, MINIO_BUCKET
+        from app.storage.minio_client import get_minio_client, BUCKET, _using_r2
         client = get_minio_client()
         if client is None:
             return {"status": "skipped", "error": "not configured"}
-        client.bucket_exists(MINIO_BUCKET)
-        return {"status": "up"}
+        backend = "r2" if _using_r2 else "minio"
+        try:
+            client.bucket_exists(BUCKET)
+        except Exception as bucket_err:
+            # R2 scoped tokens may return 403 on bucket_exists — that's OK
+            if _using_r2 and "AccessDenied" in str(bucket_err):
+                return {"status": "up", "backend": backend}
+            raise bucket_err
+        return {"status": "up", "backend": backend}
     except Exception as e:
         return {"status": "down", "error": str(e)}
 
@@ -154,7 +161,7 @@ def health():
         "services": {
             "redis": redis_status,
             "database": db_status,
-            "minio": minio_status,
+            "storage": minio_status,
         },
     }
 

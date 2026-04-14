@@ -26,8 +26,14 @@ services:
           name: secoraa-redis
           type: redis
           property: connectionString
-      - key: MINIO_ENDPOINT
-        value: ""  # MinIO not available on Render — storage features disabled
+      - key: R2_ENDPOINT
+        sync: false  # Set in Render dashboard — Cloudflare R2 endpoint URL
+      - key: R2_ACCESS_KEY
+        sync: false  # Set in Render dashboard
+      - key: R2_SECRET_KEY
+        sync: false  # Set in Render dashboard
+      - key: R2_BUCKET
+        value: "secoraa-scan-outputs"
       - key: PORT
         value: "8000"
     healthCheckPath: /health

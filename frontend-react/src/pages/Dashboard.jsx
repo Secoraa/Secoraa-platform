@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Notification from '../components/Notification';
-import { getAllFindings, getDomains, getIPAddresses, getSubdomains, getUrls, getSystemHealth } from '../api/apiClient';
+import { getAllFindings, getDomains, getIPAddresses, getSubdomains, getUrls } from '../api/apiClient';
 import './Dashboard.css';
 
 const severityWeight = (sev) => {
@@ -10,6 +10,7 @@ const severityWeight = (sev) => {
 };
 
 const safeArray = (v) => (Array.isArray(v) ? v : (Array.isArray(v?.data) ? v.data : []));
+
 
 const monthKey = (d) => {
   const dt = d instanceof Date ? d : new Date(d);
@@ -26,7 +27,6 @@ const Dashboard = () => {
   const [urls, setUrls] = useState([]);
   const [findings, setFindings] = useState([]);
   const [showAssetBreakdown, setShowAssetBreakdown] = useState(false);
-  const [serviceHealth, setServiceHealth] = useState(null);
   const [visibleSeverities, setVisibleSeverities] = useState({
     CRITICAL: true,
     HIGH: true,
@@ -59,11 +59,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     load();
-    // Health check on load + every 60s
-    const fetchHealth = () => getSystemHealth().then(setServiceHealth).catch(() => {});
-    fetchHealth();
-    const hInterval = setInterval(fetchHealth, 60000);
-    return () => clearInterval(hInterval);
   }, []);
 
   // Deduplicate findings by (vuln name + asset_url) — same vuln on same asset across scans = once
@@ -230,31 +225,6 @@ const Dashboard = () => {
         <div className="dash-breadcrumb">ASM / <span>Dashboard</span></div>
       </div>
 
-      {serviceHealth && serviceHealth.status !== 'healthy' && (
-        <div className="dash-service-alert">
-          <span className="dash-service-alert-icon">!</span>
-          <span>
-            System degraded —{' '}
-            {Object.entries(serviceHealth.services || {})
-              .filter(([, v]) => v.status !== 'up')
-              .map(([name]) => name.charAt(0).toUpperCase() + name.slice(1))
-              .join(', ')}{' '}
-            {Object.entries(serviceHealth.services || {}).filter(([, v]) => v.status !== 'up').length === 1 ? 'is' : 'are'} down.
-            {(serviceHealth.services?.redis?.status !== 'up') && ' Background scans will run synchronously.'}
-          </span>
-        </div>
-      )}
-
-      {serviceHealth && (
-        <div className="dash-service-bar">
-          {Object.entries(serviceHealth.services || {}).map(([name, info]) => (
-            <div key={name} className="dash-service-item" title={info.error || ''}>
-              <span className={`dash-service-dot ${info.status === 'up' ? 'up' : 'down'}`} />
-              <span className="dash-service-name">{name.charAt(0).toUpperCase() + name.slice(1)}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       <div className="dash-grid-top">
         {(() => {
