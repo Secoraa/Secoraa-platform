@@ -14,7 +14,11 @@ from sqlalchemy.orm import Session
 from app.api.auth import get_token_claims, get_tenant_usernames
 from app.database.models import Domain, Report, Subdomain, Vulnerability
 from app.database.session import get_db
-from app.storage.minio_client import upload_bytes_to_minio, get_object_stream, object_exists, MINIO_BUCKET
+from app.storage.minio_client import upload_bytes_to_minio, get_object_stream, object_exists, MINIO_BUCKET, is_minio_configured
+
+# Local fallback directory for PDF storage when MinIO is unavailable
+_LOCAL_REPORTS_DIR = Path("local_reports")
+_LOCAL_REPORTS_DIR.mkdir(exist_ok=True)
 
 
 router = APIRouter(prefix="/reports", tags=["Reports"], dependencies=[Depends(get_token_claims)])
@@ -2175,10 +2179,18 @@ def create_report(
     report_id = uuid.uuid4()
     stored_type = f"{assessment}_{variant}"
     object_name = f"reports/{tenant}/{assessment.lower()}/{variant.lower()}/{report_id}.pdf"
-    try:
-        bucket, obj = upload_bytes_to_minio(pdf_bytes, object_name=object_name, content_type="application/pdf")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+    bucket, obj = "", ""
+    if is_minio_configured():
+        try:
+            bucket, obj = upload_bytes_to_minio(pdf_bytes, object_name=object_name, content_type="application/pdf")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    else:
+        # Local file fallback when MinIO is not available
+        local_path = _LOCAL_REPORTS_DIR / f"{report_id}.pdf"
+        local_path.write_bytes(pdf_bytes)
+        obj = f"local:{report_id}.pdf"
 
     rec = Report(
         id=report_id,
@@ -2210,11 +2222,24 @@ def download_report_pdf(
         raise HTTPException(status_code=404, detail="Report not found.")
     if not rec.minio_object_name:
         raise HTTPException(status_code=404, detail="Report file not available.")
+
+    filename = f"{(rec.report_name or 'report').strip().replace(' ', '-')}.pdf"
+
+    # Local file fallback
+    if rec.minio_object_name.startswith("local:"):
+        local_file = _LOCAL_REPORTS_DIR / rec.minio_object_name.removeprefix("local:")
+        if not local_file.exists():
+            raise HTTPException(status_code=404, detail="Report file not found on disk.")
+        return StreamingResponse(
+            open(local_file, "rb"),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
     if not object_exists(rec.minio_object_name):
         raise HTTPException(status_code=404, detail="Report file not found in MinIO.")
 
     resp = get_object_stream(rec.minio_object_name)
-    filename = f"{(rec.report_name or 'report').strip().replace(' ', '-')}.pdf"
     return StreamingResponse(
         resp,
         media_type="application/pdf",
