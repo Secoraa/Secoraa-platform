@@ -95,7 +95,7 @@ export default function Settings() {
             <p className="confirm-text">Revoke this API key? Any CI/CD pipelines using it will stop working.</p>
             <div className="confirm-actions">
               <button className="confirm-btn confirm-btn-cancel" onClick={() => setConfirmModal({ open: false, keyId: null })}>Cancel</button>
-              <button className="confirm-btn confirm-btn-yes" onClick={confirmRevoke}>Yes</button>
+              <button className="confirm-btn confirm-btn-yes" onClick={confirmRevoke}>Confirm</button>
             </div>
           </div>
         </div>

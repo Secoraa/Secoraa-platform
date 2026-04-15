@@ -930,7 +930,7 @@ const Scan = ({ onViewResults, initialTab }) => {
             <p className="confirm-text">Are you sure you want to terminate this scan?</p>
             <div className="confirm-actions">
               <button className="confirm-btn confirm-btn-cancel" onClick={() => setConfirmModal({ open: false, scanId: null })}>Cancel</button>
-              <button className="confirm-btn confirm-btn-yes" onClick={confirmTerminate}>Yes</button>
+              <button className="confirm-btn confirm-btn-yes" onClick={confirmTerminate}>Confirm</button>
             </div>
           </div>
         </div>
