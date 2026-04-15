@@ -12,6 +12,10 @@
 
 set -e
 
+# Ensure /app is on PYTHONPATH so `cli` and `app` packages are importable.
+export PYTHONPATH="/app:${PYTHONPATH:-}"
+cd /app
+
 SUBCOMMAND="${1:-api}"
 shift 2>/dev/null || true
 
