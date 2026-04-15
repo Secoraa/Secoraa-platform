@@ -53,6 +53,10 @@ inputs:
     description: 'Post a scan summary comment on the PR (requires GITHUB_TOKEN)'
     required: false
     default: 'true'
+  github-token:
+    description: 'GitHub token for PR comments. Defaults to the automatic GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
   secoraa-url:
     description: 'Secoraa platform URL to sync results for centralized history (e.g. https://secoraa-platform.up.railway.app)'
     required: false
@@ -84,7 +88,7 @@ runs:
     OUTPUT_FORMAT: ${{ inputs.output-format }}
     OUTPUT_FILE: ${{ inputs.output-file }}
     PR_COMMENT: ${{ inputs.pr-comment }}
-    GITHUB_TOKEN: ${{ github.token }}
+    GITHUB_TOKEN: ${{ inputs.github-token }}
     SECORAA_URL: ${{ inputs.secoraa-url }}
     SECORAA_API_KEY: ${{ inputs.secoraa-api-key }}
   args:
