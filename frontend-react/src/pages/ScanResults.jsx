@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getScanResults } from '../api/apiClient';
 import Notification from '../components/Notification';
+import { dedupeAssetsPreserveOrder } from '../utils/assets';
 import './ScanResults.css';
+import './Vulnerability.css';
 
 const SEVERITY_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFORMATIONAL: 4 };
 const SEVERITY_COLORS = {
@@ -11,6 +13,30 @@ const SEVERITY_COLORS = {
   LOW: '#2ed573',
   INFORMATIONAL: '#70a1ff',
 };
+
+const SEVERITY_PILL_SLUGS = new Set(['critical', 'high', 'medium', 'low', 'informational', 'info']);
+
+/** Same pill classes as Vulnerability table (Vulnerability.css `.sev-*`). */
+function severityPillClass(severity) {
+  let slug = String(severity || 'INFORMATIONAL').trim().toLowerCase();
+  if (slug === 'info') slug = 'informational';
+  if (!SEVERITY_PILL_SLUGS.has(slug)) slug = 'informational';
+  return `sev sev-${slug}`;
+}
+
+function collectUrlsFromVulnItem(item) {
+  const urls = [];
+  const pocs = Array.isArray(item?.pocs) ? item.pocs : [];
+  for (const p of pocs) {
+    if (!p || typeof p !== 'object') continue;
+    if (Array.isArray(p.urls)) {
+      for (const u of p.urls) {
+        if (u != null && String(u).trim()) urls.push(String(u).trim());
+      }
+    }
+  }
+  return dedupeAssetsPreserveOrder(urls);
+}
 
 const SCAN_TYPE_LABELS = {
   dd: 'Domain Discovery Scan',
@@ -50,7 +76,48 @@ const ScanResults = ({ scanId, onBack }) => {
   };
 
   const report = scanResults?.report || {};
-  const rawFindings = report.findings || [];
+  // API scans use findings: []; vulnerability scanner uses findings: { pluginName: {...} }
+  const rawFindings = Array.isArray(report.findings) ? report.findings : [];
+
+  const vulnScannerRows = useMemo(() => {
+    const fd = report.findings;
+    if (!fd || typeof fd !== 'object' || Array.isArray(fd)) return [];
+    const byDedupeKey = new Map();
+    for (const [pluginKey, item] of Object.entries(fd)) {
+      if (!item || typeof item !== 'object') continue;
+      const v = item.vulnerability;
+      const vul = v && typeof v === 'object' ? v : {};
+      const title = String(vul.name || pluginKey || 'Finding').trim();
+      const sevRaw = String(vul.severity || 'INFO').toUpperCase();
+      const severity = sevRaw === 'INFO' ? 'INFORMATIONAL' : sevRaw;
+      const vid = vul.vid != null && String(vul.vid).trim() !== '' ? String(vul.vid).trim() : null;
+      const dedupeKey = vid ? `vid:${vid}` : `title:${title.toLowerCase()}`;
+      const affectedUrls = collectUrlsFromVulnItem(item);
+      if (byDedupeKey.has(dedupeKey)) {
+        const prev = byDedupeKey.get(dedupeKey);
+        prev.affectedUrls = dedupeAssetsPreserveOrder([...prev.affectedUrls, ...affectedUrls]);
+        prev.mergedPluginKeys = [...(prev.mergedPluginKeys || [prev.id]), pluginKey];
+        continue;
+      }
+      byDedupeKey.set(dedupeKey, {
+        id: pluginKey,
+        title,
+        severity,
+        cvss_score: vul.cvss_score,
+        cvss_vector: vul.cvss_vector,
+        description: vul.description,
+        recommendation: vul.recommendation,
+        affectedUrls,
+        mergedPluginKeys: [pluginKey],
+      });
+    }
+    return Array.from(byDedupeKey.values());
+  }, [report.findings]);
+
+  const uniqueScanSubdomains = useMemo(
+    () => dedupeAssetsPreserveOrder(scanResults?.subdomains || []),
+    [scanResults?.subdomains],
+  );
 
   // Deduplicate by vulnerability title — same vulnerability type shown only once
   const findings = (() => {
@@ -303,7 +370,7 @@ const ScanResults = ({ scanId, onBack }) => {
                     </div>
                     <div className="info-item">
                       <span className="info-label">Domain</span>
-                      <span className="info-value">{scanResults.domain || 'N/A'}</span>
+                      <span className="info-value">{scanResults.domain || report.scan?.domain || 'N/A'}</span>
                     </div>
                     <div className="info-item">
                       <span className="info-label">Total Subdomains</span>
@@ -313,12 +380,111 @@ const ScanResults = ({ scanId, onBack }) => {
                 </div>
               </div>
 
+              {scanResults.scan_type === 'vulnerability' && report.preflight_checks && (
+                <div className="results-info-section">
+                  <div className="info-card">
+                    <h3>Reachability</h3>
+                    <div className="info-grid">
+                      <div className="info-item">
+                        <span className="info-label">Reachable</span>
+                        <span className="info-value">{report.preflight_checks.reachable ? 'Yes' : 'No'}</span>
+                      </div>
+                      <div className="info-item">
+                        <span className="info-label">Target</span>
+                        <span className="info-value">{report.scan?.asset_value || scanResults.subdomains?.[0] || 'N/A'}</span>
+                      </div>
+                    </div>
+                    {report.messages?.infos?.length > 0 && (
+                      <ul className="scan-msg-list">
+                        {report.messages.infos.map((m, i) => (
+                          <li key={`info-${i}`}>{m}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {report.messages?.errors?.length > 0 && (
+                      <ul className="scan-msg-list scan-msg-errors">
+                        {report.messages.errors.map((m, i) => (
+                          <li key={`err-${i}`}>{m}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {scanResults.scan_type === 'vulnerability' && (
+                <div className="subdomains-section">
+                  <h2>Findings ({vulnScannerRows.length})</h2>
+                  {vulnScannerRows.length === 0 ? (
+                    <div className="empty-state">
+                      No findings in this scan report. The target may be clean, unreachable, or plugins did not
+                      detect issues. Check reachability above and backend logs if this is unexpected.
+                    </div>
+                  ) : (
+                    <div className="findings-list">
+                      {vulnScannerRows.map((row) => (
+                        <div key={row.id} className="finding-card vuln-scan-finding-card">
+                          <div className="finding-header">
+                            <div className="finding-header-left">
+                              <span className={severityPillClass(row.severity)}>{row.severity}</span>
+                              <span className="finding-title">{row.title}</span>
+                            </div>
+                            <div className="finding-header-right">
+                              {row.cvss_score != null && row.cvss_score !== '' && (
+                                <span className="finding-cvss">CVSS {row.cvss_score}</span>
+                              )}
+                            </div>
+                          </div>
+                          {(row.description ||
+                            row.recommendation ||
+                            row.cvss_vector ||
+                            (row.affectedUrls && row.affectedUrls.length > 0)) && (
+                            <div className="finding-details">
+                              {row.description && (
+                                <div className="finding-detail-row">
+                                  <span className="detail-label">Description</span>
+                                  <span className="detail-value">{row.description}</span>
+                                </div>
+                              )}
+                              {row.recommendation && (
+                                <div className="finding-detail-row">
+                                  <span className="detail-label">Recommendation</span>
+                                  <span className="detail-value">{row.recommendation}</span>
+                                </div>
+                              )}
+                              {row.cvss_vector && (
+                                <div className="finding-detail-row">
+                                  <span className="detail-label">CVSS vector</span>
+                                  <code className="detail-value-code">{row.cvss_vector}</code>
+                                </div>
+                              )}
+                              {row.affectedUrls && row.affectedUrls.length > 0 && (
+                                <div className="finding-detail-row">
+                                  <span className="detail-label">Affected URLs</span>
+                                  <ul className="vuln-affected-url-list">
+                                    {row.affectedUrls.map((u) => (
+                                      <li key={u}>
+                                        <code className="detail-value-code">{u}</code>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="subdomains-section">
-                <h2>Subdomains ({scanResults.total_subdomains || 0})</h2>
-                {scanResults.subdomains && scanResults.subdomains.length > 0 ? (
+                <h2>Subdomains ({uniqueScanSubdomains.length || scanResults.total_subdomains || 0})</h2>
+                {uniqueScanSubdomains.length > 0 ? (
                   <div className="subdomains-list">
-                    {scanResults.subdomains.map((subdomain, index) => (
-                      <div key={index} className="subdomain-item">
+                    {uniqueScanSubdomains.map((subdomain) => (
+                      <div key={subdomain} className="subdomain-item">
                         {subdomain}
                       </div>
                     ))}
@@ -334,7 +500,9 @@ const ScanResults = ({ scanId, onBack }) => {
                   <div className="vuln-results">
                     {Object.entries(scanResults.report.subdomains || {}).map(([sub, data]) => {
                       const vulns = (data && data.vulnerabilities) || {};
-                      const exposure = Array.isArray(vulns.exposure) ? vulns.exposure : [];
+                      const exposure = dedupeAssetsPreserveOrder(
+                        (Array.isArray(vulns.exposure) ? vulns.exposure : []).map((e) => String(e)),
+                      );
                       const misconfig = vulns.misconfiguration && typeof vulns.misconfiguration === 'object' ? vulns.misconfiguration : null;
                       const takeover = vulns.takeover || null;
                       const hasAny = exposure.length || misconfig || takeover;

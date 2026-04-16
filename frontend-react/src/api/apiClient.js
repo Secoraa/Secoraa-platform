@@ -58,6 +58,24 @@ const attachAuthInterceptor = (client) => {
 attachAuthInterceptor(apiClient);
 attachAuthInterceptor(scanClient);
 
+/**
+ * Prefer FastAPI `detail` (string or validation list) for toasts / scan bar.
+ */
+export function getApiErrorMessage(error, fallback = 'Request failed') {
+  const d = error?.response?.data?.detail;
+  if (typeof d === 'string' && d.trim()) return d.trim();
+  if (Array.isArray(d)) {
+    const parts = d
+      .map((x) => (x && typeof x === 'object' ? x.msg || x.message : String(x)))
+      .filter(Boolean);
+    if (parts.length) return parts.join(' ');
+  }
+  if (error?.response) {
+    return `${fallback} (${error.response.status})`;
+  }
+  return error?.message || fallback;
+}
+
 // ==========================================
 // System Health
 // ==========================================
@@ -300,7 +318,7 @@ export const createDomain = async (domainName, tags = []) => {
     });
     return response.data;
   } catch (error) {
-    throw new Error(`Failed to create domain: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create domain'));
   }
 };
 
@@ -398,10 +416,7 @@ export const createAssetGroup = async ({ name, domainId, assetType, description,
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data?.detail || `Failed to create asset group: ${error.response.status} ${error.response.statusText}`);
-    }
-    throw new Error(`Failed to create asset group: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create asset group'));
   }
 };
 
@@ -414,10 +429,7 @@ export const createIPAddress = async (domainId, ipAddress, tags = []) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      throw new Error(`Failed to create IP address: ${error.response.status} ${error.response.statusText}`);
-    }
-    throw new Error(`Failed to create IP address: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create IP address'));
   }
 };
 
@@ -432,10 +444,7 @@ export const createIpBlock = async (domainId, name, ipIds = [], description = ''
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      throw new Error(`Failed to create IP block: ${error.response.status} ${error.response.statusText}`);
-    }
-    throw new Error(`Failed to create IP block: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create IP block'));
   }
 };
 
@@ -448,10 +457,7 @@ export const createUrl = async (domainId, url, tags = []) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      throw new Error(`Failed to create URL: ${error.response.status} ${error.response.statusText}`);
-    }
-    throw new Error(`Failed to create URL: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create URL'));
   }
 };
 
@@ -464,10 +470,7 @@ export const createSubdomain = async (domainId, subdomainName, tags = []) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      throw new Error(`Failed to create subdomain: ${error.response.status} ${error.response.statusText}`);
-    }
-    throw new Error(`Failed to create subdomain: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to create subdomain'));
   }
 };
 
@@ -492,10 +495,7 @@ export const createScanWithPayload = async (scanName, scanType, payload) => {
     if (error.code === 'ECONNABORTED') {
       throw new Error('Scan is taking longer than expected. Please check scan history for results.');
     }
-    // Prefer the API's detail message (e.g. 409 duplicate name) over the generic axios message
-    const detail = error?.response?.data?.detail;
-    if (detail) throw new Error(detail);
-    throw new Error(`Failed to run scan: ${error.message}`);
+    throw new Error(getApiErrorMessage(error, 'Failed to run scan'));
   }
 };
 

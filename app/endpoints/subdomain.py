@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.endpoints.request_body import SubdomainRequestBody
 
 from app.api.auth import get_token_claims, get_tenant_usernames
+from app.utils.asset_uniqueness import subdomain_name_exists_for_domain
 
 
 router = APIRouter(
@@ -30,13 +31,15 @@ def create_subdomain(
     try:
         body = request_body.model_dump()
 
-        subdomain_name = body.get("subdomain_name")
-        assert subdomain_name, "Subdomain name cannot be empty."
+        subdomain_name = (body.get("subdomain_name") or "").strip()
+        if not subdomain_name:
+            raise HTTPException(status_code=400, detail="Subdomain name cannot be empty.")
 
         tags = body.get("tags")
 
         domain_id = body.get("domain_id")
-        assert domain_id, "Domain name cannot be empty."
+        if not domain_id:
+            raise HTTPException(status_code=400, detail="domain_id is required.")
 
         tenant_users = get_tenant_usernames(db, claims)
         valid_domain = (
@@ -44,8 +47,14 @@ def create_subdomain(
             .filter(Domain.id == domain_id, Domain.created_by.in_(tenant_users))
             .first()
         )
-        assert valid_domain, "Invalid Domain Id."
-    
+        if not valid_domain:
+            raise HTTPException(status_code=400, detail="Invalid domain id.")
+
+        if subdomain_name_exists_for_domain(db, domain_id, subdomain_name):
+            raise HTTPException(
+                status_code=409,
+                detail="A subdomain with this name already exists.",
+            )
 
         created_at = datetime.utcnow()
         updated_at = datetime.utcnow()

@@ -889,10 +889,13 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                         f"errors={messages.get('errors', [])} infos={messages.get('infos', [])}"
                     )
 
-                    # Get or create domain
+                    # Get or create domain (must scope by owner — findings list filters on Domain.created_by)
                     vuln_domain_row = None
                     if vuln_domain:
-                        stmt = select(Domain).filter(Domain.domain_name == vuln_domain.strip().lower())
+                        stmt = select(Domain).filter(
+                            Domain.domain_name == vuln_domain.strip().lower(),
+                            Domain.created_by == created_by,
+                        )
                         vuln_domain_row = db.execute(stmt).scalars().first()
                         if not vuln_domain_row:
                             vuln_domain_row = Domain(
@@ -1366,6 +1369,18 @@ def get_all_scans(
                         "subdomain": getattr(r, "subdomain", None),
                     }
 
+        def _history_asset_name(scan) -> Optional[str]:
+            """Label for scan history: prefer the scanned host/URL, not only apex domain."""
+            st = str(scan.scan_type or "").lower()
+            row = scan_assets.get(scan.id, {}) or {}
+            if st == "api":
+                return api_assets.get(scan.id)
+            # Web + vuln scans persist the hostname in scan_results.subdomain
+            if st in ("subdomain", "vulnerability", "ci_subdomain"):
+                return row.get("subdomain") or row.get("domain")
+            # DD / network / default: domain column (or IP for network)
+            return row.get("domain") or row.get("subdomain")
+
         data = [
             {
                 "scan_id": str(scan.id),
@@ -1380,13 +1395,7 @@ def get_all_scans(
                 "created_at": scan.created_at,
                 "created_by": getattr(scan, 'created_by', None),
                 "asset_url": api_assets.get(scan.id),
-                "asset_name": (
-                    api_assets.get(scan.id)
-                    if str(scan.scan_type or "").lower() == "api"
-                    else (scan_assets.get(scan.id, {}) or {}).get("subdomain")
-                    if str(scan.scan_type or "").lower() == "subdomain"
-                    else (scan_assets.get(scan.id, {}) or {}).get("domain")
-                ),
+                "asset_name": _history_asset_name(scan),
             }
             for scan in scans
         ]
@@ -1615,6 +1624,25 @@ def get_scan_results(
                         report_obj = wrapper["result"].get("report") or wrapper["result"]
                     else:
                         report_obj = wrapper
+            except Exception:
+                report_obj = None
+
+            if report_obj is not None:
+                base["report"] = report_obj
+
+        # Vulnerability scans save as vulnerability_{scan_name}_vs_{id}.json (see process_scan_background)
+        if scan.scan_type == "vulnerability":
+            vs_scan_name = f"{scan.scan_name}_vs"
+            object_name = f"vulnerability_{_safe_name(vs_scan_name)}_{scan_id}.json"
+            report_obj = None
+            try:
+                if object_exists(object_name):
+                    wrapper = download_json(object_name) or {}
+                    inner = wrapper.get("result") if isinstance(wrapper.get("result"), dict) else None
+                    if isinstance(inner, dict):
+                        report_obj = inner
+                    else:
+                        report_obj = wrapper if isinstance(wrapper, dict) else None
             except Exception:
                 report_obj = None
 

@@ -221,6 +221,11 @@
   font-size: 0.875rem;
 }
 
+.asset-table th.asset-table-count-col,
+.asset-table td.asset-table-count-col {
+  text-align: center;
+}
+
 /* (Scan Status column removed) */
 
 .asset-table tbody tr {

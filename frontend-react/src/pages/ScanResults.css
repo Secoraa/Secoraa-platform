@@ -489,3 +489,33 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.scan-msg-list {
+  margin: 1rem 0 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.scan-msg-errors {
+  color: #ff6b6b;
+}
+
+/* Vulnerability scan detail: align with Vulnerability.css severity pills */
+.vuln-scan-finding-card .finding-header-left {
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.vuln-scan-finding-card .finding-header-left .sev {
+  flex-shrink: 0;
+}
+
+.vuln-affected-url-list {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.vuln-affected-url-list li {
+  margin-bottom: 0.35rem;
+}
+

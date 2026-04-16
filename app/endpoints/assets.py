@@ -29,6 +29,13 @@ from sqlalchemy import Select
 from sqlalchemy.orm import selectinload
 
 from app.api.auth import get_token_claims, get_tenant_usernames
+from app.utils.asset_uniqueness import (
+    domain_name_exists_for_user,
+    ip_exists_for_domain,
+    url_exists_for_domain,
+    asset_group_name_exists_for_domain,
+    ip_block_name_exists_for_domain,
+)
 
 
 router = APIRouter(
@@ -46,8 +53,9 @@ def create_domain(
 ):
     body = request_body.model_dump()
 
-    domain_name = body.get("domain_name")
-    assert domain_name, "Domain name cannot be empty."
+    domain_name = (body.get("domain_name") or "").strip()
+    if not domain_name:
+        raise HTTPException(status_code=400, detail="Domain name cannot be empty.")
 
     asn = body.get("asn")
     tags = body.get("tags", [])
@@ -56,6 +64,12 @@ def create_domain(
     updated_by = created_by
     created_at = datetime.utcnow()
     updated_at = datetime.utcnow()
+
+    if domain_name_exists_for_user(db, created_by, domain_name):
+        raise HTTPException(
+            status_code=409,
+            detail="A domain with this name already exists.",
+        )
 
     try:
         domain = Domain(
@@ -80,6 +94,11 @@ def create_domain(
 
         err = str(e).lower()
         if "undefinedcolumn" in err or "does not exist" in err:
+            if domain_name_exists_for_user(db, created_by, domain_name):
+                raise HTTPException(
+                    status_code=409,
+                    detail="A domain with this name already exists.",
+                )
             domain_uuid = str(uuid.uuid4())
             try:
                 db.execute(
@@ -446,6 +465,12 @@ def create_ip_address(
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
 
+        if ip_exists_for_domain(db, domain_id, ipaddress_name):
+            raise HTTPException(
+                status_code=409,
+                detail="An IP address with this name already exists.",
+            )
+
         created_by = updated_by = str(
             claims.get("sub") or claims.get("username") or "manual"
         ).strip()
@@ -571,6 +596,12 @@ def create_url(
         )
         if not valid_domain:
             raise HTTPException(status_code=400, detail="Invalid domain_id")
+
+        if url_exists_for_domain(db, domain_id, url_name):
+            raise HTTPException(
+                status_code=409,
+                detail="A URL with this name already exists.",
+            )
 
         created_by = updated_by = str(
             claims.get("sub") or claims.get("username") or "manual"
@@ -844,6 +875,16 @@ def create_asset_group(
         )
     if not isinstance(asset_ids, list):
         raise HTTPException(status_code=400, detail="asset_ids must be a list")
+    # De-duplicate IDs (same asset selected twice)
+    deduped_asset_ids = []
+    _seen_aid = set()
+    for aid in asset_ids:
+        sid = str(aid).strip()
+        if not sid or sid in _seen_aid:
+            continue
+        _seen_aid.add(sid)
+        deduped_asset_ids.append(aid)
+    asset_ids = deduped_asset_ids
     if len(asset_ids) == 0:
         raise HTTPException(status_code=400, detail="Select at least one asset")
     if len(asset_ids) > 5:
@@ -857,6 +898,12 @@ def create_asset_group(
     )
     if not valid_domain:
         raise HTTPException(status_code=400, detail="Invalid domain_id")
+
+    if asset_group_name_exists_for_domain(db, domain_id, name):
+        raise HTTPException(
+            status_code=409,
+            detail="An asset group with this name already exists.",
+        )
 
     created_by = updated_by = str(
         claims.get("sub") or claims.get("username") or "manual"
@@ -1025,6 +1072,15 @@ def create_ip_block(
         raise HTTPException(status_code=400, detail="name is required")
     if not isinstance(ip_ids, list):
         raise HTTPException(status_code=400, detail="ip_ids must be a list")
+    deduped_ip_ids = []
+    _seen_ip = set()
+    for iid in ip_ids:
+        sid = str(iid).strip()
+        if not sid or sid in _seen_ip:
+            continue
+        _seen_ip.add(sid)
+        deduped_ip_ids.append(iid)
+    ip_ids = deduped_ip_ids
     if len(ip_ids) == 0:
         raise HTTPException(status_code=400, detail="Select at least one IP")
     if len(ip_ids) > 5:
@@ -1038,6 +1094,12 @@ def create_ip_block(
     )
     if not valid_domain:
         raise HTTPException(status_code=400, detail="Invalid domain_id")
+
+    if ip_block_name_exists_for_domain(db, domain_id, name):
+        raise HTTPException(
+            status_code=409,
+            detail="An IP block with this name already exists.",
+        )
 
     created_by = updated_by = str(
         claims.get("sub") or claims.get("username") or "manual"
