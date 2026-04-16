@@ -770,14 +770,24 @@ def _build_api_details_pdf(
         ("LOW", "Low risk issues do not usually alter normal behavior but can aid further attacks."),
         ("INFORMATIONAL", "Informational findings highlight exposures that may not require action."),
     ]
+    # Two-column layout within printable width (avoid fixed 30+160mm which exceeds A4 margins).
+    label_w = 38
+    x0 = pdf.l_margin
     pdf.set_font("Helvetica", "", 9)
     for name, desc in severity_descriptions:
+        y0 = pdf.get_y()
+        desc_w = pdf.w - pdf.r_margin - x0 - label_w
+        if desc_w < 40:
+            desc_w = max(40.0, pdf.w - pdf.r_margin - x0 - 30.0)
+        pdf.set_xy(x0, y0)
         pdf.set_font("Helvetica", "B", 9)
-        y_start = pdf.get_y()
-        pdf.cell(30, 6, _safe_pdf_text(name), 0, 0, "L")
+        pdf.multi_cell(label_w, 6, _safe_pdf_text(name), align="L")
+        y_after_label = pdf.get_y()
+        pdf.set_xy(x0 + label_w, y0)
         pdf.set_font("Helvetica", "", 9)
-        pdf.set_xy(40, y_start)
-        pdf.multi_cell(160, 6, _safe_pdf_text(desc))
+        pdf.multi_cell(desc_w, 6, _safe_pdf_text(desc), align="L")
+        y_after_desc = pdf.get_y()
+        pdf.set_y(max(y_after_label, y_after_desc))
     footer()
 
     # -------------------------
