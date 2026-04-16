@@ -13,6 +13,7 @@ import {
   getAssetGroups,
   createAssetGroup,
 } from '../api/apiClient';
+import Notification from '../components/Notification';
 import './AssetDiscovery.css';
 
 // TagsDisplay component to show tags with "+X" functionality
@@ -97,6 +98,11 @@ const AssetDiscovery = () => {
   const [assetGroupCurrentPage, setAssetGroupCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [expandedTags, setExpandedTags] = useState({});
+  const [notification, setNotification] = useState(null);
+
+  const notify = (message, type = 'error') => {
+    setNotification({ message, type });
+  };
 
   useEffect(() => {
     // Prefetch counts so tab badges don't show 0 before user clicks into tabs
@@ -238,7 +244,7 @@ const AssetDiscovery = () => {
       setNewDomain({ name: '', tags: '' });
       loadDomains();
     } catch (err) {
-      alert(`Failed to add domain: ${err.message}`);
+      notify(err.message || 'Failed to add domain');
     }
   };
 
@@ -246,7 +252,7 @@ const AssetDiscovery = () => {
     e.preventDefault();
     try {
       if (!newSubdomain.domainId) {
-        alert('Please select a domain');
+        notify('Please select a domain');
         return;
       }
       const tags = newSubdomain.tags
@@ -258,7 +264,7 @@ const AssetDiscovery = () => {
       loadSubdomains();
       loadDomains(); // Refresh domains to update subdomain count
     } catch (err) {
-      alert(`Failed to add subdomain: ${err.message}`);
+      notify(err.message || 'Failed to add subdomain');
     }
   };
 
@@ -266,7 +272,7 @@ const AssetDiscovery = () => {
     e.preventDefault();
     try {
       if (!newIpAddress.domainId) {
-        alert('Please select a domain');
+        notify('Please select a domain');
         return;
       }
       const tags = newIpAddress.tags
@@ -278,7 +284,7 @@ const AssetDiscovery = () => {
       setIpCurrentPage(1);
       loadIPAddresses();
     } catch (err) {
-      alert(`Failed to add IP address: ${err.message}`);
+      notify(err.message || 'Failed to add IP address');
     }
   };
 
@@ -286,19 +292,19 @@ const AssetDiscovery = () => {
     e.preventDefault();
     try {
       if (!newIpBlock.domainId) {
-        alert('Please select a domain');
+        notify('Please select a domain');
         return;
       }
       if (!newIpBlock.name.trim()) {
-        alert('Please enter a name');
+        notify('Please enter a name');
         return;
       }
       if (!newIpBlock.ipIds || newIpBlock.ipIds.length === 0) {
-        alert('Please select at least one IP');
+        notify('Please select at least one IP');
         return;
       }
       if (newIpBlock.ipIds.length > 5) {
-        alert('You can select up to 5 IPs');
+        notify('You can select up to 5 IPs');
         return;
       }
       await createIpBlock(newIpBlock.domainId, newIpBlock.name.trim(), newIpBlock.ipIds, newIpBlock.description);
@@ -307,7 +313,7 @@ const AssetDiscovery = () => {
       setIpBlockCurrentPage(1);
       loadIpBlocks();
     } catch (err) {
-      alert(`Failed to add IP block: ${err.message}`);
+      notify(err.message || 'Failed to add IP block');
     }
   };
 
@@ -315,7 +321,7 @@ const AssetDiscovery = () => {
     e.preventDefault();
     try {
       if (!newUrl.domainId) {
-        alert('Please select a domain');
+        notify('Please select a domain');
         return;
       }
       const tags = newUrl.tags
@@ -327,7 +333,7 @@ const AssetDiscovery = () => {
       setUrlCurrentPage(1);
       loadUrls();
     } catch (err) {
-      alert(`Failed to add URL: ${err.message}`);
+      notify(err.message || 'Failed to add URL');
     }
   };
 
@@ -335,15 +341,15 @@ const AssetDiscovery = () => {
     e.preventDefault();
     try {
       if (!newAssetGroup.domainId) {
-        alert('Please select a domain');
+        notify('Please select a domain');
         return;
       }
       if (!newAssetGroup.assetIds || newAssetGroup.assetIds.length === 0) {
-        alert('Please select at least one asset');
+        notify('Please select at least one asset');
         return;
       }
       if (newAssetGroup.assetIds.length > 5) {
-        alert('You can select up to 5 assets');
+        notify('You can select up to 5 assets');
         return;
       }
       await createAssetGroup({
@@ -358,7 +364,7 @@ const AssetDiscovery = () => {
       setAssetGroupCurrentPage(1);
       loadAssetGroups();
     } catch (err) {
-      alert(`Failed to add asset group: ${err.message}`);
+      notify(err.message || 'Failed to add asset group');
     }
   };
 
@@ -548,6 +554,13 @@ const AssetDiscovery = () => {
 
   return (
     <div className="asset-discovery">
+      {notification && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
       <div className="page-header">
         <h1 className="page-title">ASSET DISCOVERY</h1>
         <button className="add-asset-btn" onClick={handleAddAsset}>
@@ -617,9 +630,9 @@ const AssetDiscovery = () => {
                       <th>NAME</th>
                       <th>ASSET LABELS</th>
                       <th>TAGS</th>
-                      <th>SUBDOMAIN COUNT</th>
-                      <th>ASN COUNT</th>
-                      <th>VULNERABILITY COUNT</th>
+                      <th className="asset-table-count-col">SUBDOMAIN COUNT</th>
+                      <th className="asset-table-count-col">ASN COUNT</th>
+                      <th className="asset-table-count-col">VULNERABILITY COUNT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -656,9 +669,9 @@ const AssetDiscovery = () => {
                             setExpandedTags={setExpandedTags}
                           />
                         </td>
-                        <td>{domain.subdomains?.length || 0}</td>
-                        <td>0</td>
-                        <td>0</td>
+                        <td className="asset-table-count-col">{domain.subdomains?.length || 0}</td>
+                        <td className="asset-table-count-col">0</td>
+                        <td className="asset-table-count-col">0</td>
                       </tr>
                     ))
                   )}
