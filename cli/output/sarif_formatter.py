@@ -102,6 +102,12 @@ def _build_result(finding: Dict[str, Any], rule_index: int) -> Dict[str, Any]:
         or finding.get("title")
         or "Security finding"
     )
+    # GitHub SARIF requires artifact URIs with a "file" scheme (relative to the
+    # repo root).  API findings aren't tied to source files, so we point at the
+    # OpenAPI spec (or a placeholder) and put the real endpoint URL in properties.
+    spec_path = finding.get("_spec_path") or "openapi.json"
+    location_message = f"{ep['method']} {ep['path']}" if ep["method"] else (ep["path"] or "API endpoint")
+
     result: Dict[str, Any] = {
         "ruleId": _rule_id(finding.get("owasp_category"), finding.get("title")),
         "ruleIndex": rule_index,
@@ -111,15 +117,18 @@ def _build_result(finding: Dict[str, Any], rule_index: int) -> Dict[str, Any]:
             {
                 "physicalLocation": {
                     "artifactLocation": {
-                        "uri": ep["url"] or ep["path"] or "unknown",
+                        "uri": spec_path,
                         "uriBaseId": "%SRCROOT%",
                     },
                     "region": {"startLine": 1, "startColumn": 1},
-                }
+                },
+                "message": {"text": location_message},
             }
         ],
         "properties": {},
     }
+    if ep["url"]:
+        result["properties"]["endpoint-url"] = ep["url"]
     if ep["method"]:
         result["properties"]["http-method"] = ep["method"]
     if finding.get("cvss_score") is not None:
