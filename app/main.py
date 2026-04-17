@@ -206,7 +206,7 @@ async def _redis_heartbeat():
 @app.on_event("startup")
 def startup():
     try:
-        Base.metadata.create_all(bind=engine)
+        run_migrations()
         start_schedule_worker()
         print("✅ Database initialized")
     except Exception as e:

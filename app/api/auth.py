@@ -309,13 +309,20 @@ def verify_api_key(
         raise HTTPException(status_code=401, detail="Invalid API key format")
 
     # Look up all active keys and verify against the hash
-    active_keys = db.query(APIKey).filter(APIKey.is_active == True).all()  # noqa: E712
+    try:
+        active_keys = db.query(APIKey).filter(APIKey.is_active == True).all()  # noqa: E712
+    except Exception as exc:
+        logger.error("Failed to query api_keys table: %s", exc)
+        raise HTTPException(status_code=500, detail="API key authentication unavailable — database table may not exist. Hit /create-tables first.")
 
     matched_key: Optional[APIKey] = None
+    now_utc = datetime.now(timezone.utc)
     for k in active_keys:
-        # Skip expired keys
-        if k.expires_at and k.expires_at < datetime.now(timezone.utc):
-            continue
+        # Skip expired keys (handle both naive and aware datetimes)
+        if k.expires_at:
+            exp = k.expires_at if k.expires_at.tzinfo else k.expires_at.replace(tzinfo=timezone.utc)
+            if exp < now_utc:
+                continue
         try:
             ph.verify(k.key_hash, token)
             matched_key = k
