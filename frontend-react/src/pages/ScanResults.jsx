@@ -42,6 +42,7 @@ const SCAN_TYPE_LABELS = {
   dd: 'Domain Discovery Scan',
   subdomain: 'Web Scan',
   api: 'API Scan',
+  ci_api_security: 'CI/CD API Security Scan',
   web: 'Web Scan',
   network: 'Network Scan',
   vulnerability: 'Vulnerability Scan',
@@ -352,7 +353,7 @@ const ScanResults = ({ scanId, onBack }) => {
         <div className="loading-state">Loading scan results...</div>
       ) : scanResults ? (
         <div className="scan-results-content">
-          {scanResults.scan_type === 'api' ? (
+          {(scanResults.scan_type === 'api' || (scanResults.scan_type && scanResults.scan_type.startsWith('ci_'))) ? (
             renderApiScanResults()
           ) : (
             <>

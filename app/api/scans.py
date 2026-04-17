@@ -1566,7 +1566,7 @@ def get_scan_results(
         if not scan:
             raise HTTPException(status_code=404, detail="Scan not found")
 
-        if scan.scan_type == "api":
+        if scan.scan_type == "api" or scan.scan_type.startswith("ci_"):
             api_report = db.query(ApiScanReport).filter(ApiScanReport.scan_id == scan.id).first()
             if not api_report:
                 raise HTTPException(status_code=404, detail="API scan report not found")
