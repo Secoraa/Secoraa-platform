@@ -2295,6 +2295,16 @@ def create_report(
         if isinstance(report_data, dict) and isinstance(report_data.get("report"), dict):
             report_data = report_data.get("report") or report_data
 
+        # Use the actual target URL as the asset name, not the domain
+        api_target_url = (
+            report_data.get("base_url")
+            or report_data.get("target_url")
+            or report_data.get("target")
+            or ""
+        )
+        if api_target_url:
+            cover_domain_line = api_target_url
+
         total_endpoints = int(report_data.get("total_endpoints") or 0)
         findings = report_data.get("findings") or []
         if not isinstance(findings, list):
