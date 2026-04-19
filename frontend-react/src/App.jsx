@@ -67,6 +67,15 @@ function App() {
     // Do NOT force-redirect to dashboard — sessionStorage already restored the right page
   }, [token]);
 
+  // Listen for navigate events from Header dropdown
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail) setActivePage(e.detail);
+    };
+    window.addEventListener('navigate', handler);
+    return () => window.removeEventListener('navigate', handler);
+  }, []);
+
   const [scanInitialTab, setScanInitialTab] = useState(null);
 
   const handleBackToScan = () => {
