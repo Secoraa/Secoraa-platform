@@ -22,6 +22,7 @@ import Notification from '../components/Notification';
 import ScanIcon from '../components/ScanIcon';
 import ReportIcon from '../components/ReportIcon';
 import ScheduleScanIcon from '../components/ScheduleScanIcon';
+import NexVeilLoader from '../components/NexVeilLoader';
 import './Scan.css';
 
 const SCAN_TYPE_LABELS = {
@@ -1639,7 +1640,7 @@ const Scan = ({ onViewResults, initialTab }) => {
                 />
 
                 {subdomainLoading ? (
-                  <div className="loading">Loading subdomains...</div>
+                  <NexVeilLoader />
                 ) : (
                   <div className="api-endpoints">
                     <div className="api-endpoints-header">
@@ -1942,7 +1943,7 @@ const Scan = ({ onViewResults, initialTab }) => {
           </h2>
 
           {scheduleLoading ? (
-            <div className="loading">Loading scheduled scans...</div>
+            <NexVeilLoader />
           ) : (
             <div className="scans-table">
               <table>
@@ -2040,7 +2041,7 @@ const Scan = ({ onViewResults, initialTab }) => {
           </div>
 
           {ciLoading ? (
-            <div className="loading">Loading CI/CD scans...</div>
+            <NexVeilLoader />
           ) : (() => {
             const filtered = ciScans.filter((s) => {
               if (!ciSearchQuery.trim()) return true;

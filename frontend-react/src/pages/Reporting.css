@@ -50,7 +50,48 @@
 .empty-state {
   text-align: center;
   color: var(--text-secondary);
-  padding: 20px 10px;
+  padding: 60px 20px;
+}
+
+.empty-report {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  width: 100%;
+}
+
+.empty-report-logo {
+  width: 180px;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.85;
+}
+
+.empty-report-tagline {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.empty-report-btn {
+  margin-top: 8px;
+  padding: 12px 28px;
+  background: var(--accent-primary);
+  color: #0d0d0d;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.empty-report-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
 }
 
 .mono {

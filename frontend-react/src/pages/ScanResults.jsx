@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getScanResults } from '../api/apiClient';
 import Notification from '../components/Notification';
 import { dedupeAssetsPreserveOrder } from '../utils/assets';
+import NexVeilLoader from '../components/NexVeilLoader';
 import './ScanResults.css';
 import './Vulnerability.css';
 
@@ -350,7 +351,7 @@ const ScanResults = ({ scanId, onBack }) => {
       </div>
 
       {loading ? (
-        <div className="loading-state">Loading scan results...</div>
+        <NexVeilLoader />
       ) : scanResults ? (
         <div className="scan-results-content">
           {(scanResults.scan_type === 'api' || (scanResults.scan_type && scanResults.scan_type.startsWith('ci_'))) ? (

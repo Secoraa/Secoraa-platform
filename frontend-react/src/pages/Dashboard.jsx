@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Notification from '../components/Notification';
+import NexVeilLoader from '../components/NexVeilLoader';
 import { getAllFindings, getDomains, getIPAddresses, getSubdomains, getUrls } from '../api/apiClient';
 import './Dashboard.css';
 
@@ -19,7 +20,7 @@ const monthKey = (d) => {
 };
 
 const Dashboard = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
   const [domains, setDomains] = useState([]);
   const [subdomains, setSubdomains] = useState([]);
@@ -37,7 +38,6 @@ const Dashboard = () => {
 
   const load = async () => {
     try {
-      setLoading(true);
       const [d, s, ip, u, f] = await Promise.all([
         getDomains().catch(() => []),
         getSubdomains().catch(() => []),
@@ -52,9 +52,8 @@ const Dashboard = () => {
       setFindings(safeArray(f?.data || f));
     } catch (err) {
       setNotification({ message: err.message, type: 'error' });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -209,6 +208,10 @@ const Dashboard = () => {
   const anySeverityVisible = useMemo(() => {
     return Object.values(visibleSeverities || {}).some(Boolean);
   }, [visibleSeverities]);
+
+  if (loading) {
+    return <NexVeilLoader />;
+  }
 
   return (
     <div className="dash-page">

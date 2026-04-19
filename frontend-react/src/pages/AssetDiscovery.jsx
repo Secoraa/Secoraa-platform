@@ -14,6 +14,7 @@ import {
   createAssetGroup,
 } from '../api/apiClient';
 import Notification from '../components/Notification';
+import NexVeilLoader from '../components/NexVeilLoader';
 import './AssetDiscovery.css';
 
 // TagsDisplay component to show tags with "+X" functionality
@@ -618,7 +619,7 @@ const AssetDiscovery = () => {
 
           {/* Table */}
           {loading ? (
-            <div className="loading">Loading domains...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (
@@ -774,7 +775,7 @@ const AssetDiscovery = () => {
 
           {/* Table */}
           {subdomainLoading ? (
-            <div className="loading">Loading subdomains...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (
@@ -904,7 +905,7 @@ const AssetDiscovery = () => {
           </div>
 
           {ipLoading ? (
-            <div className="loading">Loading IP addresses...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (
@@ -1023,7 +1024,7 @@ const AssetDiscovery = () => {
           </div>
 
           {ipBlockLoading ? (
-            <div className="loading">Loading IP blocks...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (
@@ -1137,7 +1138,7 @@ const AssetDiscovery = () => {
           </div>
 
           {urlLoading ? (
-            <div className="loading">Loading URLs...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (
@@ -1243,7 +1244,7 @@ const AssetDiscovery = () => {
           </div>
 
           {assetGroupLoading ? (
-            <div className="loading">Loading asset groups...</div>
+            <NexVeilLoader />
           ) : error ? (
             <div className="error">Error: {error}</div>
           ) : (

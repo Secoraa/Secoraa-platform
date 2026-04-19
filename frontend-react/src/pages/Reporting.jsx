@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createReport, downloadReportPdf, getAllScans, getDomains, getSubdomains, listReports } from '../api/apiClient';
 import Notification from '../components/Notification';
+import nexveilLogo from '../assets/nexveil-logo.png';
 import './Reporting.css';
 
 const Reporting = () => {
@@ -194,8 +195,12 @@ const Reporting = () => {
                 </tr>
               ) : reports.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="empty-state">
-                    No reports found.
+                  <td colSpan="5">
+                    <div className="empty-report">
+                      <img src={nexveilLogo} alt="NexVeil" className="empty-report-logo" />
+                      <div className="empty-report-tagline">Start your API Security Journey with NexVeil</div>
+                      <button className="empty-report-btn" onClick={() => { setShowModal(true); resetModal(); }}>Create Your First Report</button>
+                    </div>
                   </td>
                 </tr>
               ) : (

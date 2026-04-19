@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { getDomainById, getIPAddresses, getAllFindings } from '../api/apiClient';
+import NexVeilLoader from '../components/NexVeilLoader';
 import './DomainDetails.css';
 
 const normalizeSubdomains = (subs) => {
@@ -112,7 +113,7 @@ const DomainDetails = ({ domainId, onBack }) => {
 
       <div className="domain-details-card">
         {loading ? (
-          <div className="domain-details-empty">Loading domain details…</div>
+          <NexVeilLoader />
         ) : error ? (
           <div className="domain-details-error">Error: {error}</div>
         ) : (

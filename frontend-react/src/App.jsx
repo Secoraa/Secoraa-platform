@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import NexVeilLoader from './components/NexVeilLoader';
 import AssetDiscovery from './pages/AssetDiscovery';
 import Scan from './pages/Scan';
 import ScanResults from './pages/ScanResults';
@@ -30,6 +31,7 @@ function App() {
   const [token, setToken] = useState(() => getStoredToken());
   const [userClaims, setUserClaims] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     sessionStorage.setItem('activePage', activePage);
@@ -39,15 +41,20 @@ function App() {
     const t = getStoredToken();
     if (!t) {
       setUserClaims(null);
+      setIsLoading(false);
       return;
     }
     // Validate token and load claims for header/org display
     getTokenClaims()
-      .then((claims) => setUserClaims(claims))
+      .then((claims) => {
+        setUserClaims(claims);
+        setIsLoading(false);
+      })
       .catch(() => {
         setStoredToken(null, true);
         setToken(null);
         setUserClaims(null);
+        setIsLoading(false);
       });
   }, [token]);
 
@@ -97,6 +104,21 @@ function App() {
     setActivePage('asset-discovery');
   };
 
+  if (isLoading) {
+    return <NexVeilLoader />;
+  }
+
+  if (!token) {
+    return (
+      <Auth
+        onAuthed={(t) => {
+          setToken(t);
+          setActivePage('dashboard');
+        }}
+      />
+    );
+  }
+
   const renderPage = () => {
     switch (activePage) {
       case 'dashboard':
@@ -125,17 +147,6 @@ function App() {
         return <Dashboard />;
     }
   };
-
-  if (!token) {
-    return (
-      <Auth
-        onAuthed={(t) => {
-          setToken(t);
-          setActivePage('dashboard');
-        }}
-      />
-    );
-  }
 
   return (
     <div className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}>
