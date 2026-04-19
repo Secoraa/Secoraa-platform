@@ -1020,11 +1020,10 @@ const Scan = ({ onViewResults, initialTab }) => {
                         })
                       }
                     >
-                      <option value="dd">Domain Discovery Scan</option>
                       <option value="api">API Scan</option>
-                      <option value="subdomain">Web Scan</option>
-                      <option value="vulnerability">Vulnerability Scan</option>
+                      <option value="subdomain">Subdomain Scan</option>
                       <option value="network">Network Scan</option>
+                      <option value="ci_api_security">CI/CD Scan</option>
                     </select>
                   </div>
                 </div>
