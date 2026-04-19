@@ -1,0 +1,190 @@
+.gold-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.gold-dropdown__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+  text-align: left;
+}
+
+.gold-dropdown__trigger:hover:not(:disabled) {
+  border-color: var(--border-gold);
+}
+
+.gold-dropdown.is-open .gold-dropdown__trigger {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(224, 177, 43, 0.12);
+}
+
+.gold-dropdown.is-disabled .gold-dropdown__trigger,
+.gold-dropdown__trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gold-dropdown__selected {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.gold-dropdown__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.gold-dropdown__label {
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.gold-dropdown__label.is-placeholder {
+  color: var(--text-secondary);
+}
+
+.gold-dropdown.is-open .gold-dropdown__selected .gold-dropdown__label {
+  color: var(--primary-color);
+}
+
+.gold-dropdown__chevron {
+  color: var(--primary-color);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+  margin-left: 0.75rem;
+}
+
+.gold-dropdown.is-open .gold-dropdown__chevron {
+  transform: rotate(180deg);
+}
+
+.gold-dropdown__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-gold);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  z-index: 50;
+  max-height: 280px;
+  overflow-y: auto;
+  animation: gold-dropdown-in 0.12s ease-out;
+}
+
+@keyframes gold-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.gold-dropdown__option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  position: relative;
+}
+
+.gold-dropdown__option + .gold-dropdown__option {
+  margin-top: 2px;
+}
+
+.gold-dropdown__option + .gold-dropdown__option::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0.85rem;
+  right: 0.85rem;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.gold-dropdown__option .gold-dropdown__icon {
+  color: var(--text-secondary);
+}
+
+.gold-dropdown__option:hover:not(.is-disabled) {
+  background-color: rgba(224, 177, 43, 0.08);
+}
+
+.gold-dropdown__option:hover:not(.is-disabled) .gold-dropdown__icon,
+.gold-dropdown__option:hover:not(.is-disabled) .gold-dropdown__label {
+  color: var(--primary-color);
+}
+
+.gold-dropdown__option.is-selected {
+  background-color: rgba(224, 177, 43, 0.1);
+}
+
+.gold-dropdown__option.is-selected .gold-dropdown__icon,
+.gold-dropdown__option.is-selected .gold-dropdown__label {
+  color: var(--primary-color);
+}
+
+.gold-dropdown__option.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gold-dropdown__empty {
+  padding: 0.7rem 0.85rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.gold-dropdown--compact .gold-dropdown__trigger {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.gold-dropdown--compact .gold-dropdown__option {
+  padding: 0.55rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.gold-dropdown--filter {
+  width: auto;
+  min-width: 160px;
+}
+
+.gold-dropdown--filter .gold-dropdown__trigger {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  background-color: var(--bg-secondary);
+}
+
+.gold-dropdown--filter .gold-dropdown__menu {
+  min-width: 100%;
+}

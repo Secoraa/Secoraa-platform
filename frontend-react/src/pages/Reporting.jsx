@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createReport, downloadReportPdf, getAllScans, getDomains, getSubdomains, listReports } from '../api/apiClient';
 import Notification from '../components/Notification';
+import Dropdown from '../components/Dropdown';
+import ScanTypeIcon from '../components/ScanTypeIcon';
 import nexveilLogo from '../assets/nexveil-logo.png';
 import './Reporting.css';
 
@@ -265,27 +267,31 @@ const Reporting = () => {
 
               <div className="modal-field">
                 <label>Assessment</label>
-                <select
+                <Dropdown
                   value={assessmentType}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setAssessmentType(next);
+                  onChange={(val) => {
+                    setAssessmentType(val);
                     setSubdomainName('');
                     setScanId('');
                   }}
-                >
-                  <option value="DOMAIN">Domain</option>
-                  <option value="WEBSCAN">Web Scan</option>
-                  <option value="API_TESTING">API Scan</option>
-                </select>
+                  options={[
+                    { value: 'DOMAIN', label: 'Domain', icon: <ScanTypeIcon type="dd" /> },
+                    { value: 'WEBSCAN', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
+                    { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
+                  ]}
+                />
               </div>
 
               <div className="modal-field">
                 <label>Summary type</label>
-                <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
-                  <option value="EXEC_SUMMARY">Executive Summary</option>
-                  <option value="DETAILS_SUMMARY">Details Report</option>
-                </select>
+                <Dropdown
+                  value={reportType}
+                  onChange={(val) => setReportType(val)}
+                  options={[
+                    { value: 'EXEC_SUMMARY', label: 'Executive Summary' },
+                    { value: 'DETAILS_SUMMARY', label: 'Details Report' },
+                  ]}
+                />
               </div>
 
               <div className="modal-field">
@@ -295,46 +301,50 @@ const Reporting = () => {
 
               <div className="modal-field">
                 <label>Domain name</label>
-                <select value={domainName} onChange={(e) => setDomainName(e.target.value)}>
-                  <option value="">Select domain</option>
-                  {domains.map((d) => (
-                    <option key={d.id} value={d.domain_name}>
-                      {d.domain_name}
-                    </option>
-                  ))}
-                </select>
+                <Dropdown
+                  value={domainName}
+                  onChange={(val) => setDomainName(val)}
+                  placeholder="Select domain"
+                  options={domains.map((d) => ({
+                    value: d.domain_name,
+                    label: d.domain_name,
+                  }))}
+                />
               </div>
 
               {assessmentType === 'WEBSCAN' && (
                 <div className="modal-field">
                   <label>Subdomain</label>
-                  <select value={subdomainName} onChange={(e) => setSubdomainName(e.target.value)} disabled={!domainName}>
-                    <option value="">{domainName ? 'Select subdomain' : 'Select domain first'}</option>
-                    {(subdomains || [])
+                  <Dropdown
+                    value={subdomainName}
+                    onChange={(val) => setSubdomainName(val)}
+                    disabled={!domainName}
+                    placeholder={domainName ? 'Select subdomain' : 'Select domain first'}
+                    options={(subdomains || [])
                       .filter((s) => String(s.domain_id) === String(domains.find((d) => d.domain_name === domainName)?.id))
-                      .map((s) => (
-                        <option key={s.id} value={s.subdomain_name}>
-                          {s.subdomain_name}
-                        </option>
-                      ))}
-                  </select>
+                      .map((s) => ({
+                        value: s.subdomain_name,
+                        label: s.subdomain_name,
+                      }))}
+                  />
                 </div>
               )}
 
               {assessmentType === 'API_TESTING' && (
                 <div className="modal-field">
                   <label>API Asset</label>
-                  <select value={scanId} onChange={(e) => setScanId(e.target.value)}>
-                    <option value="">Select API asset</option>
-                    {(apiScansForDomain || [])
+                  <Dropdown
+                    value={scanId}
+                    onChange={(val) => setScanId(val)}
+                    placeholder="Select API asset"
+                    options={(apiScansForDomain || [])
                       .filter((s) => s.asset_url && String(s.status).toUpperCase() === 'COMPLETED')
                       .slice(0, 200)
-                      .map((s) => (
-                        <option key={s.scan_id} value={s.scan_id}>
-                          {s.asset_url}
-                        </option>
-                      ))}
-                  </select>
+                      .map((s) => ({
+                        value: s.scan_id,
+                        label: s.asset_url,
+                      }))}
+                  />
                   {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
                     <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
                   )}

@@ -23,6 +23,8 @@ import ScanIcon from '../components/ScanIcon';
 import ReportIcon from '../components/ReportIcon';
 import ScheduleScanIcon from '../components/ScheduleScanIcon';
 import NexVeilLoader from '../components/NexVeilLoader';
+import Dropdown from '../components/Dropdown';
+import ScanTypeIcon from '../components/ScanTypeIcon';
 import './Scan.css';
 
 const SCAN_TYPE_LABELS = {
@@ -40,6 +42,14 @@ const formatScanType = (type) => {
   const key = String(type).toLowerCase();
   return SCAN_TYPE_LABELS[key] || type.toUpperCase();
 };
+
+const SCAN_TYPE_OPTIONS = [
+  { value: 'dd', label: 'Domain Discovery Scan', icon: <ScanTypeIcon type="dd" /> },
+  { value: 'api', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
+  { value: 'subdomain', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
+  { value: 'vulnerability', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="vulnerability" /> },
+  { value: 'network', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
+];
 
 const Scan = ({ onViewResults, initialTab }) => {
   const [domains, setDomains] = useState([]);
@@ -1005,13 +1015,12 @@ const Scan = ({ onViewResults, initialTab }) => {
                   </div>
                   <div className="form-group">
                     <label>Scan Type</label>
-                    <select
+                    <Dropdown
                       value={scanForm.type}
-                      onChange={(e) =>
+                      onChange={(val) =>
                         setScanForm({
                           ...scanForm,
-                          type: e.target.value,
-                          // reset step-2 fields when changing type
+                          type: val,
                           domain: '',
                           assetUrl: '',
                           subdomainId: '',
@@ -1019,13 +1028,8 @@ const Scan = ({ onViewResults, initialTab }) => {
                           assetGroupId: '',
                         })
                       }
-                    >
-                      <option value="dd">Domain Discovery Scan</option>
-                      <option value="api">API Scan</option>
-                      <option value="subdomain">Web Scan</option>
-                      <option value="vulnerability">Vulnerability Scan</option>
-                      <option value="network">Network Scan</option>
-                    </select>
+                      options={SCAN_TYPE_OPTIONS}
+                    />
                   </div>
                 </div>
 
@@ -1046,20 +1050,17 @@ const Scan = ({ onViewResults, initialTab }) => {
                 {scanForm.type === 'dd' && (
                   <div className="form-group">
                     <label>Target Domain</label>
-                    <select
+                    <Dropdown
                       value={scanForm.domain}
-                      onChange={(e) =>
-                        setScanForm({ ...scanForm, domain: e.target.value })
+                      onChange={(val) =>
+                        setScanForm({ ...scanForm, domain: val })
                       }
-                      required
-                    >
-                      <option value="">Select a domain</option>
-                      {domains.map((domain) => (
-                        <option key={domain.id} value={domain.domain_name}>
-                          {domain.domain_name}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Select a domain"
+                      options={domains.map((domain) => ({
+                        value: domain.domain_name,
+                        label: domain.domain_name,
+                      }))}
+                    />
                   </div>
                 )}
 
@@ -1228,19 +1229,16 @@ const Scan = ({ onViewResults, initialTab }) => {
                   <div className="form-group">
                     <label>Target IP</label>
                     {ipAssets.length > 0 ? (
-                      <select
+                      <Dropdown
                         value={scanForm.targetIp}
-                        onChange={(e) => setScanForm({ ...scanForm, targetIp: e.target.value })}
-                        required
+                        onChange={(val) => setScanForm({ ...scanForm, targetIp: val })}
                         disabled={ipLoading}
-                      >
-                        <option value="">{ipLoading ? 'Loading IPs...' : 'Select an IP'}</option>
-                        {ipAssets.map((ip) => (
-                          <option key={ip.id || ip.ipaddress_name} value={ip.ipaddress_name}>
-                            {ip.ipaddress_name}{ip.domain_name ? ` (${ip.domain_name})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder={ipLoading ? 'Loading IPs...' : 'Select an IP'}
+                        options={ipAssets.map((ip) => ({
+                          value: ip.ipaddress_name,
+                          label: `${ip.ipaddress_name}${ip.domain_name ? ` (${ip.domain_name})` : ''}`,
+                        }))}
+                      />
                     ) : (
                       <input
                         type="text"
@@ -1256,19 +1254,16 @@ const Scan = ({ onViewResults, initialTab }) => {
                 {scanForm.type === 'asset_group' && (
                   <div className="form-group">
                     <label>Asset Group</label>
-                    <select
+                    <Dropdown
                       value={scanForm.assetGroupId}
-                      onChange={(e) => setScanForm({ ...scanForm, assetGroupId: e.target.value })}
-                      required
+                      onChange={(val) => setScanForm({ ...scanForm, assetGroupId: val })}
                       disabled={assetGroupLoading}
-                    >
-                      <option value="">{assetGroupLoading ? 'Loading asset groups...' : 'Select asset group'}</option>
-                      {assetGroups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name} ({g.asset_type || '-'} / {g.asset_count || 0})
-                        </option>
-                      ))}
-                    </select>
+                      placeholder={assetGroupLoading ? 'Loading asset groups...' : 'Select asset group'}
+                      options={assetGroups.map((g) => ({
+                        value: g.id,
+                        label: `${g.name} (${g.asset_type || '-'} / ${g.asset_count || 0})`,
+                      }))}
+                    />
                     {scanForm.assetGroupId ? (
                       <div className="helper-text">
                         Assets: {((assetGroups.find((g) => String(g.id) === String(scanForm.assetGroupId)) || {}).assets || []).join(', ') || '-'}
@@ -1281,38 +1276,34 @@ const Scan = ({ onViewResults, initialTab }) => {
                   <>
                     <div className="form-group">
                       <label>Asset Base URL</label>
-                      <select
+                      <Dropdown
                         value={scanForm.assetUrl}
-                        onChange={(e) => setScanForm({ ...scanForm, assetUrl: e.target.value })}
-                        required
+                        onChange={(val) => setScanForm({ ...scanForm, assetUrl: val })}
                         disabled={urlLoading}
-                      >
-                        <option value="">{urlLoading ? 'Loading URLs...' : 'Select a URL'}</option>
-                        {urlAssets.map((u) => (
-                          <option key={u.id || u.url_name} value={u.url_name}>
-                            {u.url_name}{u.domain_name ? ` (${u.domain_name})` : ''}
-                          </option>
-                        ))}
-                      </select>
+                        placeholder={urlLoading ? 'Loading URLs...' : 'Select a URL'}
+                        options={urlAssets.map((u) => ({
+                          value: u.url_name,
+                          label: `${u.url_name}${u.domain_name ? ` (${u.domain_name})` : ''}`,
+                        }))}
+                      />
                     </div>
 
                     <div className="form-group">
                       <label>Documentation Type</label>
-                      <select
+                      <Dropdown
                         value={scanForm.docType}
-                        onChange={(e) => {
-                          const nextType = e.target.value;
-                          setScanForm({ ...scanForm, docType: nextType });
-                          // reset file-derived state
+                        onChange={(val) => {
+                          setScanForm({ ...scanForm, docType: val });
                           setPostmanFileName('');
                           setApiEndpoints([]);
                           setSelectedEndpointKeys(new Set());
                         }}
-                      >
-                        <option value="OPENAPI">OPENAPI</option>
-                        <option value="POSTMAN">POSTMAN</option>
-                        <option value="CUSTOM">CUSTOM</option>
-                      </select>
+                        options={[
+                          { value: 'OPENAPI', label: 'OPENAPI' },
+                          { value: 'POSTMAN', label: 'POSTMAN' },
+                          { value: 'CUSTOM', label: 'CUSTOM' },
+                        ]}
+                      />
                     </div>
 
                     <div className="form-group">
@@ -1342,19 +1333,20 @@ const Scan = ({ onViewResults, initialTab }) => {
 
                     <div className="form-group">
                       <label>Authentication</label>
-                      <select
+                      <Dropdown
                         value={authType}
-                        onChange={(e) => {
-                          setAuthType(e.target.value);
+                        onChange={(val) => {
+                          setAuthType(val);
                           setAuthConfig({ token: '', header_name: '', value: '', username: '', password: '', param_name: '' });
                         }}
-                      >
-                        <option value="none">None</option>
-                        <option value="bearer">Bearer Token</option>
-                        <option value="api_key">API Key (Header)</option>
-                        <option value="api_key_query">API Key (Query Param)</option>
-                        <option value="basic">Basic Auth</option>
-                      </select>
+                        options={[
+                          { value: 'none', label: 'None' },
+                          { value: 'bearer', label: 'Bearer Token' },
+                          { value: 'api_key', label: 'API Key (Header)' },
+                          { value: 'api_key_query', label: 'API Key (Query Param)' },
+                          { value: 'basic', label: 'Basic Auth' },
+                        ]}
+                      />
                     </div>
 
                     {authType === 'bearer' && (
@@ -1573,23 +1565,24 @@ const Scan = ({ onViewResults, initialTab }) => {
               </div>
               <div className="form-group">
                 <label>Scan Type</label>
-                <select
+                <Dropdown
                   value={scheduleForm.type}
-                  onChange={(e) =>
+                  onChange={(val) =>
                     setScheduleForm({
                       ...scheduleForm,
-                      type: e.target.value,
+                      type: val,
                       domain: '',
                       subdomainId: '',
                       targetIp: '',
                     })
                   }
-                >
-                  <option value="dd">Domain Discovery Scan</option>
-                  <option value="subdomain">Web Scan</option>
-                  <option value="network">Network Scan</option>
-                  <option value="api" disabled>API Scan (coming soon)</option>
-                </select>
+                  options={[
+                    { value: 'dd', label: 'Domain Discovery Scan', icon: <ScanTypeIcon type="dd" /> },
+                    { value: 'subdomain', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
+                    { value: 'network', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
+                    { value: 'api', label: 'API Scan (coming soon)', icon: <ScanTypeIcon type="api" />, disabled: true },
+                  ]}
+                />
               </div>
             </div>
 
@@ -1613,18 +1606,15 @@ const Scan = ({ onViewResults, initialTab }) => {
             {scheduleForm.type === 'dd' && (
               <div className="form-group">
                 <label>Select Domain</label>
-                <select
+                <Dropdown
                   value={scheduleForm.domain}
-                  onChange={(e) => setScheduleForm({ ...scheduleForm, domain: e.target.value })}
-                  required
-                >
-                  <option value="">Select Domain</option>
-                  {domains.map((d) => (
-                    <option key={d.id} value={d.domain_name}>
-                      {d.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setScheduleForm({ ...scheduleForm, domain: val })}
+                  placeholder="Select Domain"
+                  options={domains.map((d) => ({
+                    value: d.domain_name,
+                    label: d.domain_name,
+                  }))}
+                />
               </div>
             )}
 
@@ -1710,19 +1700,16 @@ const Scan = ({ onViewResults, initialTab }) => {
               <div className="form-group">
                 <label>Target IP</label>
                 {ipAssets.length > 0 ? (
-                  <select
+                  <Dropdown
                     value={scheduleForm.targetIp}
-                    onChange={(e) => setScheduleForm({ ...scheduleForm, targetIp: e.target.value })}
-                    required
+                    onChange={(val) => setScheduleForm({ ...scheduleForm, targetIp: val })}
                     disabled={ipLoading}
-                  >
-                    <option value="">{ipLoading ? 'Loading IPs...' : 'Select an IP'}</option>
-                    {ipAssets.map((ip) => (
-                      <option key={ip.id || ip.ipaddress_name} value={ip.ipaddress_name}>
-                        {ip.ipaddress_name}{ip.domain_name ? ` (${ip.domain_name})` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder={ipLoading ? 'Loading IPs...' : 'Select an IP'}
+                    options={ipAssets.map((ip) => ({
+                      value: ip.ipaddress_name,
+                      label: `${ip.ipaddress_name}${ip.domain_name ? ` (${ip.domain_name})` : ''}`,
+                    }))}
+                  />
                 ) : (
                   <input
                     type="text"

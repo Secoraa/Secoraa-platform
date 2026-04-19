@@ -15,6 +15,7 @@ import {
 } from '../api/apiClient';
 import Notification from '../components/Notification';
 import NexVeilLoader from '../components/NexVeilLoader';
+import Dropdown from '../components/Dropdown';
 import './AssetDiscovery.css';
 
 // TagsDisplay component to show tags with "+X" functionality
@@ -597,24 +598,26 @@ const AssetDiscovery = () => {
                 setCurrentPage(1);
               }}
             />
-            <select 
-              className="filter-select"
+            <Dropdown
+              className="gold-dropdown--filter"
               value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-            >
-              <option>All</option>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
-            <select 
-              className="filter-select"
+              onChange={(val) => setActiveFilter(val)}
+              options={[
+                { value: 'All', label: 'All' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Inactive', label: 'Inactive' },
+              ]}
+            />
+            <Dropdown
+              className="gold-dropdown--filter"
               value={labelsFilter}
-              onChange={(e) => setLabelsFilter(e.target.value)}
-            >
-              <option>All Labels</option>
-              <option>Manually Added</option>
-              <option>Auto Discovered</option>
-            </select>
+              onChange={(val) => setLabelsFilter(val)}
+              options={[
+                { value: 'All Labels', label: 'All Labels' },
+                { value: 'Manually Added', label: 'Manually Added' },
+                { value: 'Auto Discovered', label: 'Auto Discovered' },
+              ]}
+            />
           </div>
 
           {/* Table */}
@@ -740,37 +743,38 @@ const AssetDiscovery = () => {
                 setSubdomainCurrentPage(1);
               }}
             />
-            <select
-              className="filter-select"
+            <Dropdown
+              className="gold-dropdown--filter"
               value={subdomainDomainFilter}
-              onChange={(e) => {
-                setSubdomainDomainFilter(e.target.value);
+              onChange={(val) => {
+                setSubdomainDomainFilter(val);
                 setSubdomainCurrentPage(1);
               }}
-            >
-              <option>All Domains</option>
-              {domainNameOptions.map((dn) => (
-                <option key={dn} value={dn}>{dn}</option>
-              ))}
-            </select>
-            <select 
-              className="filter-select"
+              options={[
+                { value: 'All Domains', label: 'All Domains' },
+                ...domainNameOptions.map((dn) => ({ value: dn, label: dn })),
+              ]}
+            />
+            <Dropdown
+              className="gold-dropdown--filter"
               value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-            >
-              <option>All</option>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
-            <select 
-              className="filter-select"
+              onChange={(val) => setActiveFilter(val)}
+              options={[
+                { value: 'All', label: 'All' },
+                { value: 'Active', label: 'Active' },
+                { value: 'Inactive', label: 'Inactive' },
+              ]}
+            />
+            <Dropdown
+              className="gold-dropdown--filter"
               value={labelsFilter}
-              onChange={(e) => setLabelsFilter(e.target.value)}
-            >
-              <option>All Labels</option>
-              <option>Manually Added</option>
-              <option>Auto Discovered</option>
-            </select>
+              onChange={(val) => setLabelsFilter(val)}
+              options={[
+                { value: 'All Labels', label: 'All Labels' },
+                { value: 'Manually Added', label: 'Manually Added' },
+                { value: 'Auto Discovered', label: 'Auto Discovered' },
+              ]}
+            />
           </div>
 
           {/* Table */}
@@ -889,19 +893,18 @@ const AssetDiscovery = () => {
                 setIpCurrentPage(1);
               }}
             />
-            <select
-              className="filter-select"
+            <Dropdown
+              className="gold-dropdown--filter"
               value={ipDomainFilter}
-              onChange={(e) => {
-                setIpDomainFilter(e.target.value);
+              onChange={(val) => {
+                setIpDomainFilter(val);
                 setIpCurrentPage(1);
               }}
-            >
-              <option>All Domains</option>
-              {domainNameOptions.map((dn) => (
-                <option key={dn} value={dn}>{dn}</option>
-              ))}
-            </select>
+              options={[
+                { value: 'All Domains', label: 'All Domains' },
+                ...domainNameOptions.map((dn) => ({ value: dn, label: dn })),
+              ]}
+            />
           </div>
 
           {ipLoading ? (
@@ -1008,19 +1011,18 @@ const AssetDiscovery = () => {
                 setIpBlockCurrentPage(1);
               }}
             />
-            <select
-              className="filter-select"
+            <Dropdown
+              className="gold-dropdown--filter"
               value={ipBlockDomainFilter}
-              onChange={(e) => {
-                setIpBlockDomainFilter(e.target.value);
+              onChange={(val) => {
+                setIpBlockDomainFilter(val);
                 setIpBlockCurrentPage(1);
               }}
-            >
-              <option>All Domains</option>
-              {domainNameOptions.map((dn) => (
-                <option key={dn} value={dn}>{dn}</option>
-              ))}
-            </select>
+              options={[
+                { value: 'All Domains', label: 'All Domains' },
+                ...domainNameOptions.map((dn) => ({ value: dn, label: dn })),
+              ]}
+            />
           </div>
 
           {ipBlockLoading ? (
@@ -1122,19 +1124,18 @@ const AssetDiscovery = () => {
                 setUrlCurrentPage(1);
               }}
             />
-            <select
-              className="filter-select"
+            <Dropdown
+              className="gold-dropdown--filter"
               value={urlDomainFilter}
-              onChange={(e) => {
-                setUrlDomainFilter(e.target.value);
+              onChange={(val) => {
+                setUrlDomainFilter(val);
                 setUrlCurrentPage(1);
               }}
-            >
-              <option>All Domains</option>
-              {domainNameOptions.map((dn) => (
-                <option key={dn} value={dn}>{dn}</option>
-              ))}
-            </select>
+              options={[
+                { value: 'All Domains', label: 'All Domains' },
+                ...domainNameOptions.map((dn) => ({ value: dn, label: dn })),
+              ]}
+            />
           </div>
 
           {urlLoading ? (
@@ -1385,20 +1386,17 @@ const AssetDiscovery = () => {
             <form onSubmit={handleAddSubdomain}>
               <div className="form-group">
                 <label>Domain</label>
-                <select
+                <Dropdown
                   value={newSubdomain.domainId}
-                  onChange={(e) =>
-                    setNewSubdomain({ ...newSubdomain, domainId: e.target.value })
+                  onChange={(val) =>
+                    setNewSubdomain({ ...newSubdomain, domainId: val })
                   }
-                  required
-                >
-                  <option value="">Select a domain</option>
-                  {domains.map((domain) => (
-                    <option key={domain.id} value={domain.id}>
-                      {domain.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a domain"
+                  options={domains.map((domain) => ({
+                    value: domain.id,
+                    label: domain.domain_name,
+                  }))}
+                />
               </div>
               <div className="form-group">
                 <label>Subdomain Name</label>
@@ -1448,20 +1446,17 @@ const AssetDiscovery = () => {
             <form onSubmit={handleAddIpAddress}>
               <div className="form-group">
                 <label>Domain</label>
-                <select
+                <Dropdown
                   value={newIpAddress.domainId}
-                  onChange={(e) =>
-                    setNewIpAddress({ ...newIpAddress, domainId: e.target.value })
+                  onChange={(val) =>
+                    setNewIpAddress({ ...newIpAddress, domainId: val })
                   }
-                  required
-                >
-                  <option value="">Select a domain</option>
-                  {domains.map((domain) => (
-                    <option key={domain.id} value={domain.id}>
-                      {domain.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a domain"
+                  options={domains.map((domain) => ({
+                    value: domain.id,
+                    label: domain.domain_name,
+                  }))}
+                />
               </div>
               <div className="form-group">
                 <label>IP Address</label>
@@ -1523,20 +1518,17 @@ const AssetDiscovery = () => {
               </div>
               <div className="form-group">
                 <label>Domain</label>
-                <select
+                <Dropdown
                   value={newIpBlock.domainId}
-                  onChange={(e) =>
-                    setNewIpBlock({ ...newIpBlock, domainId: e.target.value, ipIds: [] })
+                  onChange={(val) =>
+                    setNewIpBlock({ ...newIpBlock, domainId: val, ipIds: [] })
                   }
-                  required
-                >
-                  <option value="">Select a domain</option>
-                  {domains.map((domain) => (
-                    <option key={domain.id} value={domain.id}>
-                      {domain.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a domain"
+                  options={domains.map((domain) => ({
+                    value: domain.id,
+                    label: domain.domain_name,
+                  }))}
+                />
               </div>
               <div className="form-group">
                 <label>Select IPs (max 5)</label>
@@ -1596,20 +1588,17 @@ const AssetDiscovery = () => {
             <form onSubmit={handleAddUrl}>
               <div className="form-group">
                 <label>Domain</label>
-                <select
+                <Dropdown
                   value={newUrl.domainId}
-                  onChange={(e) =>
-                    setNewUrl({ ...newUrl, domainId: e.target.value })
+                  onChange={(val) =>
+                    setNewUrl({ ...newUrl, domainId: val })
                   }
-                  required
-                >
-                  <option value="">Select a domain</option>
-                  {domains.map((domain) => (
-                    <option key={domain.id} value={domain.id}>
-                      {domain.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a domain"
+                  options={domains.map((domain) => ({
+                    value: domain.id,
+                    label: domain.domain_name,
+                  }))}
+                />
               </div>
               <div className="form-group">
                 <label>URL</label>
@@ -1671,33 +1660,30 @@ const AssetDiscovery = () => {
               </div>
               <div className="form-group">
                 <label>Domain</label>
-                <select
+                <Dropdown
                   value={newAssetGroup.domainId}
-                  onChange={(e) =>
-                    setNewAssetGroup({ ...newAssetGroup, domainId: e.target.value })
+                  onChange={(val) =>
+                    setNewAssetGroup({ ...newAssetGroup, domainId: val })
                   }
-                  required
-                >
-                  <option value="">Select a domain</option>
-                  {domains.map((domain) => (
-                    <option key={domain.id} value={domain.id}>
-                      {domain.domain_name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Select a domain"
+                  options={domains.map((domain) => ({
+                    value: domain.id,
+                    label: domain.domain_name,
+                  }))}
+                />
               </div>
               <div className="form-group">
                 <label>Asset Type</label>
-                <select
+                <Dropdown
                   value={newAssetGroup.assetType}
-                  onChange={(e) =>
-                    setNewAssetGroup({ ...newAssetGroup, assetType: e.target.value, assetIds: [] })
+                  onChange={(val) =>
+                    setNewAssetGroup({ ...newAssetGroup, assetType: val, assetIds: [] })
                   }
-                  required
-                >
-                  <option value="SUBDOMAIN">Subdomain</option>
-                  <option value="IP">IP</option>
-                </select>
+                  options={[
+                    { value: 'SUBDOMAIN', label: 'Subdomain' },
+                    { value: 'IP', label: 'IP' },
+                  ]}
+                />
               </div>
               <div className="form-group">
                 <label>Select Assets (max 5)</label>
