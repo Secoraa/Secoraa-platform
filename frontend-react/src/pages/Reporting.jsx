@@ -50,6 +50,33 @@ const Reporting = () => {
     return filtered.length > 0 ? filtered : apiScans;
   }, [scans, domainName]);
 
+  const normalizeAssetUrl = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw);
+      const normalizedPath = parsed.pathname.replace(/\/+$/, '').toLowerCase();
+      return `${parsed.protocol.toLowerCase()}//${parsed.host.toLowerCase()}${normalizedPath}`;
+    } catch (err) {
+      return raw.replace(/\/+$/, '').toLowerCase();
+    }
+  };
+
+  const apiAssetOptions = useMemo(() => {
+    const uniqueByAsset = new Map();
+    (apiScansForDomain || [])
+      .filter((s) => s.asset_url && String(s.status).toUpperCase() === 'COMPLETED')
+      .forEach((s) => {
+        const key = normalizeAssetUrl(s.asset_url);
+        if (!key || uniqueByAsset.has(key)) return;
+        uniqueByAsset.set(key, {
+          value: s.scan_id,
+          label: s.asset_url,
+        });
+      });
+    return Array.from(uniqueByAsset.values());
+  }, [apiScansForDomain]);
+
   useEffect(() => {
     getDomains()
       .then((data) => setDomains(Array.isArray(data) ? data : data?.data || []))
@@ -337,13 +364,7 @@ const Reporting = () => {
                     value={scanId}
                     onChange={(val) => setScanId(val)}
                     placeholder="Select API asset"
-                    options={(apiScansForDomain || [])
-                      .filter((s) => s.asset_url && String(s.status).toUpperCase() === 'COMPLETED')
-                      .slice(0, 200)
-                      .map((s) => ({
-                        value: s.scan_id,
-                        label: s.asset_url,
-                      }))}
+                    options={apiAssetOptions}
                   />
                   {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
                     <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>

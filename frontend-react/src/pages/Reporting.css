@@ -129,7 +129,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
@@ -185,6 +185,12 @@
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 0.9rem;
+}
+
+.modal .gold-dropdown__menu {
+  max-height: 140px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .modal-footer {

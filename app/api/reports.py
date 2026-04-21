@@ -248,17 +248,6 @@ def _build_exposure_stories_pdf(
     if logo_path.exists():
         pdf.image(str(logo_path), x=12, y=18, w=55)
 
-    # Device mock (same as existing)
-    pdf.set_draw_color(220, 220, 220)
-    pdf.set_fill_color(12, 28, 45)
-    pdf.rect(122, 22, 76, 50, style="DF")
-    pdf.set_fill_color(8, 20, 34)
-    pdf.rect(126, 26, 68, 42, style="F")
-    pdf.set_draw_color(34, 197, 94)
-    for i, h in enumerate([10, 18, 14, 22, 12]):
-        x = 132 + i * 8
-        pdf.line(x, 66, x, 66 - h)
-    pdf.set_draw_color(220, 220, 220)
 
     # Same cover style as the existing report, but clearly labeled for leadership.
     pdf.set_xy(12, 92)
@@ -1332,6 +1321,19 @@ def _build_asm_pdf(
 
     logo_path = Path(__file__).resolve().parent.parent / "swagger" / "nexveil-logo.png"
 
+    sev_colors = {
+        "CRITICAL": (255, 76, 76),
+        "HIGH": (255, 107, 107),
+        "MEDIUM": (255, 138, 0),
+        "LOW": (24, 169, 153),
+        "INFO": (40, 199, 111),
+        "INFORMATIONAL": (40, 199, 111),
+    }
+
+    def _sev_color(sev: str) -> tuple:
+        s = str(sev or "INFO").upper()
+        return sev_colors.get(s, (100, 100, 100))
+
     def section_header(title: str):
         """
         White-page header like the sample: logo on left + section title.
@@ -1697,7 +1699,12 @@ def _build_asm_pdf(
             risk = str(r.get("severity") or r.get("risk") or "INFO").upper()
             pdf.cell(110, 7, _safe_pdf_text(name[:90]), 1, 0)
             pdf.cell(40, 7, _safe_pdf_text(assets_imp), 1, 0, "C")
+            sc = _sev_color(risk)
+            pdf.set_text_color(*sc)
+            pdf.set_font("Helvetica", "B", 9)
             pdf.cell(40, 7, _safe_pdf_text(risk), 1, 1, "C")
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Helvetica", "", 9)
 
         footer()
 
@@ -1727,21 +1734,6 @@ def _build_asm_pdf(
         pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 10, _safe_pdf_text("NexVeil"), ln=1, align="L")
 
-    # Device mock (right side) to mimic sample cover without needing an image
-    # Outer frame
-    pdf.set_draw_color(220, 220, 220)
-    pdf.set_fill_color(12, 28, 45)
-    # keep aligned with brand area
-    pdf.rect(122, 22, 76, 50, style="DF")
-    # Inner screen
-    pdf.set_fill_color(8, 20, 34)
-    pdf.rect(126, 26, 68, 42, style="F")
-    # Small chart bars
-    pdf.set_draw_color(34, 197, 94)  # green accent
-    for i, h in enumerate([10, 18, 14, 22, 12]):
-        x = 132 + i * 8
-        pdf.line(x, 66, x, 66 - h)
-    pdf.set_draw_color(220, 220, 220)
 
     # Title (orange) like sample
     pdf.set_xy(12, 92)
@@ -1891,7 +1883,11 @@ def _build_asm_pdf(
     pdf.cell(30, 8, _safe_pdf_text("Count"), 1, 1, "C", True)
     pdf.set_font("Helvetica", "", 11)
     for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+        pdf.set_text_color(*_sev_color(k))
+        pdf.set_font("Helvetica", "B", 11)
         pdf.cell(60, 8, _safe_pdf_text(k), 1, 0, "L")
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("Helvetica", "", 11)
         pdf.cell(30, 8, _safe_pdf_text(str(int(sev_counts.get(k, 0)))), 1, 1, "C")
 
     footer()

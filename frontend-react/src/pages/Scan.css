@@ -131,6 +131,12 @@
   color: var(--text-secondary);
 }
 
+.scan-type-dropdown .gold-dropdown__menu {
+  max-height: 140px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
 .run-scan-section h2,
 .scan-history-section h2 {
   margin-bottom: 1.5rem;
