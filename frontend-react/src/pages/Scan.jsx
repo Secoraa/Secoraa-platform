@@ -1028,6 +1028,7 @@ const Scan = ({ onViewResults, initialTab }) => {
                           assetGroupId: '',
                         })
                       }
+                      className="scan-type-dropdown"
                       options={SCAN_TYPE_OPTIONS}
                     />
                   </div>

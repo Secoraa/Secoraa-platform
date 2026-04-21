@@ -11,6 +11,20 @@ const Dropdown = ({
 }) => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const dropdownIdRef = useRef(`gold-dropdown-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    const handleOtherDropdownOpen = (event) => {
+      const openedDropdownId = event?.detail?.id;
+      if (openedDropdownId && openedDropdownId !== dropdownIdRef.current) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('gold-dropdown-open', handleOtherDropdownOpen);
+    return () => {
+      document.removeEventListener('gold-dropdown-open', handleOtherDropdownOpen);
+    };
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -48,7 +62,20 @@ const Dropdown = ({
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((isOpen) => {
+            const nextOpen = !isOpen;
+            if (nextOpen) {
+              document.dispatchEvent(
+                new CustomEvent('gold-dropdown-open', {
+                  detail: { id: dropdownIdRef.current },
+                }),
+              );
+            }
+            return nextOpen;
+          });
+        }}
       >
         <span className="gold-dropdown__selected">
           {selected?.icon && (
