@@ -293,6 +293,66 @@
   font-size: 13px;
 }
 
+/* ── Inline hint text (above form fields) ── */
+.auth-hint {
+  margin: 0 0 -4px;
+  color: #B8B6BA;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* ── Info banner (OTP status) ── */
+.auth-info {
+  background: rgba(224, 177, 43, 0.08);
+  border: 1px solid rgba(224, 177, 43, 0.25);
+  color: #E0B12B;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── OTP inputs ── */
+.auth-otp-row {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 6px 0 4px;
+}
+
+.auth-otp-input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: 'SF Mono', 'Roboto Mono', ui-monospace, monospace;
+  color: #F5F3F7;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.auth-otp-input:focus {
+  border-color: #E0B12B;
+  box-shadow: 0 0 0 2px rgba(224, 177, 43, 0.18);
+  background: rgba(224, 177, 43, 0.05);
+}
+
+.auth-row-otp {
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.auth-row-otp .auth-link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Footer ── */
 .auth-footer {
   padding: 14px 36px 0;

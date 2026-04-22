@@ -20,6 +20,18 @@ from argon2.exceptions import VerifyMismatchError
 
 from app.database.models import User
 from app.database.session import get_db
+from app.services.email import send_password_reset_otp, send_signup_otp
+from app.services.otp import (
+    OTP_TTL_MINUTES,
+    OtpError,
+    can_resend,
+    issue_otp,
+    verify_otp,
+)
+
+SIGNUP_VERIFICATION_PURPOSE = "signup_verification"
+PASSWORD_RESET_PURPOSE = "password_reset"
+RESET_TOKEN_TTL_MINUTES = 15
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -187,6 +199,11 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
                 ph.verify(user.password_hash, body.password)
             except VerifyMismatchError:
                 raise HTTPException(status_code=401, detail="Invalid username or password")
+            if not getattr(user, "is_email_verified", True):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Email not verified. Check your inbox for the verification code.",
+                )
             tenant = getattr(user, "tenant", None) or os.getenv("AUTH_TENANT", "default")
         else:
             # 2) Fallback to env-based auth (optional)
@@ -221,27 +238,57 @@ class SignupRequest(BaseModel):
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
     """
     Onboard a user (create username + password).
-    Password is hashed (argon2) and stored in DB.
+    Password is hashed (argon2) and stored in DB. The user is created with
+    is_email_verified=False and a 6-digit OTP is emailed. Call /verify-otp
+    to activate the account and receive a JWT.
     """
     try:
         tenant = (body.tenant or os.getenv("AUTH_TENANT") or "default").strip()
         if not tenant:
             tenant = "default"
 
+        username = body.username.strip()
+        existing = db.query(User).filter(User.username == username).first()
+        if existing:
+            if getattr(existing, "is_email_verified", True):
+                raise HTTPException(status_code=409, detail="User already exists")
+            try:
+                ph.verify(existing.password_hash, body.password)
+            except VerifyMismatchError:
+                raise HTTPException(status_code=409, detail="User already exists")
+            code = issue_otp(db, existing, SIGNUP_VERIFICATION_PURPOSE)
+            send_signup_otp(existing.username, code)
+            return {
+                "id": str(existing.id),
+                "username": existing.username,
+                "tenant": existing.tenant,
+                "is_active": existing.is_active,
+                "is_email_verified": False,
+                "otp_expires_in_minutes": OTP_TTL_MINUTES,
+                "created_at": existing.created_at,
+            }
+
         user = User(
-            username=body.username.strip(),
+            username=username,
             password_hash=ph.hash(body.password),
             tenant=tenant,
             is_active=True,
+            is_email_verified=False,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
+
+        code = issue_otp(db, user, SIGNUP_VERIFICATION_PURPOSE)
+        send_signup_otp(user.username, code)
+
         return {
             "id": str(user.id),
             "username": user.username,
             "tenant": user.tenant,
             "is_active": user.is_active,
+            "is_email_verified": False,
+            "otp_expires_in_minutes": OTP_TTL_MINUTES,
             "created_at": user.created_at,
         }
     except ProgrammingError as e:
@@ -272,6 +319,163 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         except Exception:
             pass
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class VerifyOtpRequest(BaseModel):
+    username: str
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+@router.post("/verify-otp", response_model=TokenResponse)
+def verify_signup_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)) -> TokenResponse:
+    user = db.query(User).filter(User.username == body.username.strip()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_email_verified:
+        raise HTTPException(status_code=409, detail="Email already verified")
+
+    try:
+        verify_otp(db, user, SIGNUP_VERIFICATION_PURPOSE, body.code)
+    except OtpError as exc:
+        status = 410 if exc.code == "expired" else 400
+        raise HTTPException(status_code=status, detail=exc.message)
+
+    user.is_email_verified = True
+    db.commit()
+
+    tenant = getattr(user, "tenant", None) or os.getenv("AUTH_TENANT", "default")
+    auth_details = {"username": user.username, "login_method": "signup_otp"}
+    token = _issue_token(username=user.username, tenant=tenant, auth_details=auth_details)
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        expires_in=_jwt_exp_minutes() * 60,
+    )
+
+
+class ResendOtpRequest(BaseModel):
+    username: str
+
+
+@router.post("/resend-otp")
+def resend_signup_otp(body: ResendOtpRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == body.username.strip()).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.is_email_verified:
+        raise HTTPException(status_code=409, detail="Email already verified")
+
+    allowed, wait_seconds = can_resend(db, user, SIGNUP_VERIFICATION_PURPOSE)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Please wait {wait_seconds}s before requesting another code.",
+        )
+
+    code = issue_otp(db, user, SIGNUP_VERIFICATION_PURPOSE)
+    send_signup_otp(user.username, code)
+    return {"status": "sent", "otp_expires_in_minutes": OTP_TTL_MINUTES}
+
+
+class ForgotPasswordRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+
+
+@router.post("/forgot-password")
+def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Start a password-reset flow. Always returns the same success response
+    regardless of whether the user exists, to prevent email enumeration.
+    """
+    generic_response = {
+        "status": "sent",
+        "otp_expires_in_minutes": OTP_TTL_MINUTES,
+    }
+
+    username = body.username.strip()
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not getattr(user, "is_active", True):
+        return generic_response
+
+    allowed, _ = can_resend(db, user, PASSWORD_RESET_PURPOSE)
+    if not allowed:
+        return generic_response
+
+    code = issue_otp(db, user, PASSWORD_RESET_PURPOSE)
+    send_password_reset_otp(user.username, code)
+    return generic_response
+
+
+class VerifyResetOtpRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    code: str = Field(..., min_length=6, max_length=6)
+
+
+class ResetTokenResponse(BaseModel):
+    reset_token: str
+    expires_in: int
+
+
+@router.post("/verify-reset-otp", response_model=ResetTokenResponse)
+def verify_reset_otp(body: VerifyResetOtpRequest, db: Session = Depends(get_db)) -> ResetTokenResponse:
+    """
+    Verify the password-reset OTP. On success returns a short-lived reset_token
+    that must be supplied to /reset-password along with the new password.
+    """
+    user = db.query(User).filter(User.username == body.username.strip()).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.")
+
+    try:
+        verify_otp(db, user, PASSWORD_RESET_PURPOSE, body.code)
+    except OtpError as exc:
+        status = 410 if exc.code == "expired" else 400
+        raise HTTPException(status_code=status, detail=exc.message)
+
+    now = datetime.now(timezone.utc)
+    payload: Dict[str, Any] = {
+        "sub": user.username,
+        "purpose": PASSWORD_RESET_PURPOSE,
+        "user_id": str(user.id),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)).timestamp()),
+        "iss": "secoraa-backend",
+    }
+    reset_token = _jwt_encode(payload, _jwt_secret())
+    return ResetTokenResponse(
+        reset_token=reset_token,
+        expires_in=RESET_TOKEN_TTL_MINUTES * 60,
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    reset_token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    try:
+        claims = _decode_token(body.reset_token)
+    except TokenExpired:
+        raise HTTPException(status_code=410, detail="Reset link has expired. Request a new code.")
+    except TokenInvalid:
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    if claims.get("purpose") != PASSWORD_RESET_PURPOSE:
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    username = str(claims.get("sub") or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not getattr(user, "is_active", True):
+        raise HTTPException(status_code=400, detail="Invalid reset token.")
+
+    user.password_hash = ph.hash(body.new_password)
+    db.commit()
+    return {"status": "password_reset"}
 
 
 def get_token_claims(

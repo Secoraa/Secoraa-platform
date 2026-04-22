@@ -34,10 +34,23 @@ class User(Base):
     tenant = Column(String, nullable=False, default="default")
 
     is_active = Column(Boolean, default=True)
+    is_email_verified = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+
+class EmailOtpCode(Base):
+    __tablename__ = "email_otp_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    purpose = Column(String, nullable=False)  # "signup_verification" | "password_reset"
+    code_hash = Column(String, nullable=False)  # argon2 hash of the 6-digit code
+    attempts = Column(Integer, default=0, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class APIKey(Base):

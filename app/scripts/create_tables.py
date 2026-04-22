@@ -48,6 +48,15 @@ def add_missing_columns():
                     ADD COLUMN asn VARCHAR;
                 """))
 
+    # users table — add is_email_verified for existing DBs
+    if inspector.has_table("users"):
+        existing_columns = [c["name"] for c in inspector.get_columns("users")]
+        with engine.begin() as conn:
+            if "is_email_verified" not in existing_columns:
+                conn.execute(text(
+                    "ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN NOT NULL DEFAULT TRUE;"
+                ))
+
     # api_scan_reports table
     if inspector.has_table("api_scan_reports"):
         existing_columns = [c["name"] for c in inspector.get_columns("api_scan_reports")]

@@ -121,6 +121,69 @@ export const login = async (username, password) => {
   }
 };
 
+export const verifySignupOtp = async (username, code) => {
+  try {
+    const response = await apiClient.post('/auth/verify-otp', { username, code });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Verification failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Verification failed: ${error.message}`);
+  }
+};
+
+export const resendSignupOtp = async (username) => {
+  try {
+    const response = await apiClient.post('/auth/resend-otp', { username });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Resend failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+};
+
+export const forgotPassword = async (username) => {
+  try {
+    const response = await apiClient.post('/auth/forgot-password', { username });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Request failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Request failed: ${error.message}`);
+  }
+};
+
+export const verifyResetOtp = async (username, code) => {
+  try {
+    const response = await apiClient.post('/auth/verify-reset-otp', { username, code });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Verification failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Verification failed: ${error.message}`);
+  }
+};
+
+export const resetPassword = async (resetToken, newPassword) => {
+  try {
+    const response = await apiClient.post('/auth/reset-password', {
+      reset_token: resetToken,
+      new_password: newPassword,
+    });
+    return response.data;
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data?.detail || `Reset failed: ${error.response.status} ${error.response.statusText}`);
+    }
+    throw new Error(`Reset failed: ${error.message}`);
+  }
+};
+
 export const getTokenClaims = async () => {
   try {
     const response = await apiClient.get('/auth/token');

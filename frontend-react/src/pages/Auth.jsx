@@ -1,7 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import nexveilLogo from '../assets/nexveil-logo.png';
 import './Auth.css';
-import { login, signup, setStoredToken } from '../api/apiClient';
+import {
+  login,
+  signup,
+  setStoredToken,
+  verifySignupOtp,
+  resendSignupOtp,
+  forgotPassword,
+  verifyResetOtp,
+  resetPassword,
+} from '../api/apiClient';
+
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 60;
 
 const EyeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,23 +75,279 @@ const Auth = ({ onAuthed }) => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const bannerText = useMemo(() => (mode === 'login' ? 'SIGN IN' : 'CREATE ACCOUNT'), [mode]);
+  const [otpDigits, setOtpDigits] = useState(Array(OTP_LENGTH).fill(''));
+  const [otpInfo, setOtpInfo] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const otpRefs = useRef([]);
+
+  const [resetToken, setResetToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [loginInfo, setLoginInfo] = useState('');
+
+  const bannerText = useMemo(() => {
+    switch (mode) {
+      case 'login': return 'SIGN IN';
+      case 'signup': return 'CREATE ACCOUNT';
+      case 'verify': return 'VERIFY EMAIL';
+      case 'forgot': return 'RESET PASSWORD';
+      case 'reset-otp': return 'ENTER CODE';
+      case 'reset-password': return 'NEW PASSWORD';
+      default: return 'SIGN IN';
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return undefined;
+    const id = setInterval(() => {
+      setResendCountdown((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [resendCountdown]);
+
+  useEffect(() => {
+    if ((mode === 'verify' || mode === 'reset-otp') && otpRefs.current[0]) {
+      otpRefs.current[0].focus();
+    }
+  }, [mode]);
+
+  const resetOtpState = () => {
+    setOtpDigits(Array(OTP_LENGTH).fill(''));
+    setOtpInfo('');
+    setError('');
+  };
+
+  const switchMode = (next) => {
+    setError('');
+    setOtpInfo('');
+    setLoginInfo('');
+    setMode(next);
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setOtpInfo('');
     setLoading(true);
     try {
       if (mode === 'signup') {
-        await signup(email, password, tenant);
+        const resp = await signup(email, password, tenant);
+        setOtpDigits(Array(OTP_LENGTH).fill(''));
+        setResendCountdown(RESEND_COOLDOWN_SECONDS);
+        setOtpInfo(
+          resp?.otp_expires_in_minutes
+            ? `We sent a ${OTP_LENGTH}-digit code to ${email}. It expires in ${resp.otp_expires_in_minutes} minutes.`
+            : `We sent a ${OTP_LENGTH}-digit code to ${email}.`
+        );
+        setMode('verify');
+      } else {
+        const tokenResp = await login(email, password);
+        const token = tokenResp?.access_token;
+        if (!token) throw new Error('Login did not return access_token');
+        setStoredToken(token, remember);
+        onAuthed && onAuthed(token);
       }
-      const tokenResp = await login(email, password);
-      const token = tokenResp?.access_token;
-      if (!token) throw new Error('Login did not return access_token');
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpChange = (idx, rawValue) => {
+    const value = rawValue.replace(/\D/g, '');
+    if (!value) {
+      const next = [...otpDigits];
+      next[idx] = '';
+      setOtpDigits(next);
+      return;
+    }
+    if (value.length > 1) {
+      const chars = value.slice(0, OTP_LENGTH - idx).split('');
+      const next = [...otpDigits];
+      chars.forEach((c, i) => {
+        next[idx + i] = c;
+      });
+      setOtpDigits(next);
+      const focusIdx = Math.min(idx + chars.length, OTP_LENGTH - 1);
+      otpRefs.current[focusIdx]?.focus();
+      return;
+    }
+    const next = [...otpDigits];
+    next[idx] = value;
+    setOtpDigits(next);
+    if (idx < OTP_LENGTH - 1) {
+      otpRefs.current[idx + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (idx, e) => {
+    if (e.key === 'Backspace' && !otpDigits[idx] && idx > 0) {
+      otpRefs.current[idx - 1]?.focus();
+    } else if (e.key === 'ArrowLeft' && idx > 0) {
+      otpRefs.current[idx - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && idx < OTP_LENGTH - 1) {
+      otpRefs.current[idx + 1]?.focus();
+    }
+  };
+
+  const onVerifyOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    const code = otpDigits.join('');
+    if (code.length !== OTP_LENGTH) {
+      setError(`Enter the ${OTP_LENGTH}-digit code from your email.`);
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await verifySignupOtp(email, code);
+      const token = resp?.access_token;
+      if (!token) throw new Error('Verification did not return access_token');
       setStoredToken(token, remember);
       onAuthed && onAuthed(token);
     } catch (err) {
-      setError(err.message || 'Something went wrong');
+      setError(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResend = async () => {
+    if (resendCountdown > 0 || loading) return;
+    setError('');
+    setOtpInfo('');
+    setLoading(true);
+    try {
+      const resp = await resendSignupOtp(email);
+      setResendCountdown(RESEND_COOLDOWN_SECONDS);
+      setOtpDigits(Array(OTP_LENGTH).fill(''));
+      otpRefs.current[0]?.focus();
+      setOtpInfo(
+        resp?.otp_expires_in_minutes
+          ? `New code sent. It expires in ${resp.otp_expires_in_minutes} minutes.`
+          : 'New code sent to your email.'
+      );
+    } catch (err) {
+      setError(err.message || 'Could not resend code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onBackToSignup = () => {
+    resetOtpState();
+    setResendCountdown(0);
+    setMode('signup');
+  };
+
+  const onForgotClick = () => {
+    setError('');
+    setOtpInfo('');
+    setLoginInfo('');
+    setPassword('');
+    setMode('forgot');
+  };
+
+  const onBackToLogin = () => {
+    setError('');
+    setOtpInfo('');
+    setOtpDigits(Array(OTP_LENGTH).fill(''));
+    setResendCountdown(0);
+    setResetToken('');
+    setNewPassword('');
+    setShowNewPassword(false);
+    setPassword('');
+    setMode('login');
+  };
+
+  const onSubmitForgot = async (e) => {
+    e.preventDefault();
+    setError('');
+    setOtpInfo('');
+    setLoading(true);
+    try {
+      const resp = await forgotPassword(email);
+      setOtpDigits(Array(OTP_LENGTH).fill(''));
+      setResendCountdown(RESEND_COOLDOWN_SECONDS);
+      setOtpInfo(
+        resp?.otp_expires_in_minutes
+          ? `If an account exists for ${email}, we've sent a ${OTP_LENGTH}-digit code. It expires in ${resp.otp_expires_in_minutes} minutes.`
+          : `If an account exists for ${email}, we've sent a ${OTP_LENGTH}-digit code.`
+      );
+      setMode('reset-otp');
+    } catch (err) {
+      setError(err.message || 'Could not start password reset');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSubmitResetOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    const code = otpDigits.join('');
+    if (code.length !== OTP_LENGTH) {
+      setError(`Enter the ${OTP_LENGTH}-digit code from your email.`);
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await verifyResetOtp(email, code);
+      const token = resp?.reset_token;
+      if (!token) throw new Error('Server did not return a reset token');
+      setResetToken(token);
+      setOtpInfo('');
+      setMode('reset-password');
+    } catch (err) {
+      setError(err.message || 'Verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResendReset = async () => {
+    if (resendCountdown > 0 || loading) return;
+    setError('');
+    setOtpInfo('');
+    setLoading(true);
+    try {
+      const resp = await forgotPassword(email);
+      setResendCountdown(RESEND_COOLDOWN_SECONDS);
+      setOtpDigits(Array(OTP_LENGTH).fill(''));
+      otpRefs.current[0]?.focus();
+      setOtpInfo(
+        resp?.otp_expires_in_minutes
+          ? `New code sent. It expires in ${resp.otp_expires_in_minutes} minutes.`
+          : 'New code sent to your email.'
+      );
+    } catch (err) {
+      setError(err.message || 'Could not resend code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onSubmitResetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(resetToken, newPassword);
+      setResetToken('');
+      setNewPassword('');
+      setShowNewPassword(false);
+      setPassword('');
+      setOtpDigits(Array(OTP_LENGTH).fill(''));
+      setResendCountdown(0);
+      setLoginInfo('Password updated. Sign in with your new password.');
+      setMode('login');
+    } catch (err) {
+      setError(err.message || 'Could not reset password');
     } finally {
       setLoading(false);
     }
@@ -111,84 +379,258 @@ const Auth = ({ onAuthed }) => {
 
           <div className="auth-form-section">
             {error && <div className="auth-error">{error}</div>}
+            {mode === 'login' && loginInfo && !error && (
+              <div className="auth-info">{loginInfo}</div>
+            )}
+            {(mode === 'verify' || mode === 'reset-otp') && otpInfo && !error && (
+              <div className="auth-info">{otpInfo}</div>
+            )}
 
-            <form onSubmit={onSubmit} className="auth-form">
-              <input
-                className="auth-input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter email address"
-                required
-              />
-
-              <div className="auth-input-wrap">
-                <input
-                  className="auth-input auth-input-pw"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  required
-                />
-                <button
-                  type="button"
-                  className="auth-pw-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              </div>
-
-              {mode === 'signup' && (
+            {mode === 'forgot' ? (
+              <form onSubmit={onSubmitForgot} className="auth-form">
+                <p className="auth-hint">
+                  Enter the email you signed up with. We'll send a {OTP_LENGTH}-digit code to reset your password.
+                </p>
                 <input
                   className="auth-input"
-                  type="text"
-                  value={tenant}
-                  onChange={(e) => setTenant(e.target.value)}
-                  placeholder="Company name (tenant)"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  required
                 />
-              )}
-
-              <div className="auth-row">
-                <label className="auth-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
-                  />
-                  <span>Stay signed in</span>
-                </label>
-                <button
-                  type="button"
-                  className="auth-link"
-                  onClick={() => alert('Forgot password: not implemented yet')}
-                >
-                  Forgot Password?
+                <button className="auth-primary" type="submit" disabled={loading}>
+                  {loading ? 'Sending code…' : 'Send reset code'}
                 </button>
-              </div>
+                <div className="auth-row auth-row-otp">
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onBackToLogin}
+                    disabled={loading}
+                  >
+                    ← Back to sign in
+                  </button>
+                </div>
+              </form>
+            ) : mode === 'reset-otp' ? (
+              <form onSubmit={onSubmitResetOtp} className="auth-form">
+                <div className="auth-otp-row">
+                  {otpDigits.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      className="auth-otp-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={OTP_LENGTH}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      aria-label={`Digit ${idx + 1}`}
+                    />
+                  ))}
+                </div>
+                <button className="auth-primary" type="submit" disabled={loading}>
+                  {loading ? 'Verifying…' : 'Verify code'}
+                </button>
+                <div className="auth-row auth-row-otp">
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onBackToLogin}
+                    disabled={loading}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onResendReset}
+                    disabled={resendCountdown > 0 || loading}
+                  >
+                    {resendCountdown > 0
+                      ? `Resend in ${resendCountdown}s`
+                      : 'Resend code'}
+                  </button>
+                </div>
+              </form>
+            ) : mode === 'reset-password' ? (
+              <form onSubmit={onSubmitResetPassword} className="auth-form">
+                <p className="auth-hint">Choose a new password (at least 8 characters).</p>
+                <div className="auth-input-wrap">
+                  <input
+                    className="auth-input auth-input-pw"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password"
+                    minLength={8}
+                    required
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="auth-pw-toggle"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    tabIndex={-1}
+                    aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showNewPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+                <button className="auth-primary" type="submit" disabled={loading}>
+                  {loading ? 'Updating…' : 'Update password'}
+                </button>
+                <div className="auth-row auth-row-otp">
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onBackToLogin}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : mode === 'verify' ? (
+              <form onSubmit={onVerifyOtp} className="auth-form">
+                <div className="auth-otp-row">
+                  {otpDigits.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      className="auth-otp-input"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={OTP_LENGTH}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      aria-label={`Digit ${idx + 1}`}
+                    />
+                  ))}
+                </div>
 
-              <button className="auth-primary" type="submit" disabled={loading}>
-                {loading ? 'Authenticating…' : 'Login'}
-              </button>
-            </form>
+                <button className="auth-primary" type="submit" disabled={loading}>
+                  {loading ? 'Verifying…' : 'Verify & Continue'}
+                </button>
+
+                <div className="auth-row auth-row-otp">
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onBackToSignup}
+                    disabled={loading}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-link"
+                    onClick={onResend}
+                    disabled={resendCountdown > 0 || loading}
+                  >
+                    {resendCountdown > 0
+                      ? `Resend in ${resendCountdown}s`
+                      : 'Resend code'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={onSubmit} className="auth-form">
+                <input
+                  className="auth-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  required
+                />
+
+                <div className="auth-input-wrap">
+                  <input
+                    className="auth-input auth-input-pw"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="auth-pw-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+
+                {mode === 'signup' && (
+                  <input
+                    className="auth-input"
+                    type="text"
+                    value={tenant}
+                    onChange={(e) => setTenant(e.target.value)}
+                    placeholder="Company name (tenant)"
+                  />
+                )}
+
+                <div className="auth-row">
+                  <label className="auth-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    <span>Stay signed in</span>
+                  </label>
+                  {mode === 'login' && (
+                    <button
+                      type="button"
+                      className="auth-link"
+                      onClick={onForgotClick}
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
+
+                <button className="auth-primary" type="submit" disabled={loading}>
+                  {loading
+                    ? (mode === 'signup' ? 'Sending code…' : 'Authenticating…')
+                    : (mode === 'signup' ? 'Create Account' : 'Login')}
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="auth-footer">
-            {mode === 'login' ? (
+            {mode === 'login' && (
               <span>
                 New to NEXVEIL?{' '}
-                <button className="auth-link" type="button" onClick={() => setMode('signup')}>
+                <button className="auth-link" type="button" onClick={() => switchMode('signup')}>
                   Create an Account
                 </button>
               </span>
-            ) : (
+            )}
+            {mode === 'signup' && (
               <span>
                 Already have an account?{' '}
-                <button className="auth-link" type="button" onClick={() => setMode('login')}>
+                <button className="auth-link" type="button" onClick={() => switchMode('login')}>
                   Sign in
+                </button>
+              </span>
+            )}
+            {mode === 'verify' && (
+              <span>
+                Wrong email?{' '}
+                <button className="auth-link" type="button" onClick={onBackToSignup}>
+                  Change it
                 </button>
               </span>
             )}
