@@ -247,7 +247,7 @@ const Reporting = () => {
                           const variant = parts.slice(1).join('_') || '';
                           const assessmentLabel =
                             assessment === 'DOMAIN' ? 'Domain' :
-                            assessment === 'WEBSCAN' ? 'Web Scan' :
+                            assessment === 'WEBSCAN' ? 'Vulnerability Scan' :
                             assessment === 'API' || assessment === 'API_TESTING' ? 'API Scan' :
                             assessment;
                           const variantLabel =
@@ -303,7 +303,7 @@ const Reporting = () => {
                   }}
                   options={[
                     { value: 'DOMAIN', label: 'Domain', icon: <ScanTypeIcon type="dd" /> },
-                    { value: 'WEBSCAN', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
+                    { value: 'WEBSCAN', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="subdomain" /> },
                     { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
                   ]}
                 />

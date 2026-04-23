@@ -2029,8 +2029,8 @@ class CreateReportRequest(BaseModel):
     # Requirement: description should be only 200 letters
     description: Optional[str] = Field(default=None, max_length=200)
     domain_name: Optional[str] = Field(default=None, description="Required for ASM reports")
-    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|WEBSCAN|API_TESTING")
-    subdomain_name: Optional[str] = Field(default=None, description="Required for WEBSCAN reports")
+    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|API_TESTING")
+    subdomain_name: Optional[str] = Field(default=None, description="Required for VULNERABILITY_SCAN reports")
     scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING reports (scan_id of an API scan)")
 
 
@@ -2185,8 +2185,8 @@ def create_report(
         raise HTTPException(status_code=400, detail="Invalid report_type. Use EXEC_SUMMARY or DETAILS_SUMMARY.")
 
     assessment = (req.assessment_type or "DOMAIN").strip().upper()
-    if assessment not in {"DOMAIN", "WEBSCAN", "API_TESTING"}:
-        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, WEBSCAN, or API_TESTING.")
+    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING"}:
+        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, or API_TESTING.")
 
     # Scope validation
     domain_obj: Optional[Domain] = None
@@ -2249,10 +2249,10 @@ def create_report(
             "cover_title": "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILS REPORT",
         }
 
-    elif assessment == "WEBSCAN":
+    elif assessment == "VULNERABILITY_SCAN":
         # Webscan (Subdomain): focus report on a single subdomain
         if not req.subdomain_name:
-            raise HTTPException(status_code=400, detail="subdomain_name is required for WEBSCAN reports.")
+            raise HTTPException(status_code=400, detail="subdomain_name is required for VULNERABILITY_SCAN reports.")
         sub = (
             db.query(Subdomain)
             .filter(Subdomain.domain_id == domain_obj.id, Subdomain.subdomain_name == req.subdomain_name)
@@ -2284,7 +2284,7 @@ def create_report(
                 }
             )
         template = {
-            "cover_title": "WEBSCAN\n(SUBDOMAIN) DETAILS REPORT",
+            "cover_title": "VULNERABILITY_SCAN\n(SUBDOMAIN) DETAILS REPORT",
             "assets_intro": "This report summarizes web-facing exposure and vulnerabilities for the selected subdomain.",
             "assets_total_label": "TOTAL SUBDOMAINS",
             "assets_section_title": "Assets",
@@ -2421,15 +2421,15 @@ def create_report(
         cover_title = (
             "ATTACK SURFACE MANAGEMENT\n(ASM) EXECUTIVE SUMMARY"
             if assessment == "DOMAIN"
-            else "WEBSCAN\n(SUBDOMAIN) EXECUTIVE SUMMARY"
-            if assessment == "WEBSCAN"
+            else "VULNERABILITY_SCAN\n(SUBDOMAIN) EXECUTIVE SUMMARY"
+            if assessment == "VULNERABILITY_SCAN"
             else "API TESTING\nEXECUTIVE SUMMARY"
         )
         exec_intro = (
             "This report summarizes external exposure patterns and priorities for leadership."
             if assessment == "DOMAIN"
             else "This report summarizes web-facing exposure patterns for the selected subdomain in a leadership-ready narrative."
-            if assessment == "WEBSCAN"
+            if assessment == "VULNERABILITY_SCAN"
             else "This report summarizes API testing results into decision-ready risk narratives. It avoids raw endpoint listings."
         )
         pdf_bytes = _build_exposure_stories_pdf(
