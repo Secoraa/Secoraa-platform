@@ -196,11 +196,23 @@ def _build_exposure_stories_pdf(
         pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=14)
 
-    # Keep the cover + section styling identical to the existing ASM PDF.
-    # (No new detections; this is purely a presentation layer.)
     logo_path = Path(__file__).resolve().parent.parent / "swagger" / "nexveil-logo.png"
 
+    gold = (224, 177, 43)
+    dark = (17, 24, 39)
+    page_bg = (18, 15, 24)
+    card_bg = (26, 23, 33)
+    text_light = (245, 243, 247)
+    text_muted = (184, 182, 186)
+    border_subtle = (40, 35, 50)
+
+    def dark_page_bg():
+        """Fill current page with dark background."""
+        pdf.set_fill_color(*page_bg)
+        pdf.rect(0, 0, 210, 297, style="F")
+
     def section_header(title: str):
+        dark_page_bg()
         top_y = 10
         logo_w = 22
         if logo_path.exists():
@@ -209,59 +221,52 @@ def _build_exposure_stories_pdf(
         else:
             pdf.set_xy(10, top_y + 2)
             pdf.set_font("Helvetica", "B", 16)
-            pdf.set_text_color(20, 40, 80)
+            pdf.set_text_color(*gold)
             pdf.cell(0, 8, _safe_pdf_text("NexVeil"), ln=1)
             title_y = top_y + 18
 
         pdf.set_xy(10, title_y)
         pdf.set_font("Helvetica", "B", 18)
-        pdf.set_text_color(20, 40, 80)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 10, _safe_pdf_text(title), ln=1)
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
-        pdf.set_draw_color(225, 225, 225)
+        pdf.set_draw_color(*border_subtle)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(6)
 
     def footer(*, dark: bool = False):
         pdf.set_y(-23)
         pdf.set_font("Helvetica", "", 8)
-        if dark:
-            pdf.set_text_color(200, 200, 200)
-        else:
-            pdf.set_text_color(120, 120, 120)
+        pdf.set_text_color(*text_muted)
         left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} {tenant}. All Rights Reserved")
         page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
         right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
         pdf.cell(150, 6, left, 0, 0, "L")
         pdf.cell(40, 6, right, 0, 0, "R")
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
     # -------------------------
-    # Cover page (IDENTICAL styling to existing ASM PDF)
+    # Cover page (dark theme)
     # -------------------------
     pdf.set_auto_page_break(auto=False, margin=14)
     pdf.add_page()
-    pdf.set_fill_color(8, 9, 12)
+    pdf.set_fill_color(*page_bg)
     pdf.rect(0, 0, 210, 297, style="F")
 
     if logo_path.exists():
         pdf.image(str(logo_path), x=12, y=18, w=55)
 
-
-    # Same cover style as the existing report, but clearly labeled for leadership.
     pdf.set_xy(12, 92)
     pdf.set_font("Helvetica", "B", 26)
-    pdf.set_text_color(224, 177, 43)
+    pdf.set_text_color(*gold)
     pdf.multi_cell(0, 12, _safe_pdf_text(cover_title or "ATTACK SURFACE MANAGEMENT\n(ASM) EXECUTIVE SUMMARY"))
 
-    # Green separator line
     pdf.set_draw_color(34, 197, 94)
     pdf.set_line_width(1.2)
     pdf.line(12, pdf.get_y() + 2, 110, pdf.get_y() + 2)
     pdf.set_line_width(0.2)
 
-    # Prepared for block (same spacing logic as existing report)
     cover_block_shift_mm = 30
     base_x = 12
     move_other_up_mm = 20
@@ -269,27 +274,27 @@ def _build_exposure_stories_pdf(
 
     pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "", 14)
-    pdf.set_text_color(230, 230, 230)
+    pdf.set_text_color(*text_light)
     pdf.cell(0, 8, _safe_pdf_text("Prepared for"), 0, 1, "L")
     y += 12
 
     pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "B", 28)
-    pdf.set_text_color(224, 177, 43)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 12, _safe_pdf_text(tenant), 0, 1, "L")
     y += 16
 
     if domain:
         pdf.set_xy(base_x, y)
         pdf.set_font("Helvetica", "", 18)
-        pdf.set_text_color(230, 230, 230)
+        pdf.set_text_color(*text_light)
         pdf.cell(0, 10, _safe_pdf_text(domain), 0, 1, "L")
         y += 18
 
     if description:
         pdf.set_xy(base_x, y)
         pdf.set_font("Helvetica", "", 12)
-        pdf.set_text_color(200, 200, 200)
+        pdf.set_text_color(*text_muted)
         desc = _safe_pdf_text(description)
         if len(desc) > 200:
             desc = desc[:197] + "..."
@@ -301,10 +306,10 @@ def _build_exposure_stories_pdf(
         generated_y = 268
     pdf.set_xy(base_x, generated_y)
     pdf.set_font("Helvetica", "", 14)
-    pdf.set_text_color(230, 230, 230)
+    pdf.set_text_color(*text_light)
     pdf.cell(0, 8, _safe_pdf_text(f"Generated on {created_at.strftime('%m-%d-%Y')}"), 0, 0, "L")
     footer(dark=True)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
     pdf.set_auto_page_break(auto=True, margin=14)
 
     # -------------------------
@@ -313,6 +318,7 @@ def _build_exposure_stories_pdf(
     pdf.add_page()
     section_header("Executive Summary")
     pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*text_light)
 
     total_assets = len([a for a in assets_list if a])
     total_vulns = len(vuln_rows)
@@ -336,8 +342,10 @@ def _build_exposure_stories_pdf(
     )
     pdf.ln(4)
     pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 8, _safe_pdf_text("How we prioritized"), ln=1)
     pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*text_muted)
     pdf.multi_cell(
         0,
         6,
@@ -382,7 +390,7 @@ def _build_exposure_stories_pdf(
         story_list.append((score, theme, g))
     story_list.sort(key=lambda x: x[0], reverse=True)
 
-    # Each story starts on its own page to avoid broken/fragmented headings (What/Why/Who/Next)
+# Each story starts on its own page to avoid broken/fragmented headings (What/Why/Who/Next)
     # and to keep a consistent, readable layout.
     max_stories = 6
     for idx, (score, theme, g) in enumerate(story_list[:max_stories]):
@@ -390,44 +398,54 @@ def _build_exposure_stories_pdf(
         section_header("High-Risk Exposure Stories" if idx == 0 else "High-Risk Exposure Stories (continued)")
         tpl = _story_template(theme)
         pdf.set_font("Helvetica", "B", 13)
-        pdf.set_text_color(20, 40, 80)
+        pdf.set_text_color(*gold)
         pdf.multi_cell(0, 7, _safe_pdf_text(tpl["title"]))
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(10)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 6, _safe_pdf_text("What was found"), ln=1)
         pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*text_light)
         examples = g.get("examples") or []
         ex_text = ", ".join(examples[:3]) + (f" (+{max(0, len(examples)-3)} more)" if len(examples) > 3 else "")
         pdf.set_x(10)
-        pdf.multi_cell(0, 6, _safe_pdf_text(f"{g.get('count')} related finding(s). Example asset(s): {ex_text or '-'}"))
+        pdf.multi_cell(0, 6, _safe_pdf_text(f"{g.get('count')} related finding(s). Example asset(s): {ex_text or '-'})"))
 
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(10)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 6, _safe_pdf_text("Why it matters"), ln=1)
         pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*text_light)
         pdf.set_x(10)
         pdf.multi_cell(0, 6, _safe_pdf_text(tpl["why"]))
 
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(10)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 6, _safe_pdf_text("What could happen if abused"), ln=1)
         pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*text_light)
         pdf.set_x(10)
         pdf.multi_cell(0, 6, _safe_pdf_text(tpl["what_could_happen"]))
 
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(10)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 6, _safe_pdf_text("Who should care"), ln=1)
         pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*text_light)
         pdf.set_x(10)
         pdf.multi_cell(0, 6, _safe_pdf_text(tpl["who"]))
 
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(10)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 6, _safe_pdf_text("Next action (specific)"), ln=1)
         pdf.set_font("Helvetica", "", 11)
+        pdf.set_text_color(*text_light)
         pdf.set_x(10)
         pdf.multi_cell(0, 6, _safe_pdf_text(tpl["next"]))
 
@@ -439,6 +457,7 @@ def _build_exposure_stories_pdf(
     pdf.add_page()
     section_header("Supporting Technical Details")
     pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*text_light)
     pdf.multi_cell(
         0,
         6,
@@ -451,7 +470,8 @@ def _build_exposure_stories_pdf(
 
     # Theme summary table
     pdf.set_font("Helvetica", "B", 10)
-    pdf.set_fill_color(245, 245, 245)
+    pdf.set_fill_color(*card_bg)
+    pdf.set_text_color(*text_muted)
     pdf.cell(80, 7, _safe_pdf_text("Theme"), 1, 0, "L", True)
     pdf.cell(20, 7, _safe_pdf_text("Count"), 1, 0, "C", True)
     pdf.cell(90, 7, _safe_pdf_text("Example assets"), 1, 1, "L", True)
@@ -468,8 +488,10 @@ def _build_exposure_stories_pdf(
             "other": "Other",
         }.get(theme, theme)
         ex = ", ".join((g.get("examples") or [])[:2])
+        pdf.set_text_color(*text_light)
         pdf.cell(80, 7, _safe_pdf_text(name), 1, 0)
         pdf.cell(20, 7, _safe_pdf_text(str(g.get("count") or 0)), 1, 0, "C")
+        pdf.set_text_color(*text_muted)
         pdf.cell(90, 7, _safe_pdf_text(ex or "-"), 1, 1)
 
     footer()
@@ -1330,14 +1352,23 @@ def _build_asm_pdf(
         "INFORMATIONAL": (40, 199, 111),
     }
 
+    gold = (224, 177, 43)
+    dark = (17, 24, 39)
+    page_bg = (18, 15, 24)
+    card_bg = (26, 23, 33)
+    text_light = (245, 243, 247)
+    text_muted = (184, 182, 186)
+    border_subtle = (40, 35, 50)
+
     def _sev_color(sev: str) -> tuple:
         s = str(sev or "INFO").upper()
         return sev_colors.get(s, (100, 100, 100))
 
     def section_header(title: str):
         """
-        White-page header like the sample: logo on left + section title.
+        Dark-themed header with logo on left + section title.
         """
+        dark_page_bg()
         top_y = 10
         logo_w = 22  # keep small so it never collides with title
         if logo_path.exists():
@@ -1347,19 +1378,24 @@ def _build_asm_pdf(
         else:
             pdf.set_xy(10, top_y + 2)
             pdf.set_font("Helvetica", "B", 16)
-            pdf.set_text_color(20, 40, 80)
+            pdf.set_text_color(*gold)
             pdf.cell(0, 8, _safe_pdf_text("NexVeil"), ln=1)
             title_y = top_y + 18
 
         pdf.set_xy(10, title_y)
         pdf.set_font("Helvetica", "B", 18)
-        pdf.set_text_color(20, 40, 80)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 10, _safe_pdf_text(title), ln=1)
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
-        pdf.set_draw_color(225, 225, 225)
+        pdf.set_draw_color(*border_subtle)
         pdf.line(10, pdf.get_y(), 200, pdf.get_y())
         pdf.ln(6)
+
+    def dark_page_bg():
+        """Fill current page with dark background."""
+        pdf.set_fill_color(*page_bg)
+        pdf.rect(0, 0, 210, 297, style="F")
 
     def footer(*, dark: bool = False):
         """
@@ -1369,9 +1405,9 @@ def _build_asm_pdf(
         pdf.set_y(-23)  # keep safely above page-break trigger (A4 height 297mm, margin 14mm)
         pdf.set_font("Helvetica", "", 8)
         if dark:
-            pdf.set_text_color(200, 200, 200)
+            pdf.set_text_color(*text_muted)
         else:
-            pdf.set_text_color(120, 120, 120)
+            pdf.set_text_color(*text_muted)
 
         left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} {tenant}. All Rights Reserved")
         page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
@@ -1379,36 +1415,36 @@ def _build_asm_pdf(
         right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
         pdf.cell(150, 6, left, 0, 0, "L")
         pdf.cell(40, 6, right, 0, 0, "R")
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
     def summary_card(*, x: float, y: float, w: float, h: float, value: str, label: str):
         """
-        A light summary card similar to the sample (big number + diagonal accent + label).
+        Dark-themed summary card (big number + diagonal accent + label).
         """
-        pdf.set_draw_color(230, 233, 238)
-        pdf.set_fill_color(248, 250, 252)
+        pdf.set_draw_color(*border_subtle)
+        pdf.set_fill_color(*card_bg)
         pdf.rect(x, y, w, h, style="DF")
 
         # Accent icon square
-        pdf.set_fill_color(255, 248, 220)  # light gold
+        pdf.set_fill_color(*gold)
         pdf.rect(x + 8, y + 10, 12, 12, style="F")
 
         # Value
         pdf.set_xy(x + 26, y + 8)
         pdf.set_font("Helvetica", "B", 22)
-        pdf.set_text_color(224, 177, 43)
+        pdf.set_text_color(*gold)
         pdf.cell(0, 12, _safe_pdf_text(value))
 
         # Diagonal line accent
-        pdf.set_draw_color(224, 177, 43)
+        pdf.set_draw_color(*gold)
         pdf.line(x + 6, y + h - 16, x + w, y + h - 34)
 
         # Label
         pdf.set_xy(x + 10, y + h - 12)
         pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(20, 40, 80)
+        pdf.set_text_color(*text_light)
         pdf.cell(0, 8, _safe_pdf_text(label))
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
     def _draw_arc(cx: float, cy: float, r: float, start_deg: float, end_deg: float, *, color: tuple[int, int, int], lw: float = 6.0):
         """
@@ -1434,11 +1470,11 @@ def _build_asm_pdf(
 
     def risk_gauge_card(*, x: float, y: float, w: float, h: float, value: float):
         """
-        Card with a semi-circle gauge + big value, similar to the screenshot.
+        Dark-themed card with a semi-circle gauge + big value.
         """
         # Card background
-        pdf.set_draw_color(230, 233, 238)
-        pdf.set_fill_color(248, 250, 252)
+        pdf.set_draw_color(*border_subtle)
+        pdf.set_fill_color(*card_bg)
         pdf.rect(x, y, w, h, style="DF")
 
         # Gauge geometry
@@ -1460,25 +1496,25 @@ def _build_asm_pdf(
         rad = math.radians(ang)
         nx = cx + r * 0.9 * math.cos(rad)
         ny = cy + r * 0.9 * math.sin(rad)
-        pdf.set_draw_color(31, 41, 55)
+        pdf.set_draw_color(*dark)
         pdf.set_line_width(1.2)
         pdf.line(cx, cy, nx, ny)
-        pdf.set_fill_color(31, 41, 55)
+        pdf.set_fill_color(*dark)
         pdf.ellipse(cx - 2.2, cy - 2.2, 4.4, 4.4, style="F")
         pdf.set_line_width(0.2)
 
         # Value
         pdf.set_xy(x, y + 22)
         pdf.set_font("Helvetica", "B", 40)
-        pdf.set_text_color(37, 99, 235)
+        pdf.set_text_color(*gold)
         pdf.cell(w, 18, _safe_pdf_text(f"{v:.1f}"), 0, 1, "C")
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_light)
 
         pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(20, 40, 80)
+        pdf.set_text_color(*text_muted)
         pdf.set_xy(x + 10, y + h - 16)
         pdf.cell(w - 20, 8, _safe_pdf_text("OVERALL RISK"), 0, 0, "L")
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
 
     def wrap_text(text: str, max_width_mm: float) -> List[str]:
         """
@@ -1542,7 +1578,7 @@ def _build_asm_pdf(
         pdf.add_page()
         section_header(str((template or {}).get("assets_section_title") or "Assets"))
         pdf.set_font("Helvetica", "", 11)
-        pdf.set_text_color(35, 35, 35)
+        pdf.set_text_color(*text_light)
         pdf.multi_cell(
             0,
             6,
@@ -1553,7 +1589,7 @@ def _build_asm_pdf(
                 ))
             ),
         )
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
         pdf.ln(4)
 
         summary_card(
@@ -1571,8 +1607,8 @@ def _build_asm_pdf(
 
         # Table card rendering (paginated)
         def start_table_page(table_y: float):
-            pdf.set_draw_color(230, 233, 238)
-            pdf.set_fill_color(248, 250, 252)
+            pdf.set_draw_color(*border_subtle)
+            pdf.set_fill_color(*card_bg)
             # Fill down to just above footer zone
             card_h = 268 - table_y
             if card_h < 90:
@@ -1581,18 +1617,18 @@ def _build_asm_pdf(
 
             pdf.set_xy(16, table_y + 8)
             pdf.set_font("Helvetica", "B", 13)
-            pdf.set_text_color(20, 40, 80)
+            pdf.set_text_color(*gold)
             pdf.cell(0, 8, _safe_pdf_text(str((template or {}).get("assets_table_title") or "Assets")))
             pdf.ln(10)
 
             pdf.set_x(16)
             pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(55, 65, 81)
+            pdf.set_text_color(*text_muted)
             pdf.cell(0, 7, _safe_pdf_text(str((template or {}).get("assets_table_col_name") or "Name")))
-            pdf.set_draw_color(200, 200, 200)
+            pdf.set_draw_color(*border_subtle)
             pdf.line(16, pdf.get_y() + 1, 194, pdf.get_y() + 1)
             pdf.ln(6)
-            pdf.set_text_color(0, 0, 0)
+            pdf.set_text_color(*text_light)
             pdf.set_font("Helvetica", "", 11)
 
         start_table_page(112)
@@ -1605,9 +1641,9 @@ def _build_asm_pdf(
 
         if not assets:
             pdf.set_x(left_x)
-            pdf.set_text_color(120, 120, 120)
+            pdf.set_text_color(*text_muted)
             pdf.cell(0, row_h, _safe_pdf_text("No assets available."), ln=1)
-            pdf.set_text_color(0, 0, 0)
+            pdf.set_text_color(*text_muted)
             footer()
             return
 
@@ -1621,7 +1657,7 @@ def _build_asm_pdf(
                 start_table_page(max(60, pdf.get_y() + 6))
 
             pdf.set_x(left_x)
-            pdf.set_text_color(17, 24, 39)
+            pdf.set_text_color(*text_light)
 
             # Wrap/truncate long asset names to avoid overlap
             txt = clamp_text_lines(name, max_w, max_lines=2)
@@ -1637,7 +1673,7 @@ def _build_asm_pdf(
             # Render row (multi_cell advances y)
             pdf.multi_cell(max_w, row_h, txt)
             y = pdf.get_y()
-            pdf.set_draw_color(220, 220, 220)
+            pdf.set_draw_color(*border_subtle)
             pdf.line(left_x, y, right_x, y)
 
         footer()
@@ -1649,6 +1685,7 @@ def _build_asm_pdf(
         pdf.add_page()
         section_header(str((template or {}).get("vuln_section_title") or "Vulnerabilities"))
         pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(*text_light)
         pdf.multi_cell(
             0,
             5,
@@ -1661,6 +1698,7 @@ def _build_asm_pdf(
         )
         pdf.ln(4)
         pdf.set_font("Helvetica", "B", 14)
+        pdf.set_text_color(*gold)
         pdf.cell(
             0,
             8,
@@ -1673,7 +1711,8 @@ def _build_asm_pdf(
 
         def table_header():
             pdf.set_font("Helvetica", "B", 10)
-            pdf.set_fill_color(245, 245, 245)
+            pdf.set_fill_color(*card_bg)
+            pdf.set_text_color(*text_muted)
             pdf.cell(110, 7, _safe_pdf_text(str((template or {}).get("vuln_col_name") or "Name")), 1, 0, "L", True)
             pdf.cell(40, 7, _safe_pdf_text(str((template or {}).get("vuln_col_impacted") or "Assets Impacted")), 1, 0, "C", True)
             pdf.cell(40, 7, _safe_pdf_text(str((template or {}).get("vuln_col_risk") or "Risk")), 1, 1, "C", True)
@@ -1697,13 +1736,14 @@ def _build_asm_pdf(
             name = str(r.get("name") or r.get("issue") or "-")
             assets_imp = str(r.get("assets_impacted") or "1")
             risk = str(r.get("severity") or r.get("risk") or "INFO").upper()
+            pdf.set_text_color(*text_light)
             pdf.cell(110, 7, _safe_pdf_text(name[:90]), 1, 0)
             pdf.cell(40, 7, _safe_pdf_text(assets_imp), 1, 0, "C")
             sc = _sev_color(risk)
             pdf.set_text_color(*sc)
             pdf.set_font("Helvetica", "B", 9)
             pdf.cell(40, 7, _safe_pdf_text(risk), 1, 1, "C")
-            pdf.set_text_color(0, 0, 0)
+            pdf.set_text_color(*text_muted)
             pdf.set_font("Helvetica", "", 9)
 
         footer()
@@ -1715,7 +1755,7 @@ def _build_asm_pdf(
     pdf.set_auto_page_break(auto=False, margin=14)
     pdf.add_page()
     # Full-page dark background (black theme)
-    pdf.set_fill_color(8, 9, 12)  # near-black/navy
+    pdf.set_fill_color(*page_bg)
     pdf.rect(0, 0, 210, 297, style="F")
 
     # Brand: use local Secoraa logo if available; otherwise render text (top-left like sample)
@@ -1731,14 +1771,14 @@ def _build_asm_pdf(
     if not logo_path.exists():
         pdf.set_xy(12, brand_y - 6)
         pdf.set_font("Helvetica", "B", 28)
-        pdf.set_text_color(255, 255, 255)
+        pdf.set_text_color(*text_light)
         pdf.cell(0, 10, _safe_pdf_text("NexVeil"), ln=1, align="L")
 
 
-    # Title (orange) like sample
+    # Title (gold) like API report
     pdf.set_xy(12, 92)
     pdf.set_font("Helvetica", "B", 26)
-    pdf.set_text_color(224, 177, 43)  # orange
+    pdf.set_text_color(*gold)
     cover_title = str((template or {}).get("cover_title") or "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILS REPORT")
     pdf.multi_cell(0, 12, _safe_pdf_text(cover_title))
 
@@ -1758,7 +1798,7 @@ def _build_asm_pdf(
     # "Prepared for"
     pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "", 14)
-    pdf.set_text_color(230, 230, 230)
+    pdf.set_text_color(*text_light)
     pdf.cell(0, 8, _safe_pdf_text("Prepared for"), 0, 1, "L")
     # tighter gap between "Prepared for" and org name
     y += 12
@@ -1766,7 +1806,7 @@ def _build_asm_pdf(
     # Org name
     pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "B", 28)
-    pdf.set_text_color(224, 177, 43)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 12, _safe_pdf_text(prepared_for or tenant), 0, 1, "L")
     y += 16
 
@@ -1774,7 +1814,7 @@ def _build_asm_pdf(
     if domain:
         pdf.set_xy(base_x, y)
         pdf.set_font("Helvetica", "", 18)
-        pdf.set_text_color(230, 230, 230)
+        pdf.set_text_color(*text_light)
         pdf.cell(0, 10, _safe_pdf_text(domain), 0, 1, "L")
         y += 18
 
@@ -1782,7 +1822,7 @@ def _build_asm_pdf(
     if description:
         pdf.set_xy(base_x, y)
         pdf.set_font("Helvetica", "", 12)
-        pdf.set_text_color(200, 200, 200)
+        pdf.set_text_color(*text_muted)
         safe_desc = clamp_text_lines(clamp_chars(description, 200), max_width_mm=186, max_lines=3)
         pdf.multi_cell(186, 6, safe_desc)
         y = pdf.get_y() + 6
@@ -1794,10 +1834,10 @@ def _build_asm_pdf(
         generated_y = 268
     pdf.set_xy(base_x, generated_y)
     pdf.set_font("Helvetica", "", 14)
-    pdf.set_text_color(230, 230, 230)
+    pdf.set_text_color(*text_light)
     pdf.cell(0, 8, _safe_pdf_text(f"Generated on {created_at.strftime('%m-%d-%Y')}"), 0, 0, "L")
     footer(dark=True)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
     # Re-enable auto-page-break for the rest of the report
     pdf.set_auto_page_break(auto=True, margin=14)
 
@@ -1827,7 +1867,7 @@ def _build_asm_pdf(
 
     # Intro text
     pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(35, 35, 35)
+    pdf.set_text_color(*text_light)
     pdf.multi_cell(
         0,
         6,
@@ -1836,7 +1876,7 @@ def _build_asm_pdf(
             "The overall risk value is derived from the severities found."
         ),
     )
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
     pdf.ln(4)
 
     y0 = pdf.get_y()
@@ -1848,14 +1888,14 @@ def _build_asm_pdf(
     ty = y0
     tw = 90
     th = 70
-    pdf.set_draw_color(230, 233, 238)
-    pdf.set_fill_color(248, 250, 252)
+    pdf.set_draw_color(*border_subtle)
+    pdf.set_fill_color(*card_bg)
     pdf.rect(tx, ty, tw, th, style="DF")
     pdf.set_xy(tx + 8, ty + 8)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(20, 40, 80)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 6, _safe_pdf_text("Notes"), ln=1)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
 
     notes = [
         "This chart contains overall risk value.",
@@ -1872,12 +1912,12 @@ def _build_asm_pdf(
     # Vulnerabilities by Risk (table) under the cards
     pdf.set_y(y0 + 78)
     pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(20, 40, 80)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 8, _safe_pdf_text("Vulnerabilities by Risk"), ln=1)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
 
-    pdf.set_fill_color(225, 241, 255)
-    pdf.set_draw_color(180, 210, 245)
+    pdf.set_fill_color(*card_bg)
+    pdf.set_draw_color(*border_subtle)
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(60, 8, _safe_pdf_text("Severity"), 1, 0, "L", True)
     pdf.cell(30, 8, _safe_pdf_text("Count"), 1, 1, "C", True)
@@ -1886,7 +1926,7 @@ def _build_asm_pdf(
         pdf.set_text_color(*_sev_color(k))
         pdf.set_font("Helvetica", "B", 11)
         pdf.cell(60, 8, _safe_pdf_text(k), 1, 0, "L")
-        pdf.set_text_color(0, 0, 0)
+        pdf.set_text_color(*text_muted)
         pdf.set_font("Helvetica", "", 11)
         pdf.cell(30, 8, _safe_pdf_text(str(int(sev_counts.get(k, 0)))), 1, 1, "C")
 
@@ -1896,9 +1936,9 @@ def _build_asm_pdf(
     pdf.add_page()
     section_header("Risk Legend")
     pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(20, 40, 80)
+    pdf.set_text_color(*gold)
     pdf.cell(0, 8, _safe_pdf_text("Risk level definitions"), ln=1)
-    pdf.set_text_color(0, 0, 0)
+    pdf.set_text_color(*text_muted)
     pdf.ln(2)
 
     legend_rows = [
@@ -1908,8 +1948,8 @@ def _build_asm_pdf(
         ("LOW", "These are security issues that do not functionally alter normal systems behavior, but which may aid or enable further attacks against the system under other circumstances. Vulnerabilities may not violate either the system's security model or any security objectives."),
     ]
 
-    pdf.set_fill_color(225, 241, 255)
-    pdf.set_draw_color(180, 210, 245)
+    pdf.set_fill_color(*card_bg)
+    pdf.set_draw_color(*border_subtle)
     pdf.set_font("Helvetica", "B", 11)
     x0 = 10
     sev_w = 35
@@ -1921,8 +1961,8 @@ def _build_asm_pdf(
     bottom_y = 268  # keep above footer zone
 
     def legend_table_header():
-        pdf.set_fill_color(225, 241, 255)
-        pdf.set_draw_color(180, 210, 245)
+        pdf.set_fill_color(*card_bg)
+        pdf.set_draw_color(*border_subtle)
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_x(x0)
         pdf.cell(sev_w, header_h, _safe_pdf_text("Severity"), 1, 0, "L", True)
@@ -1944,16 +1984,16 @@ def _build_asm_pdf(
             pdf.add_page()
             section_header("Risk Legend")
             pdf.set_font("Helvetica", "B", 13)
-            pdf.set_text_color(20, 40, 80)
+            pdf.set_text_color(*gold)
             pdf.cell(0, 8, _safe_pdf_text("Risk level definitions (continued)"), ln=1)
-            pdf.set_text_color(0, 0, 0)
+            pdf.set_text_color(*text_muted)
             pdf.ln(2)
             legend_table_header()
 
         y_row = pdf.get_y()
 
         # Draw cell borders first (so we control a single clean border per cell)
-        pdf.set_draw_color(180, 210, 245)
+        pdf.set_draw_color(*border_subtle)
         pdf.rect(x0, y_row, sev_w, row_h)
         pdf.rect(x0 + sev_w, y_row, desc_w, row_h)
 
