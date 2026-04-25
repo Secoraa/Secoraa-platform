@@ -1,0 +1,3904 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Secoraa Backend",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/auth/login": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Login",
+          "operationId": "login_auth_login_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TokenResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/signup": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Signup",
+          "description": "Onboard a user (create username + password).\nPassword is hashed (argon2) and stored in DB. The user is created with\nis_email_verified=False and a 6-digit OTP is emailed. Call /verify-otp\nto activate the account and receive a JWT.",
+          "operationId": "signup_auth_signup_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignupRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/verify-otp": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Verify Signup Otp",
+          "operationId": "verify_signup_otp_auth_verify_otp_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TokenResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/resend-otp": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Resend Signup Otp",
+          "operationId": "resend_signup_otp_auth_resend_otp_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResendOtpRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/forgot-password": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Forgot Password",
+          "description": "Start a password-reset flow. Always returns the same success response\nregardless of whether the user exists, to prevent email enumeration.",
+          "operationId": "forgot_password_auth_forgot_password_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForgotPasswordRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/verify-reset-otp": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Verify Reset Otp",
+          "description": "Verify the password-reset OTP. On success returns a short-lived reset_token\nthat must be supplied to /reset-password along with the new password.",
+          "operationId": "verify_reset_otp_auth_verify_reset_otp_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResetOtpRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ResetTokenResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/reset-password": {
+        "post": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Reset Password",
+          "operationId": "reset_password_auth_reset_password_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetPasswordRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/token": {
+        "get": {
+          "tags": [
+            "Auth"
+          ],
+          "summary": "Get Token",
+          "description": "\"Get token\" endpoint: validate the bearer token and return its claims.",
+          "operationId": "get_token_auth_token_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TokenClaimsResponse"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/vulnerabilities/api-findings": {
+        "get": {
+          "tags": [
+            "Vulnerabilities"
+          ],
+          "summary": "List Api Findings",
+          "description": "Flatten API scan findings so frontend can render them in Vulnerability section.",
+          "operationId": "list_api_findings_vulnerabilities_api_findings_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "severity",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Severity"
+              }
+            },
+            {
+              "name": "scan_id",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "title": "Response List Api Findings Vulnerabilities Api Findings Get"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/vulnerabilities/findings": {
+        "get": {
+          "tags": [
+            "Vulnerabilities"
+          ],
+          "summary": "List All Findings",
+          "description": "Unified Vulnerability feed:\n- API scan findings (from MinIO/DB report)\n- Subdomain scan findings (from `vulnerabilities` table)",
+          "operationId": "list_all_findings_vulnerabilities_findings_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "severity",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Severity"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "title": "Response List All Findings Vulnerabilities Findings Get"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/reports/asm.pdf": {
+        "get": {
+          "tags": [
+            "Reports"
+          ],
+          "summary": "Download Asm Report Pdf",
+          "description": "Generate and download an ASM PDF report (multi-page) similar to the provided sample layout.",
+          "operationId": "download_asm_report_pdf_reports_asm_pdf_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "domain",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Optional domain filter",
+                "title": "Domain"
+              },
+              "description": "Optional domain filter"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/reports": {
+        "get": {
+          "tags": [
+            "Reports"
+          ],
+          "summary": "List Reports",
+          "operationId": "list_reports_reports_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "maximum": 200,
+                "minimum": 1,
+                "default": 50,
+                "title": "Limit"
+              }
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0,
+                "title": "Offset"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Reports"
+          ],
+          "summary": "Create Report",
+          "operationId": "create_report_reports_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateReportRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/reports/{report_id}/download": {
+        "get": {
+          "tags": [
+            "Reports"
+          ],
+          "summary": "Download Report Pdf",
+          "operationId": "download_report_pdf_reports__report_id__download_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "report_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Report Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Create Scan",
+          "operationId": "create_scan_scans__post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateScanRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/scans/schedule": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Create Scheduled Scan",
+          "operationId": "create_scheduled_scan_scans_schedule_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateScheduledScanRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "get": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "List Scheduled Scans",
+          "operationId": "list_scheduled_scans_scans_schedule_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "default": 50,
+                "title": "Limit"
+              }
+            },
+            {
+              "name": "offset",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "default": 0,
+                "title": "Offset"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/schedule/{schedule_id}/cancel": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Cancel Scheduled Scan",
+          "operationId": "cancel_scheduled_scan_scans_schedule__schedule_id__cancel_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "schedule_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Schedule Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/schedule/{schedule_id}": {
+        "put": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Update Scheduled Scan",
+          "operationId": "update_scheduled_scan_scans_schedule__schedule_id__put",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "schedule_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Schedule Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateScheduledScanRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/scan": {
+        "get": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Get All Scans",
+          "operationId": "get_all_scans_scans_scan_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/scans/scan/{scan_id}": {
+        "get": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Get Scan By Id",
+          "operationId": "get_scan_by_id_scans_scan__scan_id__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/{scan_id}/pause": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Pause Scan",
+          "description": "Pause a running scan",
+          "operationId": "pause_scan_scans__scan_id__pause_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/{scan_id}/resume": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Resume Scan",
+          "description": "Resume a paused scan",
+          "operationId": "resume_scan_scans__scan_id__resume_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/{scan_id}/terminate": {
+        "post": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Terminate Scan",
+          "description": "Terminate a running scan",
+          "operationId": "terminate_scan_scans__scan_id__terminate_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scans/{scan_id}/results": {
+        "get": {
+          "tags": [
+            "Run-Scans"
+          ],
+          "summary": "Get Scan Results",
+          "operationId": "get_scan_results_scans__scan_id__results_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scanner/api/{scan_id}/status": {
+        "get": {
+          "tags": [
+            "API Scanner"
+          ],
+          "summary": "Get Api Scan Status",
+          "description": "Get the current status and progress of an API scan.",
+          "operationId": "get_api_scan_status_scanner_api__scan_id__status_get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scanner/api/{scan_id}/cancel": {
+        "post": {
+          "tags": [
+            "API Scanner"
+          ],
+          "summary": "Cancel Api Scan",
+          "description": "Cancel a running API scan.",
+          "operationId": "cancel_api_scan_scanner_api__scan_id__cancel_post",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "scan_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Scan Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scanner/api": {
+        "post": {
+          "tags": [
+            "API Scanner"
+          ],
+          "summary": "Start Api Scan",
+          "description": "Run the API APT scanner against provided endpoints.\nIf Celery + Redis are available, the scan runs in a background worker (returns 202).\nOtherwise, falls back to synchronous execution.",
+          "operationId": "start_api_scan_scanner_api_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiScanRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/help/qa": {
+        "post": {
+          "tags": [
+            "Help"
+          ],
+          "summary": "Ask User Flows",
+          "operationId": "ask_user_flows_help_qa_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AskResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/settings/profile": {
+        "get": {
+          "tags": [
+            "Settings"
+          ],
+          "summary": "Get Profile",
+          "description": "Return the current user's profile.",
+          "operationId": "get_profile_settings_profile_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/UserProfileResponse"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/settings/api-keys": {
+        "get": {
+          "tags": [
+            "Settings"
+          ],
+          "summary": "List Api Keys",
+          "description": "List all API keys for the current user (never exposes the full key).",
+          "operationId": "list_api_keys_settings_api_keys_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "items": {
+                      "$ref": "#/components/schemas/APIKeyListItem"
+                    },
+                    "type": "array",
+                    "title": "Response List Api Keys Settings Api Keys Get"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Settings"
+          ],
+          "summary": "Create Api Key",
+          "description": "Generate a new API key. The full key is returned only in this response.",
+          "operationId": "create_api_key_settings_api_keys_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAPIKeyRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/APIKeyCreatedResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/settings/api-keys/{key_id}": {
+        "delete": {
+          "tags": [
+            "Settings"
+          ],
+          "summary": "Revoke Api Key",
+          "description": "Revoke (deactivate) an API key.",
+          "operationId": "revoke_api_key_settings_api_keys__key_id__delete",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "key_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "title": "Key Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/v1/ci/sync": {
+        "post": {
+          "tags": [
+            "CI/CD"
+          ],
+          "summary": "Sync Ci Scan",
+          "description": "Receive a CI/CD scan report and persist it.\n\nCreates:\n- A ``Scan`` row (status=Completed, type=ci_api / ci_subdomain)\n- An ``ApiScanReport`` row with the full JSON\n- ``Vulnerability`` rows for each finding (linked to domain if found)",
+          "operationId": "sync_ci_scan_api_v1_ci_sync_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CISyncRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/CISyncResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/v1/ci/scans": {
+        "get": {
+          "tags": [
+            "CI/CD"
+          ],
+          "summary": "List Ci Scans",
+          "description": "List CI/CD scans (API key auth — for CLI/CI usage).",
+          "operationId": "list_ci_scans_api_v1_ci_scans_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/v1/ci/dashboard/scans": {
+        "get": {
+          "tags": [
+            "CI/CD"
+          ],
+          "summary": "List Ci Scans Dashboard",
+          "description": "List CI/CD scans (JWT auth — for the frontend dashboard).",
+          "operationId": "list_ci_scans_dashboard_api_v1_ci_dashboard_scans_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/domain": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Get Domain",
+          "operationId": "get_domain_assets_domain_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Create Domain",
+          "operationId": "create_domain_assets_domain_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/domain/{domain_id}": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Get Domain By Id",
+          "operationId": "get_domain_by_id_assets_domain__domain_id__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "domain_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "title": "Domain Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "patch": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Update Domain By Id",
+          "operationId": "update_domain_by_id_assets_domain__domain_id__patch",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "domain_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "title": "Domain Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainUpdateRequestBody"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Delete Domain",
+          "operationId": "delete_domain_assets_domain__domain_id__delete",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "domain_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "title": "Domain Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/assets/ip-addresses": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "List Ip Addresses",
+          "description": "List IP addresses with their associated domain_name.",
+          "operationId": "list_ip_addresses_assets_ip_addresses_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Create Ip Address",
+          "description": "Create an IP address entry connected to a domain.",
+          "operationId": "create_ip_address_assets_ip_addresses_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPAddressRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/urls": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "List Urls",
+          "description": "List URLs with their associated domain_name.\nIf the `urls` table hasn't been created yet, returns an empty list.",
+          "operationId": "list_urls_assets_urls_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Create Url",
+          "description": "Create a URL entry connected to a domain.\nIf the `urls` table hasn't been created yet, returns 400 with guidance.",
+          "operationId": "create_url_assets_urls_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/URLRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/subdomain": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Get Subdomain",
+          "operationId": "get_subdomain_assets_subdomain_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/asset-groups": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "List Asset Groups",
+          "operationId": "list_asset_groups_assets_asset_groups_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Create Asset Group",
+          "operationId": "create_asset_group_assets_asset_groups_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetGroupRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/assets/ip-blocks": {
+        "get": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "List Ip Blocks",
+          "operationId": "list_ip_blocks_assets_ip_blocks_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Assets"
+          ],
+          "summary": "Create Ip Block",
+          "operationId": "create_ip_block_assets_ip_blocks_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IPBlockRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/minio/event": {
+        "post": {
+          "tags": [
+            "MinIO Webhook"
+          ],
+          "summary": "Handle Minio Event",
+          "description": "Webhook endpoint called by MinIO whenever an object is uploaded.",
+          "operationId": "handle_minio_event_minio_event_post",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/subdomain/subdomain": {
+        "get": {
+          "tags": [
+            "Subdomain"
+          ],
+          "summary": "Get Subdomain",
+          "description": "Get all subdomains with their associated domain information.\nReturns: name, tags, domain_name, created_by, updated_by, created_at, updated_at",
+          "operationId": "get_subdomain_subdomain_subdomain_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        },
+        "post": {
+          "tags": [
+            "Subdomain"
+          ],
+          "summary": "Create Subdomain",
+          "operationId": "create_subdomain_subdomain_subdomain_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubdomainRequestBody"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/subdomain/subdomain/{subdomain_id}": {
+        "get": {
+          "tags": [
+            "Subdomain"
+          ],
+          "summary": "Get Subdomain With Id",
+          "operationId": "get_subdomain_with_id_subdomain_subdomain__subdomain_id__get",
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ],
+          "parameters": [
+            {
+              "name": "subdomain_id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "title": "Subdomain Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/scan/subdomain/run": {
+        "post": {
+          "tags": [
+            "Subdomain Scanner"
+          ],
+          "summary": "Run Scan",
+          "operationId": "run_scan_scan_subdomain_run_post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubdomainScanRequest"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/health": {
+        "get": {
+          "summary": "Health",
+          "operationId": "health_health_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/create-tables": {
+        "get": {
+          "summary": "Create Tables",
+          "operationId": "create_tables_create_tables_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "APIKeyCreatedResponse": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "title": "Id"
+            },
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "key": {
+              "type": "string",
+              "title": "Key"
+            },
+            "key_prefix": {
+              "type": "string",
+              "title": "Key Prefix"
+            },
+            "scopes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scopes"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires At"
+            },
+            "created_at": {
+              "type": "string",
+              "title": "Created At"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "key",
+            "key_prefix",
+            "scopes",
+            "expires_at",
+            "created_at"
+          ],
+          "title": "APIKeyCreatedResponse"
+        },
+        "APIKeyListItem": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "title": "Id"
+            },
+            "name": {
+              "type": "string",
+              "title": "Name"
+            },
+            "key_prefix": {
+              "type": "string",
+              "title": "Key Prefix"
+            },
+            "scopes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scopes"
+            },
+            "is_active": {
+              "type": "boolean",
+              "title": "Is Active"
+            },
+            "last_used_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last Used At"
+            },
+            "expires_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires At"
+            },
+            "created_at": {
+              "type": "string",
+              "title": "Created At"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "name",
+            "key_prefix",
+            "scopes",
+            "is_active",
+            "last_used_at",
+            "expires_at",
+            "created_at"
+          ],
+          "title": "APIKeyListItem"
+        },
+        "ApiScanRequest": {
+          "properties": {
+            "scan_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Scan Name"
+            },
+            "asset_url": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Asset Url",
+              "description": "Base URL of the target API, e.g. https://api.example.com"
+            },
+            "postman_collection": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Postman Collection",
+              "description": "Postman collection JSON"
+            },
+            "endpoints": {
+              "anyOf": [
+                {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Endpoints",
+              "description": "Selected endpoints list"
+            },
+            "openapi_spec": {
+              "anyOf": [
+                {},
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Openapi Spec",
+              "description": "OpenAPI 3.x / Swagger 2.0 spec (JSON dict or YAML string)"
+            },
+            "auth_config": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuthConfig"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Authentication configuration"
+            },
+            "secondary_auth_config": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/AuthConfig"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Secondary auth for privilege escalation testing"
+            },
+            "scan_mode": {
+              "type": "string",
+              "title": "Scan Mode",
+              "description": "Scan mode: active | passive",
+              "default": "active"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scan_name",
+            "asset_url"
+          ],
+          "title": "ApiScanRequest"
+        },
+        "AskRequest": {
+          "properties": {
+            "question": {
+              "type": "string",
+              "maxLength": 500,
+              "minLength": 1,
+              "title": "Question"
+            },
+            "max_sources": {
+              "type": "integer",
+              "maximum": 8,
+              "minimum": 1,
+              "title": "Max Sources",
+              "default": 3
+            }
+          },
+          "type": "object",
+          "required": [
+            "question"
+          ],
+          "title": "AskRequest"
+        },
+        "AskResponse": {
+          "properties": {
+            "answer": {
+              "type": "string",
+              "title": "Answer"
+            },
+            "sources": {
+              "items": {
+                "$ref": "#/components/schemas/SourceRow"
+              },
+              "type": "array",
+              "title": "Sources"
+            }
+          },
+          "type": "object",
+          "required": [
+            "answer",
+            "sources"
+          ],
+          "title": "AskResponse"
+        },
+        "AssetGroupRequestBody": {
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Name",
+              "example": "Customer APIs"
+            },
+            "domain_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Domain Id"
+            },
+            "asset_type": {
+              "type": "string",
+              "title": "Asset Type",
+              "example": "SUBDOMAIN"
+            },
+            "asset_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Ids"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            }
+          },
+          "type": "object",
+          "required": [
+            "name",
+            "domain_id",
+            "asset_type"
+          ],
+          "title": "AssetGroupRequestBody"
+        },
+        "AuthConfig": {
+          "properties": {
+            "type": {
+              "type": "string",
+              "title": "Type",
+              "description": "Auth type: bearer | api_key | api_key_query | basic | none",
+              "default": "none"
+            },
+            "token": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token",
+              "description": "Bearer token (JWT or opaque)"
+            },
+            "header_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Header Name",
+              "description": "Header name for API key auth"
+            },
+            "param_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Param Name",
+              "description": "Query param name for API key auth"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Value",
+              "description": "API key value"
+            },
+            "username": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Username",
+              "description": "Username for Basic auth"
+            },
+            "password": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Password",
+              "description": "Password for Basic auth"
+            }
+          },
+          "type": "object",
+          "title": "AuthConfig"
+        },
+        "CIFinding": {
+          "properties": {
+            "title": {
+              "type": "string",
+              "title": "Title"
+            },
+            "severity": {
+              "type": "string",
+              "title": "Severity",
+              "default": "INFORMATIONAL"
+            },
+            "owasp_category": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owasp Category"
+            },
+            "endpoint": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Endpoint"
+            },
+            "cvss_score": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cvss Score"
+            },
+            "cvss_vector": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cvss Vector"
+            },
+            "confidence": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Confidence"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "impact": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Impact"
+            },
+            "remediation": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Remediation"
+            },
+            "references": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "References"
+            }
+          },
+          "type": "object",
+          "required": [
+            "title"
+          ],
+          "title": "CIFinding"
+        },
+        "CISyncRequest": {
+          "properties": {
+            "scan_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Scan Name"
+            },
+            "scan_type": {
+              "type": "string",
+              "title": "Scan Type",
+              "default": "API_SECURITY"
+            },
+            "base_url": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Base Url"
+            },
+            "scan_mode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Mode",
+              "default": "active"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Started At"
+            },
+            "completed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completed At"
+            },
+            "duration_seconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Duration Seconds"
+            },
+            "total_endpoints": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total Endpoints",
+              "default": 0
+            },
+            "total_findings": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Total Findings",
+              "default": 0
+            },
+            "severity_counts": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity Counts"
+            },
+            "findings": {
+              "items": {
+                "$ref": "#/components/schemas/CIFinding"
+              },
+              "type": "array",
+              "title": "Findings",
+              "default": []
+            },
+            "gate_passed": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gate Passed"
+            },
+            "gate_threshold": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gate Threshold"
+            },
+            "git_repo": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Git Repo"
+            },
+            "git_ref": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Git Ref"
+            },
+            "git_sha": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Git Sha"
+            },
+            "pr_number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pr Number"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scan_name",
+            "base_url"
+          ],
+          "title": "CISyncRequest"
+        },
+        "CISyncResponse": {
+          "properties": {
+            "scan_id": {
+              "type": "string",
+              "title": "Scan Id"
+            },
+            "findings_synced": {
+              "type": "integer",
+              "title": "Findings Synced"
+            },
+            "message": {
+              "type": "string",
+              "title": "Message"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scan_id",
+            "findings_synced",
+            "message"
+          ],
+          "title": "CISyncResponse"
+        },
+        "CreateAPIKeyRequest": {
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Name",
+              "description": "Label for the key"
+            },
+            "scopes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "title": "Scopes",
+              "description": "Allowed scopes",
+              "default": [
+                "ci"
+              ]
+            },
+            "expires_in_days": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expires In Days",
+              "description": "Days until expiry (null = never)"
+            }
+          },
+          "type": "object",
+          "required": [
+            "name"
+          ],
+          "title": "CreateAPIKeyRequest"
+        },
+        "CreateReportRequest": {
+          "properties": {
+            "report_name": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Report Name"
+            },
+            "report_type": {
+              "type": "string",
+              "title": "Report Type",
+              "description": "EXEC_SUMMARY|DETAILS_SUMMARY (EXPOSURE_STORIES/ASM are accepted as legacy aliases)"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            },
+            "domain_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain Name",
+              "description": "Required for ASM reports"
+            },
+            "assessment_type": {
+              "type": "string",
+              "title": "Assessment Type",
+              "description": "DOMAIN|VULNERABILITY_SCAN|API_TESTING",
+              "default": "DOMAIN"
+            },
+            "subdomain_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subdomain Name",
+              "description": "Required for VULNERABILITY_SCAN reports"
+            },
+            "scan_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scan Id",
+              "description": "Required for API_TESTING reports (scan_id of an API scan)"
+            }
+          },
+          "type": "object",
+          "required": [
+            "report_name",
+            "report_type"
+          ],
+          "title": "CreateReportRequest"
+        },
+        "CreateScanRequest": {
+          "properties": {
+            "scan_name": {
+              "type": "string",
+              "title": "Scan Name"
+            },
+            "scan_type": {
+              "type": "string",
+              "title": "Scan Type"
+            },
+            "payload": {
+              "$ref": "#/components/schemas/GenericScanPayload"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scan_name",
+            "scan_type",
+            "payload"
+          ],
+          "title": "CreateScanRequest"
+        },
+        "CreateScheduledScanRequest": {
+          "properties": {
+            "scan_name": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Scan Name"
+            },
+            "scan_type": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Scan Type"
+            },
+            "scheduled_for": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Scheduled For"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "type": "object",
+              "title": "Payload"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scan_name",
+            "scan_type",
+            "scheduled_for"
+          ],
+          "title": "CreateScheduledScanRequest"
+        },
+        "DomainRequestBody": {
+          "properties": {
+            "domain_name": {
+              "type": "string",
+              "minLength": 3,
+              "title": "Domain Name",
+              "example": "example.com"
+            },
+            "asn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asn",
+              "example": "AS13335"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags",
+              "example": [
+                "production",
+                "external"
+              ]
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain_name"
+          ],
+          "title": "DomainRequestBody"
+        },
+        "DomainUpdateRequestBody": {
+          "properties": {
+            "tags": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags"
+            },
+            "asn": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asn"
+            }
+          },
+          "type": "object",
+          "title": "DomainUpdateRequestBody"
+        },
+        "ForgotPasswordRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Username"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username"
+          ],
+          "title": "ForgotPasswordRequest"
+        },
+        "GenericScanPayload": {
+          "properties": {
+            "domain": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            },
+            "subdomains": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subdomains"
+            },
+            "target_ip": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Ip"
+            },
+            "asset_group_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Group Id"
+            },
+            "asset_value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Value"
+            },
+            "tenant": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant"
+            },
+            "asset_uuid": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Uuid"
+            },
+            "is_invasive": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Invasive",
+              "default": false
+            },
+            "is_extensive_scan": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Extensive Scan",
+              "default": false
+            }
+          },
+          "type": "object",
+          "title": "GenericScanPayload"
+        },
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "IPAddressRequestBody": {
+          "properties": {
+            "domain_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Domain Id"
+            },
+            "ipaddress_name": {
+              "type": "string",
+              "title": "Ipaddress Name",
+              "example": "93.184.216.34"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags",
+              "example": [
+                "external"
+              ]
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain_id",
+            "ipaddress_name"
+          ],
+          "title": "IPAddressRequestBody"
+        },
+        "IPBlockRequestBody": {
+          "properties": {
+            "domain_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Domain Id"
+            },
+            "name": {
+              "type": "string",
+              "title": "Name",
+              "example": "Corporate Range"
+            },
+            "ip_ids": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ip Ids"
+            },
+            "cidr": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cidr",
+              "example": "192.168.1.0/24"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Description"
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain_id",
+            "name"
+          ],
+          "title": "IPBlockRequestBody"
+        },
+        "LoginRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Password"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "LoginRequest"
+        },
+        "ResendOtpRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "title": "Username"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username"
+          ],
+          "title": "ResendOtpRequest"
+        },
+        "ResetPasswordRequest": {
+          "properties": {
+            "reset_token": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Reset Token"
+            },
+            "new_password": {
+              "type": "string",
+              "minLength": 8,
+              "title": "New Password"
+            }
+          },
+          "type": "object",
+          "required": [
+            "reset_token",
+            "new_password"
+          ],
+          "title": "ResetPasswordRequest"
+        },
+        "ResetTokenResponse": {
+          "properties": {
+            "reset_token": {
+              "type": "string",
+              "title": "Reset Token"
+            },
+            "expires_in": {
+              "type": "integer",
+              "title": "Expires In"
+            }
+          },
+          "type": "object",
+          "required": [
+            "reset_token",
+            "expires_in"
+          ],
+          "title": "ResetTokenResponse"
+        },
+        "SignupRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 3,
+              "title": "Username"
+            },
+            "password": {
+              "type": "string",
+              "minLength": 8,
+              "title": "Password"
+            },
+            "tenant": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant",
+              "description": "Company name (tenant)"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username",
+            "password"
+          ],
+          "title": "SignupRequest"
+        },
+        "SourceRow": {
+          "properties": {
+            "page": {
+              "type": "integer",
+              "title": "Page"
+            },
+            "title": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Title"
+            },
+            "excerpt": {
+              "type": "string",
+              "title": "Excerpt"
+            }
+          },
+          "type": "object",
+          "required": [
+            "page",
+            "excerpt"
+          ],
+          "title": "SourceRow"
+        },
+        "SubdomainRequestBody": {
+          "properties": {
+            "domain_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Domain Id"
+            },
+            "subdomain_name": {
+              "type": "string",
+              "title": "Subdomain Name",
+              "example": "api.example.com"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags",
+              "example": [
+                "api",
+                "critical"
+              ]
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain_id",
+            "subdomain_name"
+          ],
+          "title": "SubdomainRequestBody"
+        },
+        "SubdomainScanRequest": {
+          "properties": {
+            "domain": {
+              "type": "string",
+              "title": "Domain"
+            },
+            "subdomains": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subdomains"
+            },
+            "export_json": {
+              "type": "boolean",
+              "title": "Export Json",
+              "default": false
+            },
+            "export_pdf": {
+              "type": "boolean",
+              "title": "Export Pdf",
+              "default": false
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain"
+          ],
+          "title": "SubdomainScanRequest"
+        },
+        "TokenClaimsResponse": {
+          "properties": {
+            "sub": {
+              "type": "string",
+              "title": "Sub"
+            },
+            "tenant": {
+              "type": "string",
+              "title": "Tenant"
+            },
+            "auth": {
+              "additionalProperties": true,
+              "type": "object",
+              "title": "Auth"
+            },
+            "iat": {
+              "type": "integer",
+              "title": "Iat"
+            },
+            "exp": {
+              "type": "integer",
+              "title": "Exp"
+            },
+            "iss": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Iss"
+            }
+          },
+          "type": "object",
+          "required": [
+            "sub",
+            "tenant",
+            "auth",
+            "iat",
+            "exp"
+          ],
+          "title": "TokenClaimsResponse"
+        },
+        "TokenResponse": {
+          "properties": {
+            "access_token": {
+              "type": "string",
+              "title": "Access Token"
+            },
+            "token_type": {
+              "type": "string",
+              "title": "Token Type",
+              "default": "bearer"
+            },
+            "expires_in": {
+              "type": "integer",
+              "title": "Expires In"
+            }
+          },
+          "type": "object",
+          "required": [
+            "access_token",
+            "expires_in"
+          ],
+          "title": "TokenResponse"
+        },
+        "URLRequestBody": {
+          "properties": {
+            "domain_id": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Domain Id"
+            },
+            "url_name": {
+              "type": "string",
+              "title": "Url Name",
+              "example": "https://example.com/login"
+            },
+            "tags": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags",
+              "example": [
+                "login",
+                "production"
+              ]
+            }
+          },
+          "type": "object",
+          "required": [
+            "domain_id",
+            "url_name"
+          ],
+          "title": "URLRequestBody"
+        },
+        "UpdateScheduledScanRequest": {
+          "properties": {
+            "scheduled_for": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Scheduled For"
+            }
+          },
+          "type": "object",
+          "required": [
+            "scheduled_for"
+          ],
+          "title": "UpdateScheduledScanRequest"
+        },
+        "UserProfileResponse": {
+          "properties": {
+            "id": {
+              "type": "string",
+              "title": "Id"
+            },
+            "username": {
+              "type": "string",
+              "title": "Username"
+            },
+            "tenant": {
+              "type": "string",
+              "title": "Tenant"
+            },
+            "is_active": {
+              "type": "boolean",
+              "title": "Is Active"
+            },
+            "created_at": {
+              "type": "string",
+              "title": "Created At"
+            }
+          },
+          "type": "object",
+          "required": [
+            "id",
+            "username",
+            "tenant",
+            "is_active",
+            "created_at"
+          ],
+          "title": "UserProfileResponse"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        },
+        "VerifyOtpRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "title": "Username"
+            },
+            "code": {
+              "type": "string",
+              "maxLength": 6,
+              "minLength": 6,
+              "title": "Code"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username",
+            "code"
+          ],
+          "title": "VerifyOtpRequest"
+        },
+        "VerifyResetOtpRequest": {
+          "properties": {
+            "username": {
+              "type": "string",
+              "minLength": 1,
+              "title": "Username"
+            },
+            "code": {
+              "type": "string",
+              "maxLength": 6,
+              "minLength": 6,
+              "title": "Code"
+            }
+          },
+          "type": "object",
+          "required": [
+            "username",
+            "code"
+          ],
+          "title": "VerifyResetOtpRequest"
+        }
+      },
+      "securitySchemes": {
+        "HTTPBearer": {
+          "type": "http",
+          "scheme": "bearer"
+        }
+      }
+    }
+  }

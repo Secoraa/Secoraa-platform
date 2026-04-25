@@ -1,0 +1,49 @@
+name: Secoraa API Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Wake up Render backend (free tier cold start)
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -sf "${{ secrets.SECORAA_TARGET_URL }}/health"; then
+              echo "Backend awake"
+              break
+            fi
+            echo "Attempt $i — waiting 10s..."
+            sleep 10
+          done
+
+      - name: Run Secoraa Scanner
+        uses: ./
+        with:
+          target-url: ${{ secrets.SECORAA_TARGET_URL }}
+          openapi-spec: ./openapi.json
+          scan-mode: passive
+          severity-threshold: HIGH
+          fail-on-findings: false
+          secoraa-url: ${{ secrets.SECORAA_PLATFORM_URL }}
+          secoraa-api-key: ${{ secrets.SECORAA_API_KEY }}
+
+      - name: Upload SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: secoraa-results
+          path: secoraa-results.sarif
