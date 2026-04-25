@@ -19,6 +19,43 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Wait for scanner image rebuild (avoids race with publish workflow)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # If publish-scanner.yml is running for this commit, wait for it.
+          # Otherwise the docker pull below would grab the stale cached image.
+          for attempt in $(seq 1 60); do
+            STATUS=$(gh run list \
+              --workflow=publish-scanner.yml \
+              --commit=${{ github.sha }} \
+              --json status,conclusion \
+              --jq '.[0] // empty' 2>/dev/null || echo "")
+
+            if [ -z "$STATUS" ]; then
+              echo "No publish workflow for this commit — using existing image."
+              break
+            fi
+
+            RUN_STATUS=$(echo "$STATUS" | jq -r '.status')
+            RUN_CONCLUSION=$(echo "$STATUS" | jq -r '.conclusion // ""')
+
+            if [ "$RUN_STATUS" = "completed" ]; then
+              if [ "$RUN_CONCLUSION" = "success" ]; then
+                echo "Publish workflow completed successfully — using fresh image."
+                # Image manifest is updated on GHCR but layer cache may lag.
+                # Brief grace period so docker pull picks up the new digest.
+                sleep 15
+                break
+              fi
+              echo "Publish workflow ended with: $RUN_CONCLUSION"
+              exit 1
+            fi
+
+            echo "Publish workflow $RUN_STATUS — waiting 10s (attempt $attempt/60)..."
+            sleep 10
+          done
+
       - name: Wake up Render backend (free tier cold start)
         run: |
           for i in 1 2 3 4 5 6 7 8 9 10; do
