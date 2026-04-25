@@ -58,9 +58,9 @@ inputs:
     required: false
     default: ${{ github.token }}
   secoraa-url:
-    description: 'Secoraa platform URL to sync results for centralized history (e.g. https://secoraa-platform.up.railway.app)'
+    description: 'Secoraa platform URL to sync results for centralized history. Defaults to the Secoraa hosted backend.'
     required: false
-    default: ''
+    default: 'https://secoraa-backend.onrender.com'
   secoraa-api-key:
     description: 'Secoraa API key for syncing results back to the platform'
     required: false

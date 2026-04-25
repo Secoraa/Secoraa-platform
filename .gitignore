@@ -36,6 +36,9 @@ scan_results/
 # Docs / Markdown
 # =========================
 *.md
+!CICD_QUICKSTART.md
+!README.md
+!CLAUDE.md
 
 # =========================
 # IDE / Tools
