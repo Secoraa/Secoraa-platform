@@ -160,10 +160,25 @@ def list_all_findings(
                 }
             )
 
-    # 2) Subdomain/Domain vulnerabilities from DB
-    # Try a rich select; if schema is missing columns, fall back to minimal columns.
-    def _query_rich():
+    # 2) Subdomain / Domain / Network vulnerabilities from DB.
+    #
+    # Network-scan findings have domain_id=NULL and subdomain_id=NULL — they
+    # carry their tenant ownership directly on Vulnerability.created_by.
+    # The filter below accepts EITHER:
+    #   (a) Domain.created_by in this tenant (subdomain / domain findings), OR
+    #   (b) Vulnerability.created_by in this tenant AND domain_id is NULL
+    #       (orphan / network findings).
+    def _ownership_filter():
+        from sqlalchemy import or_, and_
         tenant_users = get_tenant_usernames(db, claims)
+        return tenant_users, or_(
+            Domain.created_by.in_(tenant_users),
+            and_(Vulnerability.domain_id.is_(None),
+                 Vulnerability.created_by.in_(tenant_users)),
+        )
+
+    def _query_rich():
+        tenant_users, where = _ownership_filter()
         return (
             db.query(
                 Vulnerability.id,
@@ -177,17 +192,18 @@ def list_all_findings(
                 Vulnerability.reference,
                 Vulnerability.severity,
                 Vulnerability.created_at,
+                Vulnerability.tags,
                 Domain.domain_name,
                 Subdomain.subdomain_name,
             )
             .outerjoin(Domain, Vulnerability.domain_id == Domain.id)
             .outerjoin(Subdomain, Vulnerability.subdomain_id == Subdomain.id)
-            .filter(Domain.created_by.in_(tenant_users))
+            .filter(where)
             .order_by(Vulnerability.id.desc())
         )
 
     def _query_minimal():
-        tenant_users = get_tenant_usernames(db, claims)
+        tenant_users, where = _ownership_filter()
         return (
             db.query(
                 Vulnerability.id,
@@ -195,14 +211,33 @@ def list_all_findings(
                 Vulnerability.subdomain_id,
                 Vulnerability.vuln_name,
                 Vulnerability.severity,
+                Vulnerability.tags,
                 Domain.domain_name,
                 Subdomain.subdomain_name,
             )
             .outerjoin(Domain, Vulnerability.domain_id == Domain.id)
             .outerjoin(Subdomain, Vulnerability.subdomain_id == Subdomain.id)
-            .filter(Domain.created_by.in_(tenant_users))
+            .filter(where)
             .order_by(Vulnerability.id.desc())
         )
+
+    def _classify(v_tags, v_domain_id, v_subdomain_id) -> str:
+        """Derive scan_type from tags / FK presence."""
+        if v_tags and any("network:" in str(t) for t in v_tags):
+            return "network"
+        if v_subdomain_id:
+            return "vulnerability"
+        return "subdomain"
+
+    def _network_asset(v_tags) -> Optional[str]:
+        """Pull `port:NNN` out of tags so the UI can display the port for network findings."""
+        if not v_tags:
+            return None
+        for tag in v_tags:
+            tag_str = str(tag)
+            if tag_str.startswith("port:"):
+                return tag_str.split(":", 1)[1]
+        return None
 
     try:
         rows = _query_rich().all()
@@ -218,16 +253,22 @@ def list_all_findings(
             v_ref,
             v_sev,
             v_created,
+            v_tags,
             domain_name,
             subdomain_name,
         ) in rows:
             sev = str(v_sev or "").upper()
             if severity and sev != str(severity).upper():
                 continue
+            scan_type = _classify(v_tags, v_domain_id, v_subdomain_id)
+            asset_url = subdomain_name or domain_name
+            if scan_type == "network" and not asset_url:
+                port = _network_asset(v_tags)
+                asset_url = f"port:{port}" if port else "network"
             out.append(
                 {
                     "scan_id": None,
-                    "scan_type": "vulnerability" if v_subdomain_id else "subdomain",
+                    "scan_type": scan_type,
                     "created_at": v_created,
                     "issue": v_name,  # backward compat
                     "name": v_name,
@@ -236,9 +277,10 @@ def list_all_findings(
                     "cvss_vector": v_vec,
                     "recommendation": v_rec,
                     "reference": v_ref,
-                    "endpoint": subdomain_name or domain_name,
-                    "asset_url": subdomain_name or domain_name,
+                    "endpoint": asset_url,
+                    "asset_url": asset_url,
                     "severity": sev or None,
+                    "tags": list(v_tags or []),
                     "evidence": None,
                 }
             )
@@ -250,6 +292,7 @@ def list_all_findings(
             v_subdomain_id,
             v_name,
             v_sev,
+            v_tags,
             domain_name,
             subdomain_name,
         ) in rows:
@@ -259,7 +302,7 @@ def list_all_findings(
             out.append(
                 {
                     "scan_id": None,
-                    "scan_type": "vulnerability" if v_subdomain_id else "subdomain",
+                    "scan_type": _classify(v_tags, v_domain_id, v_subdomain_id),
                     "created_at": None,
                     "issue": v_name,
                     "name": v_name,
@@ -271,6 +314,7 @@ def list_all_findings(
                     "endpoint": subdomain_name or domain_name,
                     "asset_url": subdomain_name or domain_name,
                     "severity": sev or None,
+                    "tags": list(v_tags or []),
                     "evidence": None,
                 }
             )
