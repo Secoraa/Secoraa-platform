@@ -474,7 +474,8 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
             saved_count = 0
             subdomain_saved_count = 0
 
-            # Network scan: store target IP in ScanResult for history asset column
+            # Network scan: store target IP in ScanResult and persist plugin findings
+            # as Vulnerability rows so they render in the platform UI like other scans.
             if str(scan_type or "").lower() == "network":
                 target_ip = (scan_output.get("target") or payload_dict.get("target_ip") or "").strip()
                 if target_ip:
@@ -488,6 +489,56 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                         db.commit()
                     except Exception as e:
                         logger.error(f"Error saving network scan result for {target_ip}: {e}")
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+
+                network_findings = scan_output.get("findings") or []
+                if network_findings:
+                    network_severity_counts = {
+                        "CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFORMATIONAL": 0,
+                    }
+                    for finding in network_findings:
+                        try:
+                            severity = str(finding.get("severity", "INFORMATIONAL")).upper()
+                            network_severity_counts[severity] = network_severity_counts.get(severity, 0) + 1
+                            tags = list(finding.get("tags") or [])
+                            tags.append(f"network:{finding.get('plugin', 'unknown')}")
+                            if finding.get("port") is not None:
+                                tags.append(f"port:{finding['port']}")
+                            vuln = Vulnerability(
+                                vuln_name=finding.get("title") or "Network finding",
+                                description=finding.get("description"),
+                                severity=severity,
+                                cvss_score=finding.get("cvss_score"),
+                                cvss_vector=finding.get("cvss_vector"),
+                                recommendation=finding.get("recommendation"),
+                                reference=finding.get("reference"),
+                                tags=tags,
+                                created_by=created_by,
+                            )
+                            db.add(vuln)
+                        except Exception as e:
+                            logger.error(f"Error preparing network vulnerability row: {e}")
+
+                    try:
+                        db.commit()
+                        logger.info(
+                            "Persisted %d network findings for %s (%s)",
+                            len(network_findings), target_ip, network_severity_counts,
+                        )
+                    except Exception as e:
+                        logger.error(f"Error committing network vulnerabilities: {e}")
+                        try:
+                            db.rollback()
+                        except Exception:
+                            pass
+
+                    try:
+                        scan.findings_count = len(network_findings)
+                        db.commit()
+                    except Exception:
                         try:
                             db.rollback()
                         except Exception:
