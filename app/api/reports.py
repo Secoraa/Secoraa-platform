@@ -239,7 +239,7 @@ def _build_exposure_stories_pdf(
         pdf.set_y(-23)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*text_muted)
-        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} {tenant}. All Rights Reserved")
+        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} NexVeil. All Rights Reserved")
         page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
         right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
         pdf.cell(150, 6, left, 0, 0, "L")
@@ -1241,31 +1241,33 @@ def _build_api_details_pdf(
 
     # Logo (larger)
     if logo_path.exists():
-        pdf.image(str(logo_path), x=14, y=20, w=60)
+        pdf.image(str(logo_path), x=75, y=20, w=60)
 
-    # Headline - line by line to avoid justify spacing
-    pdf.set_xy(14, 80)
+    # Headline centered
+    pdf.set_xy(0, 80)
     pdf.set_font("Helvetica", "B", 28)
     pdf.set_text_color(*text_light)
-    pdf.cell(0, 15, _safe_pdf_text("Start your API Security"), 0, 1, "L")
-    pdf.set_x(14)
-    pdf.cell(0, 15, _safe_pdf_text("Journey with"), 0, 1, "L")
-    pdf.set_x(14)
+    pdf.cell(210, 15, _safe_pdf_text("Start your API Security"), 0, 1, "C")
+    pdf.set_x(0)
+    pdf.cell(210, 15, _safe_pdf_text("Journey with"), 0, 1, "C")
+    pdf.set_x(0)
     pdf.set_text_color(*gold)
-    pdf.cell(0, 15, _safe_pdf_text("NexVeil"), 0, 1, "L")
+    pdf.cell(210, 15, _safe_pdf_text("NexVeil"), 0, 1, "C")
 
-    # Description paragraph
-    pdf.set_xy(14, 140)
+    # Description paragraph centered
+    desc_w = 150
+    desc_x = (210 - desc_w) / 2
+    pdf.set_xy(desc_x, 140)
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(*text_muted)
-    pdf.multi_cell(180, 7, _safe_pdf_text(
+    pdf.multi_cell(desc_w, 7, _safe_pdf_text(
         "NexVeil seamlessly combines automated and expert-led security "
         "testing to continuously protect your APIs and attack surface. "
         "Our platform delivers Penetration Testing, API Security "
         "Scanning, and Vulnerability Assessments -- all in one place "
         "-- so you can discover, prioritize, and remediate threats "
         "before attackers do."
-    ), align="L")
+    ), align="C")
 
     # Service pills
     pills = [
@@ -1370,17 +1372,7 @@ def _build_asm_pdf(
         """
         dark_page_bg()
         top_y = 10
-        logo_w = 22  # keep small so it never collides with title
-        if logo_path.exists():
-            # Keep small in header
-            pdf.image(str(logo_path), x=10, y=top_y, w=logo_w)
-            title_y = top_y + logo_w + 8
-        else:
-            pdf.set_xy(10, top_y + 2)
-            pdf.set_font("Helvetica", "B", 16)
-            pdf.set_text_color(*gold)
-            pdf.cell(0, 8, _safe_pdf_text("NexVeil"), ln=1)
-            title_y = top_y + 18
+        title_y = top_y + 2
 
         pdf.set_xy(10, title_y)
         pdf.set_font("Helvetica", "B", 18)
@@ -1409,7 +1401,7 @@ def _build_asm_pdf(
         else:
             pdf.set_text_color(*text_muted)
 
-        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} {tenant}. All Rights Reserved")
+        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} NexVeil. All Rights Reserved")
         page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
         # {nb} will be replaced by total pages if alias_nb_pages is supported
         right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
@@ -1434,10 +1426,6 @@ def _build_asm_pdf(
         pdf.set_font("Helvetica", "B", 22)
         pdf.set_text_color(*gold)
         pdf.cell(0, 12, _safe_pdf_text(value))
-
-        # Diagonal line accent
-        pdf.set_draw_color(*gold)
-        pdf.line(x + 6, y + h - 16, x + w, y + h - 34)
 
         # Label
         pdf.set_xy(x + 10, y + h - 12)
@@ -1577,26 +1565,28 @@ def _build_asm_pdf(
         # First assets page
         pdf.add_page()
         section_header(str((template or {}).get("assets_section_title") or "Assets"))
-        pdf.set_font("Helvetica", "", 11)
-        pdf.set_text_color(*text_light)
-        pdf.multi_cell(
-            0,
-            6,
-            _safe_pdf_text(
-                str((template or {}).get("assets_intro") or (
-                    f"{tenant} ran its scans to find the known and unknown assets below. "
-                    "Assets include Domains, Subdomains, IP Addresses, and URLs for your team's reference."
-                ))
-            ),
-        )
-        pdf.set_text_color(*text_muted)
-        pdf.ln(4)
+        # pdf.set_font("Helvetica", "", 11)
+        # pdf.set_text_color(*text_light)
+        # pdf.multi_cell(
+        #     0,
+        #     6,
+        #     _safe_pdf_text(
+        #         str((template or {}).get("assets_intro") or (
+        #             # f"{tenant} ran its scans to find the known and unknown assets below. "
+        #             # "Assets include Domains, Subdomains, IP Addresses, and URLs for your team's reference."
+        #         ))
+        #     ),
+        # )
+        # pdf.set_text_color(*text_muted)
+        # pdf.ln(4)
 
+        summary_y = pdf.get_y() + 2
+        summary_h = 52
         summary_card(
             x=10,
-            y=52,
+            y=summary_y,
             w=190,
-            h=52,
+            h=summary_h,
             value=str(total_assets),
             label=str((template or {}).get("assets_total_label") or "TOTAL ASSETS"),
         )
@@ -1631,7 +1621,7 @@ def _build_asm_pdf(
             pdf.set_text_color(*text_light)
             pdf.set_font("Helvetica", "", 11)
 
-        start_table_page(112)
+        start_table_page(summary_y + summary_h + 8)
 
         left_x = 16
         right_x = 194
@@ -1880,37 +1870,17 @@ def _build_asm_pdf(
     pdf.ln(4)
 
     y0 = pdf.get_y()
-    # Left: gauge card
-    risk_gauge_card(x=10, y=y0, w=95, h=70, value=avg_risk)
+    summary_card(
+        x=10,
+        y=y0,
+        w=190,
+        h=52,
+        value=f"{avg_risk:.1f}",
+        label="OVERALL RISK SCORE",
+    )
 
-    # Right: Point (2) as a table (instead of bullets)
-    tx = 110
-    ty = y0
-    tw = 90
-    th = 70
-    pdf.set_draw_color(*border_subtle)
-    pdf.set_fill_color(*card_bg)
-    pdf.rect(tx, ty, tw, th, style="DF")
-    pdf.set_xy(tx + 8, ty + 8)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(*gold)
-    pdf.cell(0, 6, _safe_pdf_text("Notes"), ln=1)
-    pdf.set_text_color(*text_muted)
-
-    notes = [
-        "This chart contains overall risk value.",
-        "Value range is between 0 to 100.",
-        "It is average value of all the CVSS score collected from all the assets.",
-    ]
-    pdf.set_font("Helvetica", "", 10)
-    y_notes = ty + 20
-    for n in notes:
-        pdf.set_xy(tx + 8, y_notes)
-        pdf.multi_cell(tw - 16, 5, _safe_pdf_text(n))
-        y_notes = pdf.get_y() + 2
-
-    # Vulnerabilities by Risk (table) under the cards
-    pdf.set_y(y0 + 78)
+    # Vulnerabilities by Risk (table)
+    pdf.set_y(y0 + 60)
     pdf.set_font("Helvetica", "B", 13)
     pdf.set_text_color(*gold)
     pdf.cell(0, 8, _safe_pdf_text("Vulnerabilities by Risk"), ln=1)
@@ -1918,17 +1888,35 @@ def _build_asm_pdf(
 
     pdf.set_fill_color(*card_bg)
     pdf.set_draw_color(*border_subtle)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(60, 8, _safe_pdf_text("Severity"), 1, 0, "L", True)
-    pdf.cell(30, 8, _safe_pdf_text("Count"), 1, 1, "C", True)
-    pdf.set_font("Helvetica", "", 11)
+    x0 = 10
+    table_w = 190
+    sev_w = 125
+    count_w = table_w - sev_w
+    header_h = 12
+    bottom_y = 268
+    available_h = max(70, bottom_y - pdf.get_y())
+    row_h = max(12, (available_h - header_h) / 5.0)
+
+    pdf.set_x(x0)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(sev_w, header_h, _safe_pdf_text("Severity"), 1, 0, "C", True)
+    pdf.cell(count_w, header_h, _safe_pdf_text("Count"), 1, 1, "C", True)
     for k in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+        y_row = pdf.get_y()
+        pdf.set_draw_color(*border_subtle)
+        pdf.rect(x0, y_row, sev_w, row_h)
+        pdf.rect(x0 + sev_w, y_row, count_w, row_h)
+
         pdf.set_text_color(*_sev_color(k))
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(60, 8, _safe_pdf_text(k), 1, 0, "L")
+        pdf.set_font("Helvetica", "B", 18)
+        pdf.set_xy(x0, y_row + (row_h - 10) / 2)
+        pdf.cell(sev_w, 10, _safe_pdf_text(k), 0, 0, "C")
+
         pdf.set_text_color(*text_muted)
-        pdf.set_font("Helvetica", "", 11)
-        pdf.cell(30, 8, _safe_pdf_text(str(int(sev_counts.get(k, 0)))), 1, 1, "C")
+        pdf.set_font("Helvetica", "", 18)
+        pdf.set_xy(x0 + sev_w, y_row + (row_h - 10) / 2)
+        pdf.cell(count_w, 10, _safe_pdf_text(str(int(sev_counts.get(k, 0)))), 0, 0, "C")
+        pdf.set_y(y_row + row_h)
 
     footer()
 
@@ -1946,75 +1934,138 @@ def _build_asm_pdf(
         ("HIGH", "High risk vulnerabilities could be expected to have a catastrophic adverse effect on organizational operations, organizational assets, or individuals."),
         ("MEDIUM", "Medium risk vulnerabilities could be expected to have a serious adverse effect on organizational operations, organizational assets, or individuals."),
         ("LOW", "These are security issues that do not functionally alter normal systems behavior, but which may aid or enable further attacks against the system under other circumstances. Vulnerabilities may not violate either the system's security model or any security objectives."),
+        ("INFORMATIONAL", "Informational findings highlight low-risk observations that improve security visibility and hygiene. They typically do not indicate direct exploitability but should be reviewed as part of continuous hardening."),
     ]
 
     pdf.set_fill_color(*card_bg)
     pdf.set_draw_color(*border_subtle)
     pdf.set_font("Helvetica", "B", 11)
     x0 = 10
-    sev_w = 35
-    desc_w = 155
-    header_h = 10
+    table_w = 190
+    sev_w = 48
+    desc_w = table_w - sev_w
+    header_h = 12
     line_h = 5.5
-    pad = 2.5
-    min_row_h = 22
+    pad = 3.0
+    min_row_h = 24
     bottom_y = 268  # keep above footer zone
 
     def legend_table_header():
         pdf.set_fill_color(*card_bg)
         pdf.set_draw_color(*border_subtle)
-        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_font("Helvetica", "B", 12)
         pdf.set_x(x0)
-        pdf.cell(sev_w, header_h, _safe_pdf_text("Severity"), 1, 0, "L", True)
-        pdf.cell(desc_w, header_h, _safe_pdf_text("Description"), 1, 1, "L", True)
+        pdf.cell(sev_w, header_h, _safe_pdf_text("Severity"), 1, 0, "C", True)
+        pdf.cell(desc_w, header_h, _safe_pdf_text("Description"), 1, 1, "C", True)
         pdf.set_font("Helvetica", "", 10)
 
     legend_table_header()
+    table_top_y = pdf.get_y()
+    available_h = max(0.0, bottom_y - table_top_y)
+    desc_texts: List[str] = []
+    needed_heights: List[float] = []
 
-    for sev, desc in legend_rows:
-        # Wrap description to fit inside cell with padding; cap lines to keep table tidy.
-        # IMPORTANT: render lines manually to avoid "justified" word spacing and overflow.
-        desc_text = clamp_text_lines(desc, max_width_mm=(desc_w - pad * 2), max_lines=6)
+    for _sev, desc in legend_rows:
+        desc_text = clamp_text_lines(desc, max_width_mm=(desc_w - pad * 2), max_lines=8)
         desc_lines = desc_text.split("\n")
-        row_h = max(min_row_h, (pad * 2) + (line_h * len(desc_lines)))
+        desc_texts.append(desc_text)
+        needed_heights.append(max(min_row_h, (pad * 2) + (line_h * len(desc_lines))))
 
-        # Page break if needed
-        if pdf.get_y() + row_h > bottom_y:
-            footer()
-            pdf.add_page()
-            section_header("Risk Legend")
-            pdf.set_font("Helvetica", "B", 13)
-            pdf.set_text_color(*gold)
-            pdf.cell(0, 8, _safe_pdf_text("Risk level definitions (continued)"), ln=1)
-            pdf.set_text_color(*text_muted)
-            pdf.ln(2)
-            legend_table_header()
+    total_needed_h = sum(needed_heights)
+    extra_h = max(0.0, available_h - total_needed_h)
+    per_row_extra = (extra_h / len(legend_rows)) if legend_rows else 0.0
+    row_heights = [h + per_row_extra for h in needed_heights]
 
+    for idx, (sev, _desc) in enumerate(legend_rows):
+        row_h = row_heights[idx]
+        desc_lines = desc_texts[idx].split("\n")
         y_row = pdf.get_y()
 
-        # Draw cell borders first (so we control a single clean border per cell)
         pdf.set_draw_color(*border_subtle)
         pdf.rect(x0, y_row, sev_w, row_h)
         pdf.rect(x0 + sev_w, y_row, desc_w, row_h)
 
-        # Severity text (vertically centered-ish)
-        pdf.set_xy(x0 + 2, y_row + (row_h / 2) - 4)
+        pdf.set_xy(x0, y_row + (row_h - 8) / 2)
         pdf.set_font("Helvetica", "B", 11)
-        pdf.cell(sev_w - 4, 8, _safe_pdf_text(sev), 0, 0, "L")
+        pdf.cell(sev_w, 8, _safe_pdf_text(sev), 0, 0, "C")
 
-        # Description text (manual line rendering, always left aligned)
         pdf.set_font("Helvetica", "", 10)
         x_text = x0 + sev_w + pad
-        y_text = y_row + pad
+        text_block_h = line_h * len(desc_lines)
+        y_text = y_row + max(pad, (row_h - text_block_h) / 2.0)
         max_lines_fit = int((row_h - pad * 2) / line_h) if line_h > 0 else len(desc_lines)
         for i, line in enumerate(desc_lines[:max_lines_fit]):
             pdf.set_xy(x_text, y_text + i * line_h)
-            pdf.cell(desc_w - (pad * 2), line_h, _safe_pdf_text(line), 0, 0, "L")
+            pdf.cell(desc_w - (pad * 2), line_h, _safe_pdf_text(line), 0, 0, "C")
 
-        # Move cursor to next row start
         pdf.set_y(y_row + row_h)
 
     footer()
+
+    # -------------------------
+    # Closing Page -- CTA (same as API report)
+    # -------------------------
+    pdf.set_auto_page_break(auto=False, margin=16)
+    pdf.add_page()
+    pdf.set_fill_color(8, 9, 12)
+    pdf.rect(0, 0, 210, 297, style="F")
+
+    # Centered logo
+    if logo_path.exists():
+        pdf.image(str(logo_path), x=75, y=20, w=60)
+
+    # Centered headline
+    pdf.set_xy(0, 80)
+    pdf.set_font("Helvetica", "B", 28)
+    pdf.set_text_color(*text_light)
+    pdf.cell(210, 15, _safe_pdf_text("Start your API Security"), 0, 1, "C")
+    pdf.set_x(0)
+    pdf.cell(210, 15, _safe_pdf_text("Journey with"), 0, 1, "C")
+    pdf.set_x(0)
+    pdf.set_text_color(*gold)
+    pdf.cell(210, 15, _safe_pdf_text("NexVeil"), 0, 1, "C")
+
+    # Centered description
+    desc_w = 150
+    desc_x = (210 - desc_w) / 2
+    pdf.set_xy(desc_x, 140)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*text_muted)
+    pdf.multi_cell(desc_w, 7, _safe_pdf_text(
+        "NexVeil seamlessly combines automated and expert-led security "
+        "testing to continuously protect your APIs and attack surface. "
+        "Our platform delivers Penetration Testing, API Security "
+        "Scanning, and Vulnerability Assessments -- all in one place "
+        "-- so you can discover, prioritize, and remediate threats "
+        "before attackers do."
+    ), align="C")
+
+    # Service pills (same as API report closing page)
+    pills = [
+        "API Security Testing",
+        "Penetration Testing",
+        "CI/CD Integration",
+        "Vulnerability Assessments",
+        "OWASP-aligned Methodology",
+    ]
+    pill_y = 200
+    pill_x = 14
+    pdf.set_draw_color(80, 70, 60)
+    pdf.set_font("Helvetica", "B", 9)
+    for pill_text in pills:
+        pw = pdf.get_string_width(pill_text) + 14
+        total_pw = pw + 10
+        if pill_x + total_pw > 196:
+            pill_y += 13
+            pill_x = 14
+        pdf.set_xy(pill_x, pill_y)
+        pdf.set_text_color(*text_light)
+        pdf.cell(total_pw, 8, "", 1, 0, "L")
+        pdf.set_fill_color(*gold)
+        pdf.ellipse(pill_x + 4, pill_y + 2.8, 2.5, 2.5, style="F")
+        pdf.set_xy(pill_x + 9, pill_y)
+        pdf.cell(total_pw - 9, 8, _safe_pdf_text(pill_text), 0, 0, "L")
+        pill_x += total_pw + 5
 
     # fpdf2 versions differ: output(dest="S") may return str, bytes, or bytearray.
     raw = pdf.output(dest="S")
@@ -2029,8 +2080,8 @@ class CreateReportRequest(BaseModel):
     # Requirement: description should be only 200 letters
     description: Optional[str] = Field(default=None, max_length=200)
     domain_name: Optional[str] = Field(default=None, description="Required for ASM reports")
-    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|API_TESTING")
-    subdomain_name: Optional[str] = Field(default=None, description="Required for VULNERABILITY_SCAN reports")
+    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|WEBSCAN|API_TESTING")
+    subdomain_name: Optional[str] = Field(default=None, description="Required for VULNERABILITY_SCAN/WEBSCAN reports")
     scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING reports (scan_id of an API scan)")
 
 
@@ -2185,8 +2236,11 @@ def create_report(
         raise HTTPException(status_code=400, detail="Invalid report_type. Use EXEC_SUMMARY or DETAILS_SUMMARY.")
 
     assessment = (req.assessment_type or "DOMAIN").strip().upper()
+    # Backward compatibility: WEBSCAN maps to VULNERABILITY_SCAN
+    if assessment == "WEBSCAN":
+        assessment = "VULNERABILITY_SCAN"
     if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING"}:
-        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, or API_TESTING.")
+        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, or API_TESTING.")
 
     # Scope validation
     domain_obj: Optional[Domain] = None
