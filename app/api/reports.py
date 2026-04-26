@@ -214,8 +214,7 @@ def _build_exposure_stories_pdf(
     def section_header(title: str):
         dark_page_bg()
         top_y = 10
-        # Executive Summary pages intentionally use a clean title-only header
-        # (no logo/wordmark), so keep the title near the top.
+        # Executive Summary inner pages: title-only header (logo only on cover page).
         title_y = top_y + 2
 
         pdf.set_xy(10, title_y)
@@ -258,8 +257,10 @@ def _build_exposure_stories_pdf(
     pdf.set_fill_color(*page_bg)
     pdf.rect(0, 0, 210, 297, style="F")
 
-    # No logo on Executive Summary cover page.
-    pdf.set_xy(12, 70)
+    if logo_path.exists():
+        pdf.image(str(logo_path), x=12, y=18, w=55)
+
+    pdf.set_xy(12, 92)
     pdf.set_font("Helvetica", "B", 26)
     pdf.set_text_color(*gold)
     pdf.multi_cell(0, 12, _safe_pdf_text(cover_title or "ATTACK SURFACE MANAGEMENT\n(ASM) EXECUTIVE SUMMARY"))
