@@ -1,0 +1,123 @@
+.ptaas-page {
+  padding: 1.25rem;
+  color: var(--text-primary);
+}
+
+.ptaas-header {
+  margin-bottom: 1rem;
+}
+
+.ptaas-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ptaas-tab {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ptaas-tab.active {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
+
+.ptaas-grid {
+  display: block;
+}
+
+.ptaas-card {
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.ptaas-card h2 {
+  margin: 0 0 0.9rem 0;
+  font-size: 1rem;
+  color: var(--primary-color);
+}
+
+.ptaas-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.ptaas-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ptaas-form input,
+.ptaas-form textarea {
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.ptaas-actions {
+  margin-top: 0.25rem;
+}
+
+.ptaas-table-wrap {
+  overflow: auto;
+}
+
+.ptaas-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ptaas-table th,
+.ptaas-table td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.6rem;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.ptaas-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.ptaas-empty {
+  color: var(--text-secondary);
+  padding: 0.5rem 0;
+}
+
+.ptaas-status {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  padding: 0.1rem 0.55rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+.ptaas-status.status-requested {
+  color: #f6d26b;
+  border-color: rgba(246, 210, 107, 0.45);
+  background: rgba(246, 210, 107, 0.12);
+}
+
+@media (max-width: 1100px) {
+  .ptaas-grid {
+    display: block;
+  }
+}

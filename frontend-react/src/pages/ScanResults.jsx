@@ -41,10 +41,10 @@ function collectUrlsFromVulnItem(item) {
 
 const SCAN_TYPE_LABELS = {
   dd: 'Domain Discovery Scan',
-  subdomain: 'Web Scan',
+  subdomain: 'Scan',
   api: 'API Scan',
   ci_api_security: 'CI/CD API Security Scan',
-  web: 'Web Scan',
+  web: 'Scan',
   network: 'Network Scan',
   vulnerability: 'Vulnerability Scan',
 };
