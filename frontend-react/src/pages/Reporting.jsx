@@ -24,6 +24,22 @@ const Reporting = () => {
   const [scans, setScans] = useState([]);
   const [scanId, setScanId] = useState('');
 
+  const formatScopeLabel = (rawScope) => {
+    const scope = String(rawScope || '').trim();
+    if (!scope) return '-';
+    // Handle accidental concatenation like "sub.example.comexample.com"
+    // by splitting the repeated domain suffix with a space.
+    for (let i = 0; i < scope.length; i += 1) {
+      const suffix = scope.slice(i);
+      if (!suffix.includes('.') || suffix.length < 5) continue;
+      const head = scope.slice(0, scope.length - suffix.length);
+      if (head && head.endsWith(suffix)) {
+        return `${head} ${suffix}`;
+      }
+    }
+    return scope;
+  };
+
   const getAssetHost = (value) => {
     if (!value) return '';
     try {
@@ -239,7 +255,7 @@ const Reporting = () => {
                     <td>
                       {(() => {
                         const rt = String(r.report_type || '').toUpperCase();
-                        const scope = r.domain_name || '-';
+                        const scope = formatScopeLabel(r.domain_name || '-');
                         // New format: <ASSESSMENT>_<VARIANT>
                         if (rt.includes('_')) {
                           const parts = rt.split('_');

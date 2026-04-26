@@ -12,6 +12,7 @@ in `app/api/scans.py`, which converts them into Vulnerability rows.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -44,10 +45,14 @@ def run_network_scan(target_ip: str, timeout: float = 1.0) -> Dict[str, Any]:
     open_ports: List[Dict[str, Any]] = []
     findings: List[Finding] = []
     plugin_runs: List[Dict[str, Any]] = []
+    # Guardrail: prevent any plugin from blocking the entire scan indefinitely.
+    plugin_timeout = max(5.0, float(timeout) * 6.0)
 
     for plugin in ALL_PLUGINS:
+        pool = ThreadPoolExecutor(max_workers=1)
         try:
-            plugin_findings = plugin.runner(target_ip, open_ports, timeout)
+            future = pool.submit(plugin.runner, target_ip, open_ports, timeout)
+            plugin_findings = future.result(timeout=plugin_timeout)
             findings.extend(plugin_findings)
             plugin_runs.append({"name": plugin.name, "count": len(plugin_findings)})
             logger.info(
@@ -55,9 +60,29 @@ def run_network_scan(target_ip: str, timeout: float = 1.0) -> Dict[str, Any]:
                 plugin.name,
                 len(plugin_findings),
             )
+            pool.shutdown(wait=True)
+        except FutureTimeoutError:
+            logger.error(
+                "network_scan plugin %s timed out after %.1fs",
+                plugin.name,
+                plugin_timeout,
+            )
+            try:
+                future.cancel()
+            except Exception:
+                pass
+            plugin_runs.append(
+                {
+                    "name": plugin.name,
+                    "error": f"timeout after {plugin_timeout:.1f}s",
+                }
+            )
+            # Do not block waiting on a timed-out plugin thread.
+            pool.shutdown(wait=False, cancel_futures=True)
         except Exception as exc:
             logger.exception("network_scan plugin %s crashed: %s", plugin.name, exc)
             plugin_runs.append({"name": plugin.name, "error": str(exc)})
+            pool.shutdown(wait=True)
 
     severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFORMATIONAL": 0}
     for f in findings:

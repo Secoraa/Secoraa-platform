@@ -1701,6 +1701,24 @@ def get_scan_results(
             if report_obj is not None:
                 base["report"] = report_obj
 
+        # Network scans save as network_{scan_name}_{id}.json; include full report in details view.
+        if scan.scan_type == "network":
+            object_name = f"network_{_safe_name(scan.scan_name)}_{scan_id}.json"
+            report_obj = None
+            try:
+                if object_exists(object_name):
+                    wrapper = download_json(object_name) or {}
+                    inner = wrapper.get("result") if isinstance(wrapper.get("result"), dict) else None
+                    if isinstance(inner, dict):
+                        report_obj = inner
+                    else:
+                        report_obj = wrapper if isinstance(wrapper, dict) else None
+            except Exception:
+                report_obj = None
+
+            if report_obj is not None:
+                base["report"] = report_obj
+
         return base
 
     finally:

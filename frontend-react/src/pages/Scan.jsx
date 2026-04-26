@@ -1135,7 +1135,6 @@ const Scan = ({ onViewResults, initialTab }) => {
                                     }}
                                   />
                                   <span className="subdomain-option-name">{name}</span>
-                                  <span className="subdomain-option-domain">{s.domain_name || ''}</span>
                                 </label>
                               );
                             })
@@ -1215,7 +1214,6 @@ const Scan = ({ onViewResults, initialTab }) => {
                                     }}
                                   />
                                   <span className="subdomain-option-name">{name}</span>
-                                  <span className="subdomain-option-domain">{s.domain_name || ''}</span>
                                 </label>
                               );
                             })
@@ -1657,7 +1655,6 @@ const Scan = ({ onViewResults, initialTab }) => {
                               }
                             />
                             <div className="subdomain-option-name">{name}</div>
-                            <div className="subdomain-option-domain"> </div>
                           </label>
                         );
                       })}
