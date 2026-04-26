@@ -220,7 +220,7 @@
   width: 100%;
   text-align: left;
   display: grid;
-  grid-template-columns: 22px 1fr 1fr;
+  grid-template-columns: 22px 1fr;
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-color);
@@ -247,9 +247,11 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.85rem;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .subdomain-option-domain {

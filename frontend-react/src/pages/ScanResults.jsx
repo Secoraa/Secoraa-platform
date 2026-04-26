@@ -371,13 +371,15 @@ const ScanResults = ({ scanId, onBack }) => {
                       <span className="info-value">{SCAN_TYPE_LABELS[scanResults.scan_type] || scanResults.scan_type?.toUpperCase() || 'N/A'}</span>
                     </div>
                     <div className="info-item">
-                      <span className="info-label">Domain</span>
+                      <span className="info-label">{scanResults.scan_type === 'network' ? 'Target IP' : 'Domain'}</span>
                       <span className="info-value">{scanResults.domain || report.scan?.domain || 'N/A'}</span>
                     </div>
-                    <div className="info-item">
-                      <span className="info-label">Total Subdomains</span>
-                      <span className="info-value">{scanResults.total_subdomains || 0}</span>
-                    </div>
+                    {scanResults.scan_type !== 'network' && (
+                      <div className="info-item">
+                        <span className="info-label">Total Subdomains</span>
+                        <span className="info-value">{scanResults.total_subdomains || 0}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -481,20 +483,114 @@ const ScanResults = ({ scanId, onBack }) => {
                 </div>
               )}
 
-              <div className="subdomains-section">
-                <h2>Subdomains ({uniqueScanSubdomains.length || scanResults.total_subdomains || 0})</h2>
-                {uniqueScanSubdomains.length > 0 ? (
-                  <div className="subdomains-list">
-                    {uniqueScanSubdomains.map((subdomain) => (
-                      <div key={subdomain} className="subdomain-item">
-                        {subdomain}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state">No subdomains found</div>
-                )}
-              </div>
+              {scanResults.scan_type === 'network' && (
+                <div className="subdomains-section">
+                  <h2>Network Findings ({filteredFindings.length})</h2>
+                  {filteredFindings.length === 0 ? (
+                    <div className="empty-state">
+                      No network findings in this scan report. Check plugin execution and target reachability.
+                    </div>
+                  ) : (
+                    <div className="findings-list">
+                      {filteredFindings.map((finding, idx) => {
+                        const fId = finding.finding_id || `n-${idx}`;
+                        const isExpanded = expandedFinding === fId;
+                        const sev = String(finding.severity || 'INFORMATIONAL').toUpperCase();
+                        return (
+                          <div
+                            key={fId}
+                            className={`finding-card ${isExpanded ? 'expanded' : ''}`}
+                            style={{ borderLeftColor: SEVERITY_COLORS[sev] || '#70a1ff' }}
+                          >
+                            <div className="finding-header" onClick={() => toggleFinding(fId)}>
+                              <div className="finding-header-left">
+                                <span
+                                  className="severity-badge"
+                                  style={{ backgroundColor: SEVERITY_COLORS[sev] || '#70a1ff' }}
+                                >
+                                  {sev}
+                                </span>
+                                <span className="finding-title">{finding.title || 'Network finding'}</span>
+                              </div>
+                              <div className="finding-header-right">
+                                {finding.cvss_score != null && (
+                                  <span className="finding-cvss">CVSS {finding.cvss_score}</span>
+                                )}
+                                <span className="finding-expand">{isExpanded ? '−' : '+'}</span>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="finding-details">
+                                {finding.plugin && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">Plugin</span>
+                                    <span className="detail-value">{finding.plugin}</span>
+                                  </div>
+                                )}
+                                {finding.port != null && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">Port</span>
+                                    <span className="detail-value">{String(finding.port)}</span>
+                                  </div>
+                                )}
+                                {finding.description && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">Description</span>
+                                    <span className="detail-value">{finding.description}</span>
+                                  </div>
+                                )}
+                                {finding.recommendation && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">Recommendation</span>
+                                    <span className="detail-value">{finding.recommendation}</span>
+                                  </div>
+                                )}
+                                {finding.cvss_vector && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">CVSS Vector</span>
+                                    <code className="detail-value-code">{finding.cvss_vector}</code>
+                                  </div>
+                                )}
+                                {finding.reference && (
+                                  <div className="finding-detail-row">
+                                    <span className="detail-label">Reference</span>
+                                    <a
+                                      href={finding.reference}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="ref-link"
+                                    >
+                                      {finding.reference}
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {scanResults.scan_type !== 'network' && (
+                <div className="subdomains-section">
+                  <h2>Subdomains ({uniqueScanSubdomains.length || scanResults.total_subdomains || 0})</h2>
+                  {uniqueScanSubdomains.length > 0 ? (
+                    <div className="subdomains-list">
+                      {uniqueScanSubdomains.map((subdomain) => (
+                        <div key={subdomain} className="subdomain-item">
+                          {subdomain}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-state">No subdomains found</div>
+                  )}
+                </div>
+              )}
 
               {scanResults.scan_type === 'subdomain' && scanResults.report?.subdomains ? (
                 <div className="subdomains-section">
