@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createReport, downloadReportPdf, getAllScans, getDomains, getSubdomains, listReports } from '../api/apiClient';
+import { createReport, downloadReportPdf, getAllScans, getDomains, getIPAddresses, getSubdomains, listReports } from '../api/apiClient';
 import Notification from '../components/Notification';
 import Dropdown from '../components/Dropdown';
 import ScanTypeIcon from '../components/ScanTypeIcon';
@@ -23,6 +23,8 @@ const Reporting = () => {
   const [subdomainName, setSubdomainName] = useState('');
   const [scans, setScans] = useState([]);
   const [scanId, setScanId] = useState('');
+  const [ipAddresses, setIpAddresses] = useState([]);
+  const [ipAddress, setIpAddress] = useState('');
 
   const formatScopeLabel = (rawScope) => {
     const scope = String(rawScope || '').trim();
@@ -93,18 +95,31 @@ const Reporting = () => {
     return Array.from(uniqueByAsset.values());
   }, [apiScansForDomain]);
 
-  const networkScanOptions = useMemo(() => {
-    return (scans || [])
+  // IPs that belong to the currently-selected domain. Mirrors the
+  // domain → subdomain dropdown chaining used by VULNERABILITY_SCAN.
+  const ipsForDomain = useMemo(() => {
+    if (!domainName) return [];
+    const domain = domains.find((d) => d.domain_name === domainName);
+    if (!domain) return [];
+    return (ipAddresses || []).filter((ip) => String(ip.domain_id) === String(domain.id));
+  }, [ipAddresses, domains, domainName]);
+
+  // The scan_id we send to the backend is derived from the selected IP:
+  // pick the most recent COMPLETED network scan whose target IP matches.
+  // If no completed scan exists for that IP yet, scanId stays empty and
+  // canGenerate keeps the button disabled with a helper line.
+  const derivedNetworkScanId = useMemo(() => {
+    if (!ipAddress) return '';
+    const matches = (scans || [])
       .filter(
         (s) =>
           String(s.scan_type || '').toLowerCase() === 'network' &&
-          String(s.status || '').toUpperCase() === 'COMPLETED',
+          String(s.status || '').toUpperCase() === 'COMPLETED' &&
+          String(s.asset_name || '').trim() === String(ipAddress).trim(),
       )
-      .map((s) => ({
-        value: s.scan_id,
-        label: `${s.scan_name || 'network scan'} — ${s.asset_name || 'unknown'}`,
-      }));
-  }, [scans]);
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return matches[0]?.scan_id || '';
+  }, [scans, ipAddress]);
 
   useEffect(() => {
     getDomains()
@@ -113,13 +128,16 @@ const Reporting = () => {
   }, []);
 
   useEffect(() => {
-    // Needed for WEBSCAN and API_TESTING selection. Safe to load once.
+    // Needed for WEBSCAN, API_TESTING, and NETWORK_SCAN selection. Safe to load once.
     getSubdomains()
       .then((data) => setSubdomains(Array.isArray(data) ? data : data?.data || []))
       .catch(() => setSubdomains([]));
     getAllScans()
       .then((res) => setScans(Array.isArray(res?.data) ? res.data : []))
       .catch(() => setScans([]));
+    getIPAddresses()
+      .then((data) => setIpAddresses(Array.isArray(data) ? data : data?.data || []))
+      .catch(() => setIpAddresses([]));
   }, []);
 
   const loadReports = async () => {
@@ -146,17 +164,22 @@ const Reporting = () => {
     setAssessmentType('DOMAIN');
     setSubdomainName('');
     setScanId('');
+    setIpAddress('');
   };
 
   const canGenerate = useMemo(() => {
     if (!reportName.trim()) return false;
-    // Network scans target IPs (no Domain row), so domain_name is not required.
-    if (assessmentType !== 'NETWORK_SCAN' && !domainName) return false;
+    if (!domainName) return false;  // every assessment now requires a domain
     if (assessmentType === 'WEBSCAN' && !subdomainName) return false;
     if (assessmentType === 'API_TESTING' && !scanId) return false;
-    if (assessmentType === 'NETWORK_SCAN' && !scanId) return false;
+    if (assessmentType === 'NETWORK_SCAN') {
+      if (!ipAddress) return false;
+      // Need a completed network scan for the chosen IP — derivedNetworkScanId
+      // is empty if no scan exists yet.
+      if (!derivedNetworkScanId) return false;
+    }
     return true;
-  }, [reportName, reportType, domainName, assessmentType, subdomainName, scanId]);
+  }, [reportName, reportType, domainName, assessmentType, subdomainName, scanId, ipAddress, derivedNetworkScanId]);
 
   const downloadBlob = (blob, filename) => {
     const url = window.URL.createObjectURL(blob);
@@ -174,6 +197,12 @@ const Reporting = () => {
       if (!canGenerate) return;
       setGenerating(true);
 
+      // For NETWORK_SCAN, scan_id is derived from the selected IP (most
+      // recent completed network scan against that IP). For other types it
+      // comes from the API asset dropdown directly.
+      const submittedScanId =
+        assessmentType === 'NETWORK_SCAN' ? derivedNetworkScanId : scanId;
+
       const created = await createReport({
         reportName: reportName.trim(),
         reportType,
@@ -181,7 +210,7 @@ const Reporting = () => {
         domainName,
         assessmentType,
         subdomainName,
-        scanId,
+        scanId: submittedScanId,
       });
 
       const reportId = created?.id;
@@ -359,20 +388,24 @@ const Reporting = () => {
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" rows={3} />
               </div>
 
-              {assessmentType !== 'NETWORK_SCAN' && (
-                <div className="modal-field">
-                  <label>Domain name</label>
-                  <Dropdown
-                    value={domainName}
-                    onChange={(val) => setDomainName(val)}
-                    placeholder="Select domain"
-                    options={domains.map((d) => ({
-                      value: d.domain_name,
-                      label: d.domain_name,
-                    }))}
-                  />
-                </div>
-              )}
+              <div className="modal-field">
+                <label>Domain name</label>
+                <Dropdown
+                  value={domainName}
+                  onChange={(val) => {
+                    setDomainName(val);
+                    // Clear dependent selections when domain changes — same
+                    // pattern as VULNERABILITY_SCAN's subdomain reset.
+                    setSubdomainName('');
+                    setIpAddress('');
+                  }}
+                  placeholder="Select domain"
+                  options={domains.map((d) => ({
+                    value: d.domain_name,
+                    label: d.domain_name,
+                  }))}
+                />
+              </div>
 
               {assessmentType === 'WEBSCAN' && (
                 <div className="modal-field">
@@ -409,15 +442,28 @@ const Reporting = () => {
 
               {assessmentType === 'NETWORK_SCAN' && (
                 <div className="modal-field">
-                  <label>Network Scan</label>
+                  <label>IP Address</label>
                   <Dropdown
-                    value={scanId}
-                    onChange={(val) => setScanId(val)}
-                    placeholder={networkScanOptions.length ? 'Select a completed network scan' : 'No completed network scans yet'}
-                    options={networkScanOptions}
+                    value={ipAddress}
+                    onChange={(val) => setIpAddress(val)}
+                    disabled={!domainName}
+                    placeholder={
+                      !domainName
+                        ? 'Select domain first'
+                        : ipsForDomain.length
+                          ? 'Select an IP address'
+                          : 'No IPs registered for this domain'
+                    }
+                    options={ipsForDomain.map((ip) => ({
+                      value: ip.ipaddress_name,
+                      label: ip.ipaddress_name,
+                    }))}
                   />
-                  {networkScanOptions.length === 0 && (
-                    <div className="helper-text">Run a network scan first to generate a report for it.</div>
+                  {domainName && ipsForDomain.length === 0 && (
+                    <div className="helper-text">Add an IP under Asset Discovery for this domain first.</div>
+                  )}
+                  {ipAddress && !derivedNetworkScanId && (
+                    <div className="helper-text">No completed network scan for this IP yet — run one before generating a report.</div>
                   )}
                 </div>
               )}
