@@ -236,14 +236,25 @@ def _build_exposure_stories_pdf(
         pdf.ln(6)
 
     def footer(*, dark: bool = False):
-        pdf.set_y(-23)
-        pdf.set_font("Helvetica", "", 8)
+        pdf.set_auto_page_break(auto=False)
+        pdf.set_draw_color(*gold)
+        pdf.set_line_width(0.4)
+        pdf.line(10, 278, 200, 278)
+        pdf.set_line_width(0.2)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*gold)
+        brand = _safe_pdf_text("NEXVEIL SECURITY")
+        brand_w = pdf.get_string_width(brand)
+        pdf.set_xy((210 - brand_w) / 2, 279)
+        pdf.cell(brand_w, 4, brand, 0, 1, "L")
+        pdf.set_font("Helvetica", "", 6)
         pdf.set_text_color(*text_muted)
-        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} NexVeil. All Rights Reserved")
-        page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
-        right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
-        pdf.cell(150, 6, left, 0, 0, "L")
-        pdf.cell(40, 6, right, 0, 0, "R")
+        year_str = str(datetime.utcnow().year)
+        copy = _safe_pdf_text(f"{year_str} NexVeil Security. All Rights Reserved.")
+        copy_w = pdf.get_string_width(copy)
+        pdf.set_xy((210 - copy_w) / 2, 283)
+        pdf.cell(copy_w, 4, copy, 0, 0, "L")
+        pdf.set_auto_page_break(auto=True, margin=14)
         pdf.set_text_color(*text_muted)
 
     # -------------------------
@@ -552,19 +563,11 @@ def _build_api_details_pdf(
     def page_header():
         """Uniform header: NEXVEIL SECURITY + subtitle + page number."""
         pdf.set_xy(10, 8)
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.set_text_color(*gold)
-        pdf.cell(160, 6, _safe_pdf_text("NEXVEIL SECURITY"), 0, 0, "L")
         page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
         pdf.set_font("Helvetica", "B", 14)
         pdf.set_text_color(*text_muted)
-        pdf.cell(20, 6, _safe_pdf_text(str(page_no)), 0, 0, "R")
-        pdf.set_xy(10, 14)
-        pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(*text_muted)
-        subtitle = f"API Testing Details Report  |  {domain or '-'}  |  {created_at.strftime('%m-%d-%Y')}"
-        pdf.cell(0, 5, _safe_pdf_text(subtitle), 0, 1, "L")
-        pdf.set_y(22)
+        pdf.cell(190, 6, _safe_pdf_text(str(page_no)), 0, 0, "R")
+        pdf.set_y(12)
 
     def page_footer():
         """Uniform footer: gold line + branding."""
@@ -573,18 +576,22 @@ def _build_api_details_pdf(
         pdf.set_line_width(0.4)
         pdf.line(10, 278, 200, 278)
         pdf.set_line_width(0.2)
-        pdf.set_xy(10, 279)
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*gold)
-        pdf.cell(0, 4, _safe_pdf_text("NEXVEIL SECURITY"), 0, 1, "C")
+        brand = _safe_pdf_text("NEXVEIL SECURITY")
+        brand_w = pdf.get_string_width(brand)
+        pdf.set_xy((210 - brand_w) / 2, 279)
+        pdf.cell(brand_w, 4, brand, 0, 1, "L")
         pdf.set_font("Helvetica", "", 6)
         pdf.set_text_color(*text_muted)
-        pdf.cell(0, 4, _safe_pdf_text("Start your API Security Journey with NexVeil"), 0, 1, "C")
-        pdf.set_xy(10, 283)
+        # pdf.cell(210, 4, _safe_pdf_text("Start your API Security Journey with NexVeil"), 0, 1, "C")
         pdf.set_font("Helvetica", "", 6)
         pdf.set_text_color(*text_muted)
         year_str = str(created_at.year)
-        pdf.cell(0, 4, _safe_pdf_text(f"{year_str} NexVeil Security. All Rights Reserved."), 0, 0, "C")
+        copy = _safe_pdf_text(f"{year_str} NexVeil Security. All Rights Reserved.")
+        copy_w = pdf.get_string_width(copy)
+        pdf.set_xy((210 - copy_w) / 2, 283)
+        pdf.cell(copy_w, 4, copy, 0, 0, "L")
         pdf.set_auto_page_break(auto=True, margin=30)
 
     def new_dark_page():
@@ -714,13 +721,13 @@ def _build_api_details_pdf(
     pdf.set_text_color(*text_light)
     toc = [
         "A. Assessment Scope",
-        "B. Executive Summary",
-        "C. Vulnerabilities Summary",
-        "D. Testing Methodology",
+        # "B. Executive Summary",
+        "B. Vulnerabilities Summary",
+        "C. Testing Methodology",
         "   1. Introduction",
-        "   2. Web Application Assessment",
-        "   3. Vulnerabilities Classification",
-        "E. API Findings",
+        # "   2. Web Application Assessment",
+        "   2. Vulnerabilities Classification",
+        "D. API Findings",
     ]
     for line in toc:
         pdf.cell(0, 7, _safe_pdf_text(line), ln=1)
@@ -749,7 +756,7 @@ def _build_api_details_pdf(
     section_heading("A. Assessment Scope")
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*gold)
-    pdf.cell(0, 8, _safe_pdf_text("Web Application Automated Penetration Test"), ln=1)
+    # pdf.cell(0, 8, _safe_pdf_text("Web Application Automated Penetration Test"), ln=1)
     pdf.ln(2)
     pdf.set_draw_color(*border_subtle)
     # Table with gold header
@@ -771,22 +778,22 @@ def _build_api_details_pdf(
     pdf.cell(145, 10, _safe_pdf_text(domain or "-"), 1, 1, "L", True)
     pdf.ln(6)
 
-    section_heading("B. Executive Summary")
-    body_text(
-        "An Automated Penetration Test (APT) was conducted on the target web application. "
-        "The objective was to identify security gaps and validate exposure of the attack surface."
-    )
-    pdf.ln(2)
-    body_text(
-        f"During the assessment, we identified {severity_counts.get('CRITICAL',0)} Critical, "
-        f"{severity_counts.get('HIGH',0)} High, {severity_counts.get('MEDIUM',0)} Medium, "
-        f"{severity_counts.get('LOW',0)} Low, {severity_counts.get('INFO',0)} Informational findings."
-    )
-    pdf.ln(3)
-    if vulnerabilities_total == 0:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(40, 199, 111)
-        pdf.cell(0, 8, _safe_pdf_text("No vulnerabilities were found during the assessment."), ln=1, align="C")
+    # section_heading("B. Executive Summary")
+    # body_text(
+    #     "An Automated Penetration Test (APT) was conducted on the target web application. "
+    #     "The objective was to identify security gaps and validate exposure of the attack surface."
+    # )
+    # pdf.ln(2)
+    # body_text(
+    #     f"During the assessment, we identified {severity_counts.get('CRITICAL',0)} Critical, "
+    #     f"{severity_counts.get('HIGH',0)} High, {severity_counts.get('MEDIUM',0)} Medium, "
+    #     f"{severity_counts.get('LOW',0)} Low, {severity_counts.get('INFO',0)} Informational findings."
+    # )
+    # # pdf.ln(3)
+    # if vulnerabilities_total == 0:
+    #     pdf.set_font("Helvetica", "B", 10)
+    #     pdf.set_text_color(40, 199, 111)
+    #     pdf.cell(0, 8, _safe_pdf_text("No vulnerabilities were found during the assessment."), ln=1, align="C")
     page_footer()
 
     # -------------------------
@@ -856,9 +863,18 @@ def _build_api_details_pdf(
     pdf.set_text_color(*gold)
     pdf.cell(0, 7, _safe_pdf_text("1. Introduction"), ln=1)
     body_text(
-        "This methodology is based on OWASP Web Application testing guidelines. "
+        "This methodology is based on OWASP API testing guidelines. "
         "The approach focuses on identifying weaknesses across authentication, session management, "
         "input validation, and security configuration."
+    )
+    body_text(
+        "The process combines automated discovery with validation-oriented analysis. "
+        "Automated checks are used to identify potential weak points quickly, and findings are then "
+        "normalized and correlated to reduce noise and improve triage quality."
+    )
+    body_text(
+        "Each confirmed issue is documented with severity, endpoint context, impact narrative, and "
+        "remediation guidance so engineering teams can move directly from detection to fix planning."
     )
     pdf.ln(2)
 
@@ -887,37 +903,36 @@ def _build_api_details_pdf(
             pdf.set_x(14)
             pdf.cell(0, 4.5, _safe_pdf_text(f"- {item}"), ln=1)
         pdf.ln(1)
-    page_footer()
 
-    # -------------------------
-    # Web App Assessment + Vuln Classification
-    # -------------------------
-    new_dark_page()
-    section_heading("2. Web Application Assessment")
-    muted_text(
-        "The assessment consists of the following phases and tests aligned with OWASP Top 10 and OWASP ASVS."
-    )
-    pdf.ln(1)
-    phase_bullets = [
-        "2.1 Scoping", "2.2 Information gathering",
-        "2.3 Configuration and deployment management testing",
-        "2.4 Identity management testing", "2.5 Authentication testing",
-        "2.6 Authorization testing", "2.7 Session management testing",
-        "2.8 Data validation testing", "2.9 Testing for error handling",
-        "2.10 Testing for weak cryptography", "2.11 Business logic testing",
-        "2.12 Client-side testing", "2.13 Reporting and presentation",
-    ]
-    for line in phase_bullets:
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*text_light)
+    pdf.cell(0, 5, _safe_pdf_text("Execution workflow:"), ln=1)
+    for item in [
+        "Scope validation and target profiling before active test execution.",
+        "Endpoint-level security checks across auth, input handling, and misconfiguration.",
+        "Evidence-driven verification to reduce false positives and improve confidence.",
+        "Risk scoring and severity normalization for consistent prioritization.",
+        "Remediation-focused output to support implementation and retesting.",
+    ]:
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*text_muted)
         pdf.set_x(14)
-        pdf.cell(0, 4.5, _safe_pdf_text(f"- {line}"), ln=1)
-    pdf.ln(4)
+        pdf.cell(0, 4.5, _safe_pdf_text(f"- {item}"), ln=1)
+    pdf.ln(1)
+    page_footer()
 
-    section_heading("3. Vulnerabilities Classification")
+    # -------------------------
+    # Vulnerability Classification
+    # -------------------------
+    new_dark_page()
+    section_heading("2. Vulnerabilities Classification")
     muted_text(
         "Classification methodology is based on OWASP Risk Rating Methodology. Each finding is analyzed "
         "in two aspects: likelihood and impact."
+    )
+    muted_text(
+        "Likelihood captures exploit feasibility, while impact captures technical and business consequences. "
+        "Combined scoring is used to assign practical remediation urgency."
     )
     pdf.ln(2)
     pdf.set_font("Helvetica", "B", 9)
@@ -942,6 +957,21 @@ def _build_api_details_pdf(
         "Ease of exploit: Difficulty for agents to exploit the vulnerability (1-9).",
         "Awareness: How well known the vulnerability is to agents (1-9).",
         "Intrusion detection: Likelihood an exploit would be detected (1-9).",
+    ]:
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*text_muted)
+        pdf.set_x(14)
+        pdf.cell(0, 4.5, _safe_pdf_text(f"- {item}"), ln=1)
+
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*text_light)
+    pdf.cell(0, 5, _safe_pdf_text("Severity interpretation:"), ln=1)
+    for item in [
+        "Critical: immediate mitigation and urgent fix verification required.",
+        "High: prioritize in the near-term release with clear ownership.",
+        "Medium: schedule remediation with compensating controls where needed.",
+        "Low/Informational: track and address as part of hardening and hygiene.",
     ]:
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*text_muted)
@@ -1299,21 +1329,8 @@ def _build_api_details_pdf(
         pdf.cell(total_pw - 9, 8, _safe_pdf_text(pill_text), 0, 0, "L")
         pill_x += total_pw + 5
 
-    # Bottom branding
-    pdf.set_xy(14, 260)
-    pdf.set_draw_color(*gold)
-    pdf.set_line_width(0.3)
-    pdf.line(14, 260, 196, 260)
-    pdf.set_line_width(0.2)
-    pdf.set_xy(14, 263)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*gold)
-    pdf.cell(0, 5, _safe_pdf_text("nexveil.com"), 0, 1, "L")
-    pdf.set_xy(14, 269)
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(*text_muted)
-    year_str = str(created_at.year)
-    pdf.cell(0, 5, _safe_pdf_text(f"{year_str} NexVeil Security. All Rights Reserved."), 0, 1, "L")
+    # Use the same footer style on last page as all other pages.
+    page_footer()
 
     raw = pdf.output(dest="S")
     if isinstance(raw, (bytes, bytearray)):
@@ -1394,20 +1411,29 @@ def _build_asm_pdf(
         IMPORTANT: don't print near the bottom margin while auto page-break is enabled,
         otherwise FPDF will silently add a new blank page.
         """
-        pdf.set_y(-23)  # keep safely above page-break trigger (A4 height 297mm, margin 14mm)
-        pdf.set_font("Helvetica", "", 8)
-        if dark:
-            pdf.set_text_color(*text_muted)
-        else:
-            pdf.set_text_color(*text_muted)
-
-        left = _safe_pdf_text(f"Copyright {datetime.utcnow().year} NexVeil. All Rights Reserved")
-        page_no = pdf.page_no() if hasattr(pdf, "page_no") else 1
-        # {nb} will be replaced by total pages if alias_nb_pages is supported
-        right = _safe_pdf_text(f"Page {page_no} / {{nb}}")
-        pdf.cell(150, 6, left, 0, 0, "L")
-        pdf.cell(40, 6, right, 0, 0, "R")
+        # Match API report footer style exactly.
+        pdf.set_auto_page_break(auto=False)
+        pdf.set_draw_color(*gold)
+        pdf.set_line_width(0.4)
+        pdf.line(10, 278, 200, 278)
+        pdf.set_line_width(0.2)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*gold)
+        brand = _safe_pdf_text("NEXVEIL SECURITY")
+        brand_w = pdf.get_string_width(brand)
+        pdf.set_xy((210 - brand_w) / 2, 279)
+        pdf.cell(brand_w, 4, brand, 0, 1, "L")
+        pdf.set_font("Helvetica", "", 6)
         pdf.set_text_color(*text_muted)
+        # pdf.cell(210, 4, _safe_pdf_text("Start your API Security Journey with NexVeil"), 0, 1, "C")
+        pdf.set_font("Helvetica", "", 6)
+        pdf.set_text_color(*text_muted)
+        year_str = str(created_at.year)
+        copy = _safe_pdf_text(f"{year_str} NexVeil Security. All Rights Reserved.")
+        copy_w = pdf.get_string_width(copy)
+        pdf.set_xy((210 - copy_w) / 2, 283)
+        pdf.cell(copy_w, 4, copy, 0, 0, "L")
+        pdf.set_auto_page_break(auto=True, margin=14)
 
     def summary_card(*, x: float, y: float, w: float, h: float, value: str, label: str):
         """
@@ -2066,6 +2092,9 @@ def _build_asm_pdf(
         pdf.set_xy(pill_x + 9, pill_y)
         pdf.cell(total_pw - 9, 8, _safe_pdf_text(pill_text), 0, 0, "L")
         pill_x += total_pw + 5
+
+    # Use the same footer style on last page as all other pages.
+    footer()
 
     # fpdf2 versions differ: output(dest="S") may return str, bytes, or bytearray.
     raw = pdf.output(dest="S")

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { getDomainById, getIPAddresses, getAllFindings } from '../api/apiClient';
+import { getDomainById, getDomains, getIPAddresses, getAllFindings } from '../api/apiClient';
 import NexVeilLoader from '../components/NexVeilLoader';
 import './DomainDetails.css';
 
@@ -39,8 +39,25 @@ const DomainDetails = ({ domainId, onBack }) => {
         setLoading(true);
         setError(null);
 
-        const [domainResp, ipResp, findingsResp] = await Promise.all([
-          getDomainById(domainId),
+        let domainResp;
+        try {
+          domainResp = await getDomainById(domainId);
+        } catch (e) {
+          const msg = String(e?.message || '');
+          // Refresh-safe fallback: if direct-by-id fails, try resolving from full domain list.
+          if (!msg.includes('404')) throw e;
+          const allDomains = await getDomains();
+          const list = Array.isArray(allDomains)
+            ? allDomains
+            : Array.isArray(allDomains?.data)
+              ? allDomains.data
+              : [];
+          const matched = list.find((d) => String(d?.id) === String(domainId) || String(d?.domain_name) === String(domainId));
+          if (!matched) throw e;
+          domainResp = { data: { data: matched } };
+        }
+
+        const [ipResp, findingsResp] = await Promise.all([
           getIPAddresses(),
           getAllFindings(),
         ]);
