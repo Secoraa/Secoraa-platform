@@ -324,7 +324,7 @@ export const downloadReportPdf = async (reportId) => {
 };
 
 // ==========================================
-// Subdomain Scanner
+// Subdomain APIs
 // ==========================================
 
 export const runSubdomainScan = async (domain, subdomains = null, exportJson = false, exportPdf = false) => {
@@ -338,9 +338,9 @@ export const runSubdomainScan = async (domain, subdomains = null, exportJson = f
     return response.data;
   } catch (error) {
     if (error.response) {
-      throw new Error(error.response.data?.detail || `Web scan failed: ${error.response.status} ${error.response.statusText}`);
+      throw new Error(error.response.data?.detail || `Scan failed: ${error.response.status} ${error.response.statusText}`);
     }
-    throw new Error(`Web scan failed: ${error.message}`);
+    throw new Error(`Scan failed: ${error.message}`);
   }
 };
 

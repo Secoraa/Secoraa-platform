@@ -29,13 +29,13 @@ import './Scan.css';
 
 const SCAN_TYPE_LABELS = {
   dd: 'Domain Discovery Scan',
-  subdomain: 'Web Scan',
+  subdomain: 'Scan',
   api: 'API Scan',
-  web: 'Web Scan',
+  web: 'Scan',
   network: 'Network Scan',
   vulnerability: 'Vulnerability Scan',
   ci_api_security: 'CI/CD API Scan',
-  ci_subdomain: 'CI/CD Subdomain Scan',
+  ci_subdomain: 'CI/CD Scan',
 };
 
 const formatScanType = (type) => {
@@ -46,7 +46,6 @@ const formatScanType = (type) => {
 const SCAN_TYPE_OPTIONS = [
   { value: 'dd', label: 'Domain Discovery Scan', icon: <ScanTypeIcon type="dd" /> },
   { value: 'api', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
-  { value: 'subdomain', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
   { value: 'vulnerability', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="vulnerability" /> },
   { value: 'network', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
 ];
@@ -153,7 +152,7 @@ const Scan = ({ onViewResults, initialTab }) => {
     if (activeTab !== 'schedule') return;
     if (scheduleForm.type === 'dd') loadDomains();
     if (scheduleForm.type === 'api') loadUrlAssets();
-    if (scheduleForm.type === 'subdomain') loadSubdomains();
+    if (scheduleForm.type === 'vulnerability') loadSubdomains();
     if (scheduleForm.type === 'network') loadIpAssets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, scheduleForm.type]);
@@ -192,7 +191,7 @@ const Scan = ({ onViewResults, initialTab }) => {
   };
 
   useEffect(() => {
-    if (activeTab === 'run' && runStep === 2 && (scanForm.type === 'subdomain' || scanForm.type === 'vulnerability')) {
+    if (activeTab === 'run' && runStep === 2 && scanForm.type === 'vulnerability') {
       loadSubdomains();
     }
   }, [activeTab, runStep, scanForm.type]);
@@ -514,13 +513,13 @@ const Scan = ({ onViewResults, initialTab }) => {
 
   const endpointKey = (ep) => `${String(ep.method || '').toUpperCase()} ${ep.path}`;
 
-  const handleSpecUpload = async (file) => {
+  const handleSpecUpload = async (file, docType = scanForm.docType) => {
     if (!file) return;
     setApiScanResult(null);
     setPostmanFileName(file.name);
     try {
       let endpoints = [];
-      if (scanForm.docType === 'CUSTOM') {
+      if (docType === 'CUSTOM') {
         endpoints = await parseCustomExcelEndpoints(file);
       } else {
         // OPENAPI / POSTMAN: JSON only
@@ -528,12 +527,12 @@ const Scan = ({ onViewResults, initialTab }) => {
         const obj = JSON.parse(text);
 
         // Parse based on selected docType, but fall back to auto-detect if mismatch.
-        if (scanForm.docType === 'POSTMAN') {
+        if (docType === 'POSTMAN') {
           endpoints = parsePostmanEndpoints(obj);
           if (!endpoints.length && obj?.paths && typeof obj.paths === 'object') {
             endpoints = parseOpenApiEndpoints(obj);
           }
-        } else if (scanForm.docType === 'OPENAPI') {
+        } else if (docType === 'OPENAPI') {
           endpoints = parseOpenApiEndpoints(obj);
           if (!endpoints.length && Array.isArray(obj?.item)) {
             endpoints = parsePostmanEndpoints(obj);
@@ -718,48 +717,6 @@ const Scan = ({ onViewResults, initialTab }) => {
         }, 2000);
 
         setTimeout(() => clearInterval(pollInterval), 300000);
-      } else if (scanForm.type === 'subdomain') {
-        if (!selectedSubdomain) {
-          setNotification({ message: 'Please select a subdomain', type: 'error' });
-          return;
-        }
-        const subName = String(selectedSubdomain.subdomain_name || selectedSubdomain.name || '').trim();
-        const domainName = String(selectedSubdomain.domain_name || '').trim();
-        const derivedDomain = domainName || subName.split('.').slice(-2).join('.');
-
-        const result = await createScanWithPayload(scanForm.name, 'subdomain', {
-          domain: derivedDomain,
-          subdomains: [subName],
-        });
-
-        setNotification({
-          message: `Web scan "${result.scan_name}" started successfully! Check scan history for progress.`,
-          type: 'success',
-        });
-
-        setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
-        await loadScans();
-        setActiveTab('history');
-
-        // Poll for status updates every 2 seconds (same as DD)
-        const pollInterval = setInterval(async () => {
-          const updatedScansData = await getAllScans();
-          const updatedScans = updatedScansData.data || [];
-          await loadScans();
-
-          const currentScan = updatedScans.find(s => s.scan_id === result.scan_id);
-          if (currentScan && (currentScan.status === 'COMPLETED' || currentScan.status === 'FAILED')) {
-            clearInterval(pollInterval);
-            setNotification({
-              message: currentScan.status === 'COMPLETED'
-                ? `Scan "${result.scan_name}" completed successfully!`
-                : `Scan "${result.scan_name}" failed. Please check the logs.`,
-              type: currentScan.status === 'COMPLETED' ? 'success' : 'error',
-            });
-          }
-        }, 2000);
-
-        setTimeout(() => clearInterval(pollInterval), 300000);
       } else if (scanForm.type === 'vulnerability') {
         if (!selectedSubdomain) {
           setNotification({ message: 'Please select a subdomain to scan', type: 'error' });
@@ -834,14 +791,15 @@ const Scan = ({ onViewResults, initialTab }) => {
           return;
         }
         payload = { domain: scheduleForm.domain };
-      } else if (scheduleForm.type === 'subdomain') {
+      } else if (scheduleForm.type === 'vulnerability') {
         if (!selectedScheduledSubdomain) {
-          setNotification({ message: 'Please select a subdomain', type: 'error' });
+          setNotification({ message: 'Please select a subdomain to scan', type: 'error' });
           return;
         }
         const subName = String(selectedScheduledSubdomain.subdomain_name || selectedScheduledSubdomain.name || '').trim();
-        const derivedDomain = subName.split('.').slice(-2).join('.');
-        payload = { domain: derivedDomain, subdomains: [subName] };
+        const domainName = String(selectedScheduledSubdomain.domain_name || '').trim();
+        const derivedDomain = domainName || subName.split('.').slice(-2).join('.');
+        payload = { domain: derivedDomain, asset_value: subName };
       } else if (scheduleForm.type === 'network') {
         if (!scheduleForm.targetIp) {
           setNotification({ message: 'Please select a target IP', type: 'error' });
@@ -1093,86 +1051,6 @@ const Scan = ({ onViewResults, initialTab }) => {
                       }))}
                     />
                   </div>
-                )}
-
-                {scanForm.type === 'subdomain' && (
-                  <>
-                    <div className="form-group">
-                      <label>Subdomain</label>
-                      <input
-                        type="text"
-                        className="scan-search-input"
-                        placeholder={subdomainLoading ? 'Loading subdomains...' : 'Search and select subdomain'}
-                        value={subdomainQuery}
-                        onChange={(e) => {
-                          setSubdomainQuery(e.target.value);
-                          // clear previous selection if user edits text
-                          setScanForm({ ...scanForm, subdomainId: '' });
-                        }}
-                        disabled={subdomainLoading}
-                      />
-                      <div className="helper-text">
-                        Showing 20 results per page. Type to search, then click a subdomain to select.
-                      </div>
-
-                      <div className="api-endpoints" style={{ marginTop: 10 }}>
-                        <div className="api-endpoints-header">
-                          <div>
-                            Results ({filteredSubdomainData.start + 1}-{filteredSubdomainData.end} of {filteredSubdomainData.total})
-                          </div>
-                          <div className="api-endpoints-actions">
-                            <button
-                              type="button"
-                              className="btn-secondary btn-small"
-                              onClick={() => setSubdomainPage((p) => Math.max(1, p - 1))}
-                              disabled={subdomainLoading || filteredSubdomainData.page <= 1}
-                            >
-                              Prev
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-secondary btn-small"
-                              onClick={() => setSubdomainPage((p) => Math.min(filteredSubdomainData.totalPages, p + 1))}
-                              disabled={subdomainLoading || filteredSubdomainData.page >= filteredSubdomainData.totalPages}
-                            >
-                              Next
-                            </button>
-                          </div>
-                        </div>
-                        <div className="api-endpoints-list">
-                          {filteredSubdomainData.items.length === 0 ? (
-                            <div className="helper-text" style={{ padding: '8px 12px' }}>
-                              {subdomainLoading ? 'Loading…' : 'No matches.'}
-                            </div>
-                          ) : (
-                            filteredSubdomainData.items.map((s) => {
-                              const id = String(s.id);
-                              const name = String(s.subdomain_name || s.name || '');
-                              const isSelected = String(scanForm.subdomainId) === id;
-                              return (
-                                <label
-                                  key={id}
-                                  className={`subdomain-option-row ${isSelected ? 'selected' : ''}`}
-                                >
-                                  <input
-                                    className="subdomain-option-checkbox"
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      const nextId = e.target.checked ? id : '';
-                                      setScanForm({ ...scanForm, subdomainId: nextId });
-                                      setSubdomainQuery(e.target.checked ? name : '');
-                                    }}
-                                  />
-                                  <span className="subdomain-option-name">{name}</span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </>
                 )}
 
                 {scanForm.type === 'vulnerability' && (
@@ -1614,7 +1492,7 @@ const Scan = ({ onViewResults, initialTab }) => {
                   </div>
                 )}
 
-                {/* Web scan runs through Scan History, so no inline result here */}
+                {/* Scan runs through Scan History, so no inline result here */}
               </>
             )}
           </form>
@@ -1651,15 +1529,17 @@ const Scan = ({ onViewResults, initialTab }) => {
                       ...scheduleForm,
                       type: val,
                       domain: '',
+                      assetUrl: '',
+                      docType: 'POSTMAN',
                       subdomainId: '',
                       targetIp: '',
                     })
                   }
                   options={[
                     { value: 'dd', label: 'Domain Discovery Scan', icon: <ScanTypeIcon type="dd" /> },
-                    { value: 'subdomain', label: 'Web Scan', icon: <ScanTypeIcon type="subdomain" /> },
+                    { value: 'vulnerability', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="vulnerability" /> },
                     { value: 'network', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
-                    { value: 'api', label: 'API Scan (coming soon)', icon: <ScanTypeIcon type="api" />, disabled: true },
+                    { value: 'api', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
                   ]}
                 />
               </div>
@@ -1697,13 +1577,13 @@ const Scan = ({ onViewResults, initialTab }) => {
               </div>
             )}
 
-            {scheduleForm.type === 'subdomain' && (
+            {scheduleForm.type === 'vulnerability' && (
               <div className="form-group">
-                <label>Select Subdomain</label>
+                <label>Select Target Subdomain</label>
                 <input
                   type="text"
                   className="scan-search-input"
-                  placeholder="Search subdomain..."
+                  placeholder="Search subdomain to run vulnerability scan..."
                   value={subdomainQuery}
                   onChange={(e) => setSubdomainQuery(e.target.value)}
                 />
@@ -1798,6 +1678,121 @@ const Scan = ({ onViewResults, initialTab }) => {
                   />
                 )}
               </div>
+            )}
+
+            {scheduleForm.type === 'api' && (
+              <>
+                <div className="form-group">
+                  <label>Asset Base URL</label>
+                  <Dropdown
+                    value={scheduleForm.assetUrl}
+                    onChange={(val) => setScheduleForm({ ...scheduleForm, assetUrl: val })}
+                    disabled={urlLoading}
+                    placeholder={urlLoading ? 'Loading URLs...' : 'Select a URL'}
+                    options={urlAssets.map((u) => ({
+                      value: u.url_name,
+                      label: `${u.url_name}${u.domain_name ? ` (${u.domain_name})` : ''}`,
+                    }))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Documentation Type</label>
+                  <Dropdown
+                    value={scheduleForm.docType}
+                    onChange={(val) => {
+                      setScheduleForm({ ...scheduleForm, docType: val });
+                      setPostmanFileName('');
+                      setApiEndpoints([]);
+                      setSelectedEndpointKeys(new Set());
+                    }}
+                    options={[
+                      { value: 'OPENAPI', label: 'OPENAPI' },
+                      { value: 'POSTMAN', label: 'POSTMAN' },
+                      { value: 'CUSTOM', label: 'CUSTOM' },
+                    ]}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>
+                    {scheduleForm.docType === 'CUSTOM'
+                      ? 'Custom Documentation (Excel)'
+                      : 'Documentation File (JSON)'}
+                  </label>
+                  <input
+                    type="file"
+                    accept={
+                      scheduleForm.docType === 'CUSTOM'
+                        ? '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        : '.json,application/json'
+                    }
+                    onChange={(e) => handleSpecUpload(e.target.files?.[0], scheduleForm.docType)}
+                  />
+                  {postmanFileName && (
+                    <div className="helper-text">Uploaded: {postmanFileName}</div>
+                  )}
+                  <div className="helper-text">
+                    {scheduleForm.docType === 'CUSTOM'
+                      ? 'Tip: Upload an .xls/.xlsx with columns like method + path (or url).'
+                      : 'Tip: Upload a JSON file for the selected documentation type.'}
+                  </div>
+                </div>
+
+                {apiEndpoints.length > 0 && (
+                  <div className="api-endpoints">
+                    <div className="api-endpoints-header">
+                      <div>
+                        Endpoints ({apiEndpoints.length})
+                        <span className="scan-count" style={{ marginLeft: 10 }}>
+                          Selected: {selectedEndpointKeys.size}
+                        </span>
+                      </div>
+                      <div className="api-endpoints-actions">
+                        <button
+                          type="button"
+                          className="btn-secondary btn-small"
+                          onClick={() => {
+                            if (allEndpointsSelected) {
+                              setSelectedEndpointKeys(new Set());
+                            } else {
+                              setSelectedEndpointKeys(new Set(apiEndpoints.map(endpointKey)));
+                            }
+                          }}
+                        >
+                          {allEndpointsSelected ? 'Unselect all' : 'Select all'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="api-endpoints-list">
+                      {apiEndpoints.map((ep) => {
+                        const key = endpointKey(ep);
+                        const checked = selectedEndpointKeys.has(key);
+                        return (
+                          <label key={key} className="api-endpoint-row">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = new Set(selectedEndpointKeys);
+                                if (e.target.checked) next.add(key);
+                                else next.delete(key);
+                                setSelectedEndpointKeys(next);
+                              }}
+                            />
+                            <span className={`api-method api-method-${String(ep.method || '').toLowerCase()}`}>
+                              {String(ep.method || '').toUpperCase()}
+                            </span>
+                            <span className="api-path">{ep.path}</span>
+                            <span className="api-name">{ep.name || ''}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="wizard-actions wizard-actions-right">

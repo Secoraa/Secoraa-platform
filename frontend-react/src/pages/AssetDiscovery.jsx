@@ -538,7 +538,6 @@ const AssetDiscovery = () => {
       case 'domains': setShowAddModal(true); break;
       case 'subdomains': setShowAddSubdomainModal(true); break;
       case 'ip-addresses': setShowAddIpModal(true); break;
-      case 'ip-blocks': setShowAddIpBlockModal(true); break;
       case 'url': setShowAddUrlModal(true); break;
       case 'asset-groups': setShowAddAssetGroupModal(true); break;
       default: break;
@@ -565,9 +564,11 @@ const AssetDiscovery = () => {
       )}
       <div className="page-header">
         <h1 className="page-title">ASSET DISCOVERY</h1>
-        <button className="add-asset-btn" onClick={handleAddAsset}>
-          + Add Asset
-        </button>
+        {activeTab !== 'ip-blocks' && (
+          <button className="add-asset-btn" onClick={handleAddAsset}>
+            + Add Asset
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
