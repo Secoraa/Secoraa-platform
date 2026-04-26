@@ -2734,7 +2734,8 @@ def create_report(
         report_type=stored_type,
         # enforce 200-char limit at storage too
         description=(req.description[:200] if req.description else None),
-        domain_id=domain_obj.id,
+        # domain_id is nullable — network scans target IPs and have no Domain row.
+        domain_id=domain_obj.id if domain_obj is not None else None,
         created_by=created_by,
         created_at=created_at,
         minio_bucket=bucket,
