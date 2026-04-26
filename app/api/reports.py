@@ -2109,9 +2109,9 @@ class CreateReportRequest(BaseModel):
     # Requirement: description should be only 200 letters
     description: Optional[str] = Field(default=None, max_length=200)
     domain_name: Optional[str] = Field(default=None, description="Required for ASM reports")
-    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|WEBSCAN|API_TESTING")
+    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|WEBSCAN|API_TESTING|NETWORK_SCAN")
     subdomain_name: Optional[str] = Field(default=None, description="Required for VULNERABILITY_SCAN/WEBSCAN reports")
-    scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING reports (scan_id of an API scan)")
+    scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING and NETWORK_SCAN reports (scan_id of the underlying scan)")
 
 
 class ReportRow(BaseModel):
@@ -2268,21 +2268,25 @@ def create_report(
     # Backward compatibility: WEBSCAN maps to VULNERABILITY_SCAN
     if assessment == "WEBSCAN":
         assessment = "VULNERABILITY_SCAN"
-    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING"}:
-        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, or API_TESTING.")
+    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING", "NETWORK_SCAN"}:
+        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, API_TESTING, or NETWORK_SCAN.")
 
     # Scope validation
+    # Network scans target IPs (no associated Domain row), so domain_name
+    # is not required for NETWORK_SCAN reports. Every other assessment
+    # type still operates against a Domain.
     domain_obj: Optional[Domain] = None
-    if not req.domain_name:
-        raise HTTPException(status_code=400, detail="domain_name is required for reports.")
     tenant_users = get_tenant_usernames(db, claims)
-    domain_obj = (
-        db.query(Domain)
-        .filter(Domain.domain_name == req.domain_name, Domain.created_by.in_(tenant_users))
-        .first()
-    )
-    if not domain_obj:
-        raise HTTPException(status_code=404, detail="Domain not found.")
+    if assessment != "NETWORK_SCAN":
+        if not req.domain_name:
+            raise HTTPException(status_code=400, detail="domain_name is required for reports.")
+        domain_obj = (
+            db.query(Domain)
+            .filter(Domain.domain_name == req.domain_name, Domain.created_by.in_(tenant_users))
+            .first()
+        )
+        if not domain_obj:
+            raise HTTPException(status_code=404, detail="Domain not found.")
 
     cover_domain_line: Optional[str] = req.domain_name
     template: Dict[str, Any] = {}
@@ -2372,6 +2376,92 @@ def create_report(
             "assets_total_label": "TOTAL SUBDOMAINS",
             "assets_section_title": "Assets",
             "assets_table_title": "Subdomain",
+        }
+
+    elif assessment == "NETWORK_SCAN":
+        # Network scan: scope by scan_id. Network scans don't link to Domain
+        # rows, so we identify the source scan and pull every Vulnerability
+        # whose tags include the matching `ip:` value plus a network plugin.
+        if not req.scan_id:
+            raise HTTPException(status_code=400, detail="scan_id is required for NETWORK_SCAN reports.")
+        from app.database.models import Scan as _Scan
+        scan = (
+            db.query(_Scan)
+            .filter(_Scan.id == req.scan_id, _Scan.created_by.in_(tenant_users))
+            .first()
+        )
+        if not scan:
+            raise HTTPException(status_code=404, detail="Scan not found.")
+        if str(getattr(scan, "scan_type", "")).lower() != "network":
+            raise HTTPException(status_code=400, detail="scan_id must reference a network scan.")
+
+        # The network scan's target IP lives on its ScanResult.domain row.
+        from app.database.models import ScanResult as _ScanResult
+        sr = db.query(_ScanResult).filter(_ScanResult.scan_id == scan.id).first()
+        target_ip = (sr.domain if sr else None) or "unknown-host"
+
+        # Pull every Vulnerability tagged with this IP (added by the network
+        # scanner persistence path in app/api/scans.py).
+        from sqlalchemy.dialects.postgresql import ARRAY
+        from sqlalchemy import String as _String, cast as _cast
+        ip_tag = f"ip:{target_ip}"
+        try:
+            vulns = (
+                db.query(Vulnerability)
+                .filter(
+                    Vulnerability.created_by.in_(tenant_users),
+                    Vulnerability.tags.op("@>")(_cast([ip_tag], ARRAY(_String))),
+                )
+                .order_by(Vulnerability.id.desc())
+                .all()
+            )
+        except Exception:
+            # Tag-array containment isn't supported on this driver — fall back
+            # to created_by + scan timing window.
+            vulns = (
+                db.query(Vulnerability)
+                .filter(Vulnerability.created_by.in_(tenant_users))
+                .order_by(Vulnerability.id.desc())
+                .all()
+            )
+            vulns = [
+                v for v in vulns
+                if any(str(t) == ip_tag for t in (getattr(v, "tags", None) or []))
+            ]
+
+        cover_domain_line = target_ip
+        assets_list = [target_ip]
+        assets_total = 1
+        for v in vulns:
+            sev = str(getattr(v, "severity", None) or "INFO").upper()
+            sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            total_weight += _severity_weight(sev)
+            # Pull port from tags so the report shows IP:port for each finding.
+            port = None
+            for t in (getattr(v, "tags", None) or []):
+                tag_str = str(t)
+                if tag_str.startswith("port:"):
+                    port = tag_str.split(":", 1)[1]
+                    break
+            asset_label = f"{target_ip}:{port}" if port else target_ip
+            vuln_rows.append(
+                {
+                    "name": getattr(v, "vuln_name", None),
+                    "description": getattr(v, "description", None),
+                    "severity": sev,
+                    "assets_impacted": 1,
+                    "asset": asset_label,
+                }
+            )
+
+        template = {
+            "cover_title": "NETWORK SCAN\nDETAILS REPORT",
+            "assets_intro": "This report summarizes network-layer exposures and service-level vulnerabilities for the scanned host.",
+            "assets_total_label": "TOTAL HOSTS",
+            "assets_section_title": "Host",
+            "assets_table_title": "IP Address",
+            "vuln_section_title": "Network Findings",
+            "vuln_intro": "Findings produced by the network scanner plugins (open ports, banner disclosure, TLS audit, exposed databases, etc.).",
         }
 
     else:
@@ -2501,20 +2591,18 @@ def create_report(
     avg_risk = (total_weight / max(1, vulnerabilities_total)) if vulnerabilities_total else 0.0
 
     if variant == "EXEC_SUMMARY":
-        cover_title = (
-            "ATTACK SURFACE MANAGEMENT\n(ASM) EXECUTIVE SUMMARY"
-            if assessment == "DOMAIN"
-            else "VULNERABILITY_SCAN\n(SUBDOMAIN) EXECUTIVE SUMMARY"
-            if assessment == "VULNERABILITY_SCAN"
-            else "API TESTING\nEXECUTIVE SUMMARY"
-        )
-        exec_intro = (
-            "This report summarizes external exposure patterns and priorities for leadership."
-            if assessment == "DOMAIN"
-            else "This report summarizes web-facing exposure patterns for the selected subdomain in a leadership-ready narrative."
-            if assessment == "VULNERABILITY_SCAN"
-            else "This report summarizes API testing results into decision-ready risk narratives. It avoids raw endpoint listings."
-        )
+        if assessment == "DOMAIN":
+            cover_title = "ATTACK SURFACE MANAGEMENT\n(ASM) EXECUTIVE SUMMARY"
+            exec_intro = "This report summarizes external exposure patterns and priorities for leadership."
+        elif assessment == "VULNERABILITY_SCAN":
+            cover_title = "VULNERABILITY_SCAN\n(SUBDOMAIN) EXECUTIVE SUMMARY"
+            exec_intro = "This report summarizes web-facing exposure patterns for the selected subdomain in a leadership-ready narrative."
+        elif assessment == "NETWORK_SCAN":
+            cover_title = "NETWORK SCAN\nEXECUTIVE SUMMARY"
+            exec_intro = "This report summarizes network-layer exposure for the scanned host: open services, banner disclosure, weak TLS posture, and unauthenticated databases."
+        else:
+            cover_title = "API TESTING\nEXECUTIVE SUMMARY"
+            exec_intro = "This report summarizes API testing results into decision-ready risk narratives. It avoids raw endpoint listings."
         pdf_bytes = _build_exposure_stories_pdf(
             tenant=tenant,
             report_name=req.report_name,
