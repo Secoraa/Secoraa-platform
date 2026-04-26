@@ -229,6 +229,42 @@ def _parse_pr_number() -> Optional[int]:
     return None
 
 
+def _default_scan_name(target_url: str) -> str:
+    """
+    Build a default scan name that's informative on the platform UI.
+
+    Priority:
+        1. GitHub Actions context — repo + branch/PR + commit SHA, e.g.:
+             "Secoraa-platform PR #9 @ 4dee63a"
+             "Secoraa-platform main @ 4dee63a"
+        2. Generic CLI run — target URL + run timestamp, e.g.:
+             "cli-scan-secoraa-backend.onrender.com 2026-04-26T12:00"
+
+    The previous default was just "cli-scan-{target_url}" which produced
+    the same name for every scan against the same target, making history
+    impossible to navigate.
+    """
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    sha = os.environ.get("GITHUB_SHA", "")
+    if repo and sha:
+        repo_short = repo.split("/")[-1] or repo  # "Secoraa/Secoraa-platform" -> "Secoraa-platform"
+        sha_short = sha[:7]
+        pr = _parse_pr_number()
+        if pr:
+            return f"{repo_short} PR #{pr} @ {sha_short}"
+        ref_name = os.environ.get("GITHUB_REF_NAME", "")
+        ref = ref_name or os.environ.get("GITHUB_REF", "").replace("refs/heads/", "")
+        if ref:
+            return f"{repo_short} {ref} @ {sha_short}"
+        return f"{repo_short} @ {sha_short}"
+
+    # Fallback: still produce unique names by timestamping
+    from datetime import datetime, timezone
+    target_slug = target_url.replace("https://", "").replace("http://", "").split("/")[0]
+    when = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+    return f"cli-scan-{target_slug} {when}"
+
+
 def _print_summary(report: Dict[str, Any], gate: Dict[str, Any]) -> None:
     print("", file=sys.stderr)
     print("=" * 60, file=sys.stderr)
@@ -316,7 +352,7 @@ def _cmd_api(args: argparse.Namespace) -> int:
         return EXIT_ERROR
 
     scan_mode = _resolve(args.scan_mode, "SCAN_MODE", cfg, ["scan", "mode"], "active") or "active"
-    scan_name = _resolve(args.scan_name, "", cfg, ["scan", "name"]) or f"cli-scan-{target_url.replace('://', '-').replace('/', '-')}"
+    scan_name = _resolve(args.scan_name, "", cfg, ["scan", "name"]) or _default_scan_name(target_url)
 
     print(f"[secoraa] Starting API scan: {target_url}", file=sys.stderr)
     print(f"[secoraa] Spec: {spec_path}", file=sys.stderr)
