@@ -1378,25 +1378,41 @@ def update_scheduled_scan(
 def get_all_scans(
     claims: Dict[str, Any] = Depends(get_token_claims),
 ):
+    """
+    Scan history feed for the regular "Scan History" tab.
+
+    CI/CD scans (scan_type starting with `ci_`) are excluded — they have
+    their own dedicated history view at /api/v1/ci/dashboard/scans which
+    powers the "CI/CD Scans" tab. Without this filter, every CI scan
+    appears in both lists, which doubles the row count and confuses the
+    history view's purpose (planned scans vs. automated CI scans).
+    """
     db = SessionLocal()
     try:
         tenant_users = get_tenant_usernames(db, claims)
         try:
-            from sqlalchemy import or_
+            from sqlalchemy import or_, not_
             scans = (
                 db.query(Scan)
                 .filter(
                     or_(
                         Scan.created_by.in_(tenant_users),
                         Scan.created_by.is_(None),
-                    )
+                    ),
+                    not_(Scan.scan_type.like("ci_%")),
                 )
                 .order_by(Scan.created_at.desc())
                 .all()
             )
         except Exception:
             # Fallback if created_by column doesn't exist yet
-            scans = db.query(Scan).order_by(Scan.created_at.desc()).all()
+            from sqlalchemy import not_
+            scans = (
+                db.query(Scan)
+                .filter(not_(Scan.scan_type.like("ci_%")))
+                .order_by(Scan.created_at.desc())
+                .all()
+            )
         scan_ids = [s.id for s in scans]
         api_assets = {}
         if scan_ids:
