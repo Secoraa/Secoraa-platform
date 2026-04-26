@@ -230,14 +230,21 @@ def list_all_findings(
         return "subdomain"
 
     def _network_asset(v_tags) -> Optional[str]:
-        """Pull `port:NNN` out of tags so the UI can display the port for network findings."""
+        """Build a display string for network findings: '<ip>:<port>' if both known,
+        otherwise just the IP, or fall back to the port."""
         if not v_tags:
             return None
+        ip = None
+        port = None
         for tag in v_tags:
             tag_str = str(tag)
-            if tag_str.startswith("port:"):
-                return tag_str.split(":", 1)[1]
-        return None
+            if tag_str.startswith("ip:"):
+                ip = tag_str.split(":", 1)[1]
+            elif tag_str.startswith("port:"):
+                port = tag_str.split(":", 1)[1]
+        if ip and port:
+            return f"{ip}:{port}"
+        return ip or (f"port:{port}" if port else None)
 
     try:
         rows = _query_rich().all()

@@ -505,6 +505,7 @@ def process_scan_background(scan_id: str, scan_name: str, scan_type: str, payloa
                             network_severity_counts[severity] = network_severity_counts.get(severity, 0) + 1
                             tags = list(finding.get("tags") or [])
                             tags.append(f"network:{finding.get('plugin', 'unknown')}")
+                            tags.append(f"ip:{target_ip}")
                             if finding.get("port") is not None:
                                 tags.append(f"port:{finding['port']}")
                             vuln = Vulnerability(
