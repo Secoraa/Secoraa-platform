@@ -93,6 +93,19 @@ const Reporting = () => {
     return Array.from(uniqueByAsset.values());
   }, [apiScansForDomain]);
 
+  const networkScanOptions = useMemo(() => {
+    return (scans || [])
+      .filter(
+        (s) =>
+          String(s.scan_type || '').toLowerCase() === 'network' &&
+          String(s.status || '').toUpperCase() === 'COMPLETED',
+      )
+      .map((s) => ({
+        value: s.scan_id,
+        label: `${s.scan_name || 'network scan'} — ${s.asset_name || 'unknown'}`,
+      }));
+  }, [scans]);
+
   useEffect(() => {
     getDomains()
       .then((data) => setDomains(Array.isArray(data) ? data : data?.data || []))
@@ -137,9 +150,11 @@ const Reporting = () => {
 
   const canGenerate = useMemo(() => {
     if (!reportName.trim()) return false;
-    if (!domainName) return false;
+    // Network scans target IPs (no Domain row), so domain_name is not required.
+    if (assessmentType !== 'NETWORK_SCAN' && !domainName) return false;
     if (assessmentType === 'WEBSCAN' && !subdomainName) return false;
     if (assessmentType === 'API_TESTING' && !scanId) return false;
+    if (assessmentType === 'NETWORK_SCAN' && !scanId) return false;
     return true;
   }, [reportName, reportType, domainName, assessmentType, subdomainName, scanId]);
 
@@ -265,6 +280,7 @@ const Reporting = () => {
                             assessment === 'DOMAIN' ? 'Domain' :
                             assessment === 'WEBSCAN' ? 'Vulnerability Scan' :
                             assessment === 'API' || assessment === 'API_TESTING' ? 'API Scan' :
+                            assessment === 'NETWORK' || assessment === 'NETWORK_SCAN' ? 'Network Scan' :
                             assessment;
                           const variantLabel =
                             variant === 'EXEC_SUMMARY' ? 'Executive Summary' :
@@ -321,6 +337,7 @@ const Reporting = () => {
                     { value: 'DOMAIN', label: 'Domain', icon: <ScanTypeIcon type="dd" /> },
                     { value: 'WEBSCAN', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="subdomain" /> },
                     { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
+                    { value: 'NETWORK_SCAN', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
                   ]}
                 />
               </div>
@@ -342,18 +359,20 @@ const Reporting = () => {
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" rows={3} />
               </div>
 
-              <div className="modal-field">
-                <label>Domain name</label>
-                <Dropdown
-                  value={domainName}
-                  onChange={(val) => setDomainName(val)}
-                  placeholder="Select domain"
-                  options={domains.map((d) => ({
-                    value: d.domain_name,
-                    label: d.domain_name,
-                  }))}
-                />
-              </div>
+              {assessmentType !== 'NETWORK_SCAN' && (
+                <div className="modal-field">
+                  <label>Domain name</label>
+                  <Dropdown
+                    value={domainName}
+                    onChange={(val) => setDomainName(val)}
+                    placeholder="Select domain"
+                    options={domains.map((d) => ({
+                      value: d.domain_name,
+                      label: d.domain_name,
+                    }))}
+                  />
+                </div>
+              )}
 
               {assessmentType === 'WEBSCAN' && (
                 <div className="modal-field">
@@ -384,6 +403,21 @@ const Reporting = () => {
                   />
                   {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
                     <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
+                  )}
+                </div>
+              )}
+
+              {assessmentType === 'NETWORK_SCAN' && (
+                <div className="modal-field">
+                  <label>Network Scan</label>
+                  <Dropdown
+                    value={scanId}
+                    onChange={(val) => setScanId(val)}
+                    placeholder={networkScanOptions.length ? 'Select a completed network scan' : 'No completed network scans yet'}
+                    options={networkScanOptions}
+                  />
+                  {networkScanOptions.length === 0 && (
+                    <div className="helper-text">Run a network scan first to generate a report for it.</div>
                   )}
                 </div>
               )}
