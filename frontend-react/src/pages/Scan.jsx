@@ -110,6 +110,9 @@ const Scan = ({ onViewResults, initialTab }) => {
   const [subdomainQuery, setSubdomainQuery] = useState('');
   const [subdomainPage, setSubdomainPage] = useState(1);
   const SUBDOMAIN_PAGE_SIZE = 20;
+  const [ipQuery, setIpQuery] = useState('');
+  const [ipPage, setIpPage] = useState(1);
+  const IP_PAGE_SIZE = 20;
 
   const loadCiScans = async () => {
     try {
@@ -280,10 +283,37 @@ const Scan = ({ onViewResults, initialTab }) => {
     };
   })();
 
+  const filteredIpData = (() => {
+    const q = ipQuery.trim().toLowerCase();
+    const list = ipAssets.filter((ip) => {
+      const ipName = String(ip.ipaddress_name || '').toLowerCase();
+      const domainName = String(ip.domain_name || '').toLowerCase();
+      if (!q) return true;
+      return ipName.includes(q) || domainName.includes(q);
+    });
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / IP_PAGE_SIZE));
+    const page = Math.min(Math.max(1, ipPage), totalPages);
+    const start = (page - 1) * IP_PAGE_SIZE;
+    const end = start + IP_PAGE_SIZE;
+    return {
+      items: list.slice(start, end),
+      total,
+      totalPages,
+      page,
+      start,
+      end: Math.min(end, total),
+    };
+  })();
+
   // Reset pagination when search changes
   useEffect(() => {
     setSubdomainPage(1);
   }, [subdomainQuery]);
+
+  useEffect(() => {
+    setIpPage(1);
+  }, [ipQuery]);
 
   const selectedSubdomain = scanForm.subdomainId
     ? allSubdomains.find((s) => String(s.id) === String(scanForm.subdomainId))
@@ -1227,26 +1257,76 @@ const Scan = ({ onViewResults, initialTab }) => {
                 {scanForm.type === 'network' && (
                   <div className="form-group">
                     <label>Target IP</label>
-                    {ipAssets.length > 0 ? (
-                      <Dropdown
-                        value={scanForm.targetIp}
-                        onChange={(val) => setScanForm({ ...scanForm, targetIp: val })}
-                        disabled={ipLoading}
-                        placeholder={ipLoading ? 'Loading IPs...' : 'Select an IP'}
-                        options={ipAssets.map((ip) => ({
-                          value: ip.ipaddress_name,
-                          label: `${ip.ipaddress_name}${ip.domain_name ? ` (${ip.domain_name})` : ''}`,
-                        }))}
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        placeholder="e.g. 8.8.8.8"
-                        value={scanForm.targetIp}
-                        onChange={(e) => setScanForm({ ...scanForm, targetIp: e.target.value })}
-                        required
-                      />
-                    )}
+                    <input
+                      type="text"
+                      className="scan-search-input"
+                      placeholder={ipLoading ? 'Loading IP assets...' : 'Search and select IP to scan'}
+                      value={ipQuery}
+                      onChange={(e) => {
+                        setIpQuery(e.target.value);
+                        setScanForm({ ...scanForm, targetIp: '' });
+                      }}
+                      disabled={ipLoading}
+                    />
+                    <div className="helper-text">
+                      Select an IP asset to run a network scan against. Type to search.
+                    </div>
+
+                    <div className="api-endpoints" style={{ marginTop: 10 }}>
+                      <div className="api-endpoints-header">
+                        <div>
+                          Results ({filteredIpData.start + 1}-{filteredIpData.end} of {filteredIpData.total})
+                        </div>
+                        <div className="api-endpoints-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small"
+                            onClick={() => setIpPage((p) => Math.max(1, p - 1))}
+                            disabled={ipLoading || filteredIpData.page <= 1}
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary btn-small"
+                            onClick={() => setIpPage((p) => Math.min(filteredIpData.totalPages, p + 1))}
+                            disabled={ipLoading || filteredIpData.page >= filteredIpData.totalPages}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                      <div className="api-endpoints-list">
+                        {filteredIpData.items.length === 0 ? (
+                          <div className="helper-text" style={{ padding: '8px 12px' }}>
+                            {ipLoading ? 'Loading…' : 'No matches.'}
+                          </div>
+                        ) : (
+                          filteredIpData.items.map((ip) => {
+                            const ipValue = String(ip.ipaddress_name || '');
+                            const isSelected = String(scanForm.targetIp) === ipValue;
+                            return (
+                              <label
+                                key={`${ipValue}-${String(ip.id || '')}`}
+                                className={`subdomain-option-row ${isSelected ? 'selected' : ''}`}
+                              >
+                                <input
+                                  className="subdomain-option-checkbox"
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(e) => {
+                                    const nextIp = e.target.checked ? ipValue : '';
+                                    setScanForm({ ...scanForm, targetIp: nextIp });
+                                    setIpQuery(e.target.checked ? ipValue : '');
+                                  }}
+                                />
+                                <span className="subdomain-option-name">{ipValue}</span>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 

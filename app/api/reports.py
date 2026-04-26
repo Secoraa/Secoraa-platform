@@ -214,16 +214,8 @@ def _build_exposure_stories_pdf(
     def section_header(title: str):
         dark_page_bg()
         top_y = 10
-        logo_w = 22
-        if logo_path.exists():
-            pdf.image(str(logo_path), x=10, y=top_y, w=logo_w)
-            title_y = top_y + logo_w + 8
-        else:
-            pdf.set_xy(10, top_y + 2)
-            pdf.set_font("Helvetica", "B", 16)
-            pdf.set_text_color(*gold)
-            pdf.cell(0, 8, _safe_pdf_text("NexVeil"), ln=1)
-            title_y = top_y + 18
+        # Executive Summary inner pages: title-only header (logo only on cover page).
+        title_y = top_y + 2
 
         pdf.set_xy(10, title_y)
         pdf.set_font("Helvetica", "B", 18)
@@ -506,6 +498,74 @@ def _build_exposure_stories_pdf(
         pdf.cell(90, 7, _safe_pdf_text(ex or "-"), 1, 1)
 
     footer()
+
+    # -------------------------
+    # Closing Page -- CTA (same as Domain report style)
+    # -------------------------
+    pdf.set_auto_page_break(auto=False, margin=16)
+    pdf.add_page()
+    pdf.set_fill_color(8, 9, 12)
+    pdf.rect(0, 0, 210, 297, style="F")
+
+    # Centered logo
+    if logo_path.exists():
+        pdf.image(str(logo_path), x=75, y=20, w=60)
+
+    # Centered headline
+    pdf.set_xy(0, 80)
+    pdf.set_font("Helvetica", "B", 28)
+    pdf.set_text_color(*text_light)
+    pdf.cell(210, 15, _safe_pdf_text("Start your API Security"), 0, 1, "C")
+    pdf.set_x(0)
+    pdf.cell(210, 15, _safe_pdf_text("Journey with"), 0, 1, "C")
+    pdf.set_x(0)
+    pdf.set_text_color(*gold)
+    pdf.cell(210, 15, _safe_pdf_text("NexVeil"), 0, 1, "C")
+
+    # Centered description
+    desc_w = 150
+    desc_x = (210 - desc_w) / 2
+    pdf.set_xy(desc_x, 140)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(*text_muted)
+    pdf.multi_cell(desc_w, 7, _safe_pdf_text(
+        "NexVeil seamlessly combines automated and expert-led security "
+        "testing to continuously protect your APIs and attack surface. "
+        "Our platform delivers Penetration Testing, API Security "
+        "Scanning, and Vulnerability Assessments -- all in one place "
+        "-- so you can discover, prioritize, and remediate threats "
+        "before attackers do."
+    ), align="C")
+
+    # Service pills
+    pills = [
+        "API Security Testing",
+        "Penetration Testing",
+        "CI/CD Integration",
+        "Vulnerability Assessments",
+        "OWASP-aligned Methodology",
+    ]
+    pill_y = 200
+    pill_x = 14
+    pdf.set_draw_color(80, 70, 60)
+    pdf.set_font("Helvetica", "B", 9)
+    for pill_text in pills:
+        pw = pdf.get_string_width(pill_text) + 14
+        total_pw = pw + 10
+        if pill_x + total_pw > 196:
+            pill_y += 13
+            pill_x = 14
+        pdf.set_xy(pill_x, pill_y)
+        pdf.set_text_color(*text_light)
+        pdf.cell(total_pw, 8, "", 1, 0, "L")
+        pdf.set_fill_color(*gold)
+        pdf.ellipse(pill_x + 4, pill_y + 2.8, 2.5, 2.5, style="F")
+        pdf.set_xy(pill_x + 9, pill_y)
+        pdf.cell(total_pw - 9, 8, _safe_pdf_text(pill_text), 0, 0, "L")
+        pill_x += total_pw + 5
+
+    footer()
+    pdf.set_auto_page_break(auto=True, margin=14)
 
     raw = pdf.output(dest="S")
     if isinstance(raw, (bytes, bytearray)):
@@ -1269,11 +1329,11 @@ def _build_api_details_pdf(
     pdf.set_fill_color(8, 9, 12)
     pdf.rect(0, 0, 210, 297, style="F")
 
-    # Logo (larger)
+    # Centered logo (same as Domain report last page)
     if logo_path.exists():
         pdf.image(str(logo_path), x=75, y=20, w=60)
 
-    # Headline centered
+    # Centered headline
     pdf.set_xy(0, 80)
     pdf.set_font("Helvetica", "B", 28)
     pdf.set_text_color(*text_light)
