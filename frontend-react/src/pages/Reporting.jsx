@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { createReport, downloadReportPdf, getAllScans, getDomains, getIPAddresses, getSubdomains, listReports } from '../api/apiClient';
+import { createReport, downloadReportPdf, getAllScans, getCiScans, getDomains, getIPAddresses, getSubdomains, listReports } from '../api/apiClient';
 import Notification from '../components/Notification';
 import Dropdown from '../components/Dropdown';
 import ScanTypeIcon from '../components/ScanTypeIcon';
@@ -25,6 +25,7 @@ const Reporting = () => {
   const [scanId, setScanId] = useState('');
   const [ipAddresses, setIpAddresses] = useState([]);
   const [ipAddress, setIpAddress] = useState('');
+  const [cicdScans, setCicdScans] = useState([]);
 
   const formatScopeLabel = (rawScope) => {
     const scope = String(rawScope || '').trim();
@@ -121,6 +122,24 @@ const Reporting = () => {
     return matches[0]?.scan_id || '';
   }, [scans, ipAddress]);
 
+  // CI/CD scans are fetched from /api/v1/ci/dashboard/scans because
+  // /scans/scan filters them out (commit b3cb9cb). The picker shows the
+  // scan_name (already includes repo / branch / sha after the earlier
+  // naming fix) plus a finding count for at-a-glance triage.
+  const cicdScanOptions = useMemo(() => {
+    return (cicdScans || [])
+      .filter((s) => ['COMPLETED', 'COMPLETE'].includes(String(s.status || '').toUpperCase()))
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+      .map((s) => {
+        const findings = s.findings_count != null ? `${s.findings_count} findings` : '';
+        const tail = findings ? ` — ${findings}` : '';
+        return {
+          value: s.scan_id || s.id,
+          label: `${s.scan_name || 'CI/CD scan'}${tail}`,
+        };
+      });
+  }, [cicdScans]);
+
   useEffect(() => {
     getDomains()
       .then((data) => setDomains(Array.isArray(data) ? data : data?.data || []))
@@ -138,6 +157,12 @@ const Reporting = () => {
     getIPAddresses()
       .then((data) => setIpAddresses(Array.isArray(data) ? data : data?.data || []))
       .catch(() => setIpAddresses([]));
+    // CI/CD scans aren't returned by getAllScans (filtered out so they
+    // don't appear in regular Scan History), so fetch them separately
+    // for the CICD report picker.
+    getCiScans()
+      .then((data) => setCicdScans(Array.isArray(data) ? data : data?.data || []))
+      .catch(() => setCicdScans([]));
   }, []);
 
   const loadReports = async () => {
@@ -169,13 +194,14 @@ const Reporting = () => {
 
   const canGenerate = useMemo(() => {
     if (!reportName.trim()) return false;
-    if (!domainName) return false;  // every assessment now requires a domain
+    // CICD scans target an external repo's API and don't have a Domain row
+    // in our asset model — domain is not required for them.
+    if (assessmentType !== 'CICD' && !domainName) return false;
     if (assessmentType === 'WEBSCAN' && !subdomainName) return false;
     if (assessmentType === 'API_TESTING' && !scanId) return false;
+    if (assessmentType === 'CICD' && !scanId) return false;
     if (assessmentType === 'NETWORK_SCAN') {
       if (!ipAddress) return false;
-      // Need a completed network scan for the chosen IP — derivedNetworkScanId
-      // is empty if no scan exists yet.
       if (!derivedNetworkScanId) return false;
     }
     return true;
@@ -310,6 +336,7 @@ const Reporting = () => {
                             assessment === 'WEBSCAN' ? 'Vulnerability Scan' :
                             assessment === 'API' || assessment === 'API_TESTING' ? 'API Scan' :
                             assessment === 'NETWORK' || assessment === 'NETWORK_SCAN' ? 'Network Scan' :
+                            assessment === 'CICD' || assessment === 'CI' ? 'CI/CD Scan' :
                             assessment;
                           const variantLabel =
                             variant === 'EXEC_SUMMARY' ? 'Executive Summary' :
@@ -367,6 +394,7 @@ const Reporting = () => {
                     { value: 'WEBSCAN', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="subdomain" /> },
                     { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
                     { value: 'NETWORK_SCAN', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
+                    { value: 'CICD', label: 'CI/CD Scan', icon: <ScanTypeIcon type="api" /> },
                   ]}
                 />
               </div>
@@ -388,24 +416,26 @@ const Reporting = () => {
                 <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" rows={3} />
               </div>
 
-              <div className="modal-field">
-                <label>Domain name</label>
-                <Dropdown
-                  value={domainName}
-                  onChange={(val) => {
-                    setDomainName(val);
-                    // Clear dependent selections when domain changes — same
-                    // pattern as VULNERABILITY_SCAN's subdomain reset.
-                    setSubdomainName('');
-                    setIpAddress('');
-                  }}
-                  placeholder="Select domain"
-                  options={domains.map((d) => ({
-                    value: d.domain_name,
-                    label: d.domain_name,
-                  }))}
-                />
-              </div>
+              {assessmentType !== 'CICD' && (
+                <div className="modal-field">
+                  <label>Domain name</label>
+                  <Dropdown
+                    value={domainName}
+                    onChange={(val) => {
+                      setDomainName(val);
+                      // Clear dependent selections when domain changes — same
+                      // pattern as VULNERABILITY_SCAN's subdomain reset.
+                      setSubdomainName('');
+                      setIpAddress('');
+                    }}
+                    placeholder="Select domain"
+                    options={domains.map((d) => ({
+                      value: d.domain_name,
+                      label: d.domain_name,
+                    }))}
+                  />
+                </div>
+              )}
 
               {assessmentType === 'WEBSCAN' && (
                 <div className="modal-field">
@@ -436,6 +466,21 @@ const Reporting = () => {
                   />
                   {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
                     <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
+                  )}
+                </div>
+              )}
+
+              {assessmentType === 'CICD' && (
+                <div className="modal-field">
+                  <label>CI/CD Scan</label>
+                  <Dropdown
+                    value={scanId}
+                    onChange={(val) => setScanId(val)}
+                    placeholder={cicdScanOptions.length ? 'Select a completed CI/CD scan' : 'No completed CI/CD scans yet'}
+                    options={cicdScanOptions}
+                  />
+                  {cicdScanOptions.length === 0 && (
+                    <div className="helper-text">Run a scan via your CI/CD pipeline first — results sync here automatically when the SECORAA_API_KEY is configured.</div>
                   )}
                 </div>
               )}

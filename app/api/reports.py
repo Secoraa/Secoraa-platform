@@ -2328,16 +2328,16 @@ def create_report(
     # Backward compatibility: WEBSCAN maps to VULNERABILITY_SCAN
     if assessment == "WEBSCAN":
         assessment = "VULNERABILITY_SCAN"
-    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING", "NETWORK_SCAN"}:
-        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, API_TESTING, or NETWORK_SCAN.")
+    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING", "NETWORK_SCAN", "CICD"}:
+        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, API_TESTING, NETWORK_SCAN, or CICD.")
 
     # Scope validation
-    # Network scans target IPs (no associated Domain row), so domain_name
-    # is not required for NETWORK_SCAN reports. Every other assessment
-    # type still operates against a Domain.
+    # NETWORK_SCAN targets IPs (no Domain row) and CICD targets external repos
+    # (no Domain row either — the "asset" is the upstream API the CI run
+    # tested). Every other assessment type still operates against a Domain.
     domain_obj: Optional[Domain] = None
     tenant_users = get_tenant_usernames(db, claims)
-    if assessment != "NETWORK_SCAN":
+    if assessment not in {"NETWORK_SCAN", "CICD"}:
         if not req.domain_name:
             raise HTTPException(status_code=400, detail="domain_name is required for reports.")
         domain_obj = (
@@ -2524,6 +2524,123 @@ def create_report(
             "vuln_intro": "Findings produced by the network scanner plugins (open ports, banner disclosure, TLS audit, exposed databases, etc.).",
         }
 
+    elif assessment == "CICD":
+        # CI/CD scan: same persistence shape as API_TESTING (ApiScanReport row),
+        # but the source scan_type is `ci_<something>` (ci_api_security,
+        # ci_subdomain, etc) — see app/api/ci.py:97. We piggy-back on the
+        # API_TESTING extraction by setting scan + report_obj here, then
+        # falling through to the shared formatting block below by mirroring
+        # the same code path inline.
+        if not req.scan_id:
+            raise HTTPException(status_code=400, detail="scan_id is required for CICD reports.")
+        from app.database.models import Scan as _Scan, ApiScanReport as _ApiReport
+        from app.storage.minio_client import download_json as _download_json
+        import json as _json
+
+        scan = (
+            db.query(_Scan)
+            .filter(_Scan.id == req.scan_id, _Scan.created_by.in_(tenant_users))
+            .first()
+        )
+        if not scan:
+            raise HTTPException(status_code=404, detail="Scan not found.")
+        scan_type_str = str(getattr(scan, "scan_type", "")).lower()
+        if not scan_type_str.startswith("ci_"):
+            raise HTTPException(status_code=400, detail="scan_id must reference a CI/CD scan (scan_type starting with 'ci_').")
+
+        api_report = db.query(_ApiReport).filter(_ApiReport.scan_id == scan.id).first()
+        if not api_report:
+            raise HTTPException(status_code=404, detail="CI/CD scan report not found.")
+
+        report_obj: Dict[str, Any] = {}
+        if getattr(api_report, "minio_object_name", None):
+            try:
+                report_obj = _download_json(api_report.minio_object_name) or {}
+            except Exception:
+                report_obj = {}
+        if not report_obj:
+            try:
+                report_obj = _json.loads(api_report.report_json or "{}")
+            except Exception:
+                report_obj = {}
+
+        # CI sync stores the request body directly (see app/api/ci.py:113);
+        # findings live at the top level alongside `git` and `ci_metadata`.
+        report_data = report_obj
+        if isinstance(report_data, dict) and isinstance(report_data.get("result"), dict):
+            report_data = report_data.get("result") or report_data
+        if isinstance(report_data, dict) and isinstance(report_data.get("report"), dict):
+            report_data = report_data.get("report") or report_data
+
+        ci_target_url = (
+            report_data.get("base_url")
+            or report_data.get("target_url")
+            or report_data.get("target")
+            or ""
+        )
+        # Build a richer subtitle for the CI/CD cover: repo + branch/PR + sha.
+        git = report_data.get("git") or {}
+        repo = (git.get("repo") or "").split("/")[-1]
+        sha_short = (git.get("sha") or "")[:7]
+        pr_num = git.get("pr")
+        ref = git.get("ref") or ""
+        branch_or_pr = (
+            f"PR #{pr_num}" if pr_num
+            else ref.replace("refs/heads/", "").replace("refs/", "")
+        )
+        ci_context = " ".join(filter(None, [repo, branch_or_pr, f"@ {sha_short}" if sha_short else ""]))
+        cover_domain_line = ci_target_url or scan.scan_name or ci_context
+
+        total_endpoints = int(report_data.get("total_endpoints") or 0)
+        findings = report_data.get("findings") or []
+        if not isinstance(findings, list):
+            findings = []
+
+        by_issue: Dict[str, Dict[str, Any]] = {}
+        for f in findings:
+            if not isinstance(f, dict):
+                continue
+            issue = str(f.get("title") or f.get("issue") or f.get("name") or "Finding").strip() or "Finding"
+            sev = str(f.get("severity") or "INFO").upper()
+            g = by_issue.setdefault(issue, {"count": 0, "severity": sev})
+            g["count"] += 1
+            if _severity_weight(sev) > _severity_weight(str(g.get("severity") or "INFO")):
+                g["severity"] = sev
+
+        assets_list = []
+        assets_total = total_endpoints
+
+        for issue, g in sorted(by_issue.items(), key=lambda kv: (-_severity_weight(str(kv[1].get("severity"))), -int(kv[1].get("count") or 0), kv[0])):
+            sev = str(g.get("severity") or "INFO").upper()
+            sev_counts[sev] = sev_counts.get(sev, 0) + int(g.get("count") or 0)
+            total_weight += _severity_weight(sev) * int(g.get("count") or 0)
+            vuln_rows.append(
+                {
+                    "name": issue,
+                    "description": None,
+                    "severity": sev,
+                    "assets_impacted": int(g.get("count") or 0),
+                    "asset": ci_target_url or ci_context or req.domain_name or "ci-scan",
+                }
+            )
+
+        template = {
+            "cover_title": "CI/CD SECURITY\nDETAILS REPORT",
+            "assets_section_title": "CI/CD Run",
+            "assets_intro": (
+                f"This report summarizes the CI/CD security scan triggered for {ci_context or 'this build'}. "
+                f"Target: {ci_target_url or 'unknown'}."
+            ),
+            "assets_total_label": "TOTAL ENDPOINTS",
+            "assets_show_table": False,
+            "vuln_section_title": "Findings",
+            "vuln_intro": "Issues identified during the CI/CD security scan, grouped by issue type. Endpoint paths are intentionally omitted; counts reflect the number of endpoints flagged per issue.",
+            "vuln_total_label": "TOTAL FINDINGS",
+            "vuln_col_name": "Finding",
+            "vuln_col_impacted": "Endpoints Flagged",
+            "vuln_col_risk": "Risk",
+        }
+
     else:
         # API testing: build report from ApiScanReport (no raw endpoint lists in PDF)
         if not req.scan_id:
@@ -2660,6 +2777,9 @@ def create_report(
         elif assessment == "NETWORK_SCAN":
             cover_title = "NETWORK SCAN\nEXECUTIVE SUMMARY"
             exec_intro = "This report summarizes network-layer exposure for the scanned host: open services, banner disclosure, weak TLS posture, and unauthenticated databases."
+        elif assessment == "CICD":
+            cover_title = "CI/CD SECURITY\nEXECUTIVE SUMMARY"
+            exec_intro = "This report summarizes the security posture of an automated CI/CD scan run, framed for engineering and product leadership."
         else:
             cover_title = "API TESTING\nEXECUTIVE SUMMARY"
             exec_intro = "This report summarizes API testing results into decision-ready risk narratives. It avoids raw endpoint listings."
