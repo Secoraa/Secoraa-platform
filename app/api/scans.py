@@ -1177,12 +1177,12 @@ def create_scan(
                     scan, final_name = _create_scan_record_and_start_thread(
                         db,
                         child_name,
-                        "subdomain",
-                        {"domain": domain_name, "subdomains": [sub_name]},
+                        "vulnerability",
+                        {"domain": domain_name, "asset_value": sub_name},
                         created_by,
                         tenant_users=tenant_users,
                     )
-                    started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "subdomain"})
+                    started.append({"scan_id": str(scan.id), "scan_name": final_name, "scan_type": "vulnerability"})
                 elif item.ip_id:
                     ip_row = item.ip_address
                     ip_value = str(getattr(ip_row, "ipaddress_name", "") or "").strip()
