@@ -29,6 +29,7 @@ import './Scan.css';
 
 const SCAN_TYPE_LABELS = {
   dd: 'Domain Discovery Scan',
+  asset_group: 'Asset Group Vulnerability Scan',
   subdomain: 'Scan',
   api: 'API Scan',
   web: 'Scan',
@@ -45,6 +46,7 @@ const formatScanType = (type) => {
 
 const SCAN_TYPE_OPTIONS = [
   { value: 'dd', label: 'Domain Discovery Scan', icon: <ScanTypeIcon type="dd" /> },
+  { value: 'asset_group', label: 'Asset Group Vulnerability Scan', icon: <ScanTypeIcon type="vulnerability" /> },
   { value: 'api', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
   { value: 'vulnerability', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="vulnerability" /> },
   { value: 'network', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
@@ -676,7 +678,7 @@ const Scan = ({ onViewResults, initialTab }) => {
         });
         const count = result?.count || 0;
         setNotification({
-          message: `Asset group scan started (${count} scans). Check scan history for progress.`,
+          message: `Asset group vulnerability scan started (${count} scans). Check scan history for progress.`,
           type: 'success',
         });
         setScanForm({ name: '', type: 'dd', domain: '', assetUrl: '', docType: 'POSTMAN', subdomainId: '', targetIp: '', assetGroupId: '' });
