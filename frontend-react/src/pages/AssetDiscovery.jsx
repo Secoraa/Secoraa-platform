@@ -158,11 +158,11 @@ const AssetDiscovery = () => {
     }
   };
 
-  const openDomainDetailsInNewTab = (domain) => {
+  const openDomainDetails = (domain) => {
     const id = domain?.id;
     if (!id) return;
     const url = `${window.location.origin}${window.location.pathname}?domain=${encodeURIComponent(id)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.location.assign(url);
   };
 
   const loadSubdomains = async () => {
@@ -651,12 +651,12 @@ const AssetDiscovery = () => {
                       <tr
                         key={domain.id}
                         className="domain-row-clickable"
-                        onClick={() => openDomainDetailsInNewTab(domain)}
-                        title="Open domain details in a new tab"
+                        onClick={() => openDomainDetails(domain)}
+                        title="Open domain details"
                       >
                         <td
                           className="domain-name"
-                          title="Click to open domain details in a new tab"
+                          title="Click to open domain details"
                         >
                           {domain.domain_name}
                         </td>

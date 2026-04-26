@@ -74,6 +74,28 @@ function App() {
     // Do NOT force-redirect to dashboard — sessionStorage already restored the right page
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    try {
+      const url = new URL(window.location.href);
+      const current = url.searchParams.get('domain');
+      const next = selectedDomainId ? String(selectedDomainId) : '';
+
+      // Show ?domain only on domain-details page; remove it everywhere else.
+      if (activePage === 'domain-details' && next) {
+        if (current !== next) {
+          url.searchParams.set('domain', next);
+          window.history.replaceState({}, '', url.toString());
+        }
+      } else if (current) {
+        url.searchParams.delete('domain');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // ignore URL sync errors
+    }
+  }, [token, activePage, selectedDomainId]);
+
   // Listen for navigate events from Header dropdown
   useEffect(() => {
     const handler = (e) => {
