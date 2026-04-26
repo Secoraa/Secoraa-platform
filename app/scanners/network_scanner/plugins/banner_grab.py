@@ -55,6 +55,34 @@ def _extract_version(banner: bytes) -> Optional[str]:
     return None
 
 
+# Recognize common product/version pairs in a banner string. Returns
+# {"name": <product>, "version": <version>} or None. Used to feed the
+# CVE-enrichment step in the orchestrator with structured data.
+_PRODUCT_PATTERNS = [
+    re.compile(r"OpenSSH[_/-]([0-9][0-9a-z\.\-p]*)", re.IGNORECASE),
+    re.compile(r"nginx/([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+    re.compile(r"Apache(?:[/-]([0-9][0-9a-z\.\-]*))", re.IGNORECASE),
+    re.compile(r"lighttpd/([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+    re.compile(r"vsftpd ([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+    re.compile(r"ProFTPD ([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+    re.compile(r"Exim ([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+    re.compile(r"Postfix(?: smtpd)? ([0-9][0-9a-z\.\-]*)", re.IGNORECASE),
+]
+
+
+def _detect_software(version_str: str) -> Optional[dict]:
+    """Pull a structured (name, version) tuple out of a free-text banner."""
+    for pattern in _PRODUCT_PATTERNS:
+        match = pattern.search(version_str or "")
+        if match:
+            # Map regex back to canonical product name
+            canonical = pattern.pattern.split("[", 1)[0].split("/", 1)[0].split(" ", 1)[0].lower()
+            # Cleanup: regex prefixes like "(?:" leak in
+            canonical = re.sub(r"[^a-z]", "", canonical) or "unknown"
+            return {"name": canonical, "version": match.group(1)}
+    return None
+
+
 def run(target_ip: str, open_ports: List[dict], timeout: float = 2.0) -> List[Finding]:
     findings: List[Finding] = []
 
@@ -69,6 +97,7 @@ def run(target_ip: str, open_ports: List[dict], timeout: float = 2.0) -> List[Fi
         snippet = banner[:200].decode("utf-8", errors="replace").strip()
 
         if version:
+            software = _detect_software(version)
             findings.append(
                 Finding(
                     plugin="banner_grab",
@@ -87,6 +116,7 @@ def run(target_ip: str, open_ports: List[dict], timeout: float = 2.0) -> List[Fi
                     port=port,
                     service=service,
                     tags=["info-disclosure", "fingerprintable"],
+                    software=software,
                 )
             )
         else:

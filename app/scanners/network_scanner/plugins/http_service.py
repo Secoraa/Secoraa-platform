@@ -75,6 +75,21 @@ def _audit_url(url: str, port: int, scheme: str, timeout: float) -> List[Finding
 
     server = response.headers.get("Server")
     if server:
+        # Pull a structured (name, version) tuple from common Server-header
+        # shapes so the orchestrator's CVE enrichment step can look it up.
+        # Examples: "Apache/2.4.7 (Ubuntu)", "nginx/1.14.0", "lighttpd/1.4.45".
+        software = None
+        for pattern, name in (
+            (r"Apache/([0-9][0-9a-z\.\-]*)", "apache"),
+            (r"nginx/([0-9][0-9a-z\.\-]*)", "nginx"),
+            (r"lighttpd/([0-9][0-9a-z\.\-]*)", "lighttpd"),
+            (r"Microsoft-IIS/([0-9][0-9a-z\.\-]*)", "iis"),
+        ):
+            import re as _re
+            m = _re.search(pattern, server, _re.IGNORECASE)
+            if m:
+                software = {"name": name, "version": m.group(1)}
+                break
         findings.append(
             Finding(
                 plugin="http_service",
@@ -85,6 +100,7 @@ def _audit_url(url: str, port: int, scheme: str, timeout: float) -> List[Finding
                 port=port,
                 service=scheme,
                 tags=["info-disclosure"],
+                software=software,
             )
         )
 

@@ -13,7 +13,7 @@ Adding a new plugin:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 
 @dataclass
@@ -31,6 +31,10 @@ class Finding:
     cvss_vector: Optional[str] = None
     reference: Optional[str] = None
     tags: List[str] = field(default_factory=list)
+    # When a plugin extracts a versioned product (OpenSSH 6.6.1p1, nginx 1.14.0),
+    # populate this so the orchestrator's CVE enrichment step can look it up
+    # against OSV. Shape: {"name": "openssh", "version": "6.6.1p1"}
+    software: Optional[Dict[str, str]] = None
 
 
 @dataclass

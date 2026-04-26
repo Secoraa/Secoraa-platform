@@ -42,6 +42,14 @@ def _parse_openssh(banner_software: str) -> Tuple[int, int]:
     return (int(match.group(1)), int(match.group(2)))
 
 
+def _openssh_software_dict(banner_software: str) -> Optional[dict]:
+    """Pull a structured OpenSSH version (e.g. 6.6.1p1) for CVE lookup."""
+    full = re.search(r"OpenSSH_(\d+\.\d+(?:\.\d+)?p?\d*)", banner_software)
+    if not full:
+        return None
+    return {"name": "openssh", "version": full.group(1)}
+
+
 def run(target_ip: str, open_ports: List[dict], timeout: float = 3.0) -> List[Finding]:
     findings: List[Finding] = []
 
@@ -123,6 +131,7 @@ def run(target_ip: str, open_ports: List[dict], timeout: float = 3.0) -> List[Fi
                 port=port,
                 service="ssh",
                 tags=["info-disclosure"],
+                software=_openssh_software_dict(software),
             )
         )
 
