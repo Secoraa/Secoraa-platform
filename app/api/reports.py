@@ -2692,6 +2692,21 @@ def create_report(
         findings = report_data.get("findings") or []
         if not isinstance(findings, list):
             findings = []
+        # Keep API report counts aligned with Scan Details UI:
+        # deduplicate repeated endpoint-level rows by finding title/issue.
+        deduped_findings: List[Dict[str, Any]] = []
+        seen_issue_keys = set()
+        for f in findings:
+            if not isinstance(f, dict):
+                continue
+            issue_key = str(f.get("title") or f.get("issue") or f.get("name") or "").strip().lower()
+            if not issue_key:
+                issue_key = "finding"
+            if issue_key in seen_issue_keys:
+                continue
+            seen_issue_keys.add(issue_key)
+            deduped_findings.append(f)
+        findings = deduped_findings
 
         # Build summarized rows and keep endpoint details for report tables.
         by_issue: Dict[str, Dict[str, Any]] = {}
