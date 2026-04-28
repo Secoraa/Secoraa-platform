@@ -40,6 +40,7 @@
   margin-bottom: 2rem;
   border-bottom: 1px solid var(--border-color);
   flex-wrap: wrap;
+  padding-top: 8px;
 }
 
 .scan-tab {

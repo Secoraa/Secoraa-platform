@@ -12,6 +12,10 @@ import './Sidebar.css';
 
 const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onToggle }) => {
   const [asmExpanded, setAsmExpanded] = useState(true);
+  const isActiveItem = (itemId) => (
+    activePage === itemId ||
+    (itemId === 'vulnerability' && activePage === 'vulnerability-details')
+  );
 
   const asmItems = [
     { id: 'dashboard', label: 'Dashboard', SvgComponent: DashboardIcon },
@@ -90,7 +94,7 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
               {asmItems.map((item) => (
                 <button
                   key={item.id}
-                  className={`nav-item ${activePage === item.id ? 'active' : ''}`}
+                  className={`nav-item ${isActiveItem(item.id) ? 'active' : ''}`}
                   onClick={() => setActivePage(item.id)}
                   title={item.label}
                 >
