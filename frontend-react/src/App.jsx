@@ -7,6 +7,7 @@ import Scan from './pages/Scan';
 import ScanResults from './pages/ScanResults';
 import Auth from './pages/Auth';
 import Vulnerability from './pages/Vulnerability';
+import VulnerabilityDetails from './pages/VulnerabilityDetails';
 import Reporting from './pages/Reporting';
 import Dashboard from './pages/Dashboard';
 import DomainDetails from './pages/DomainDetails';
@@ -19,6 +20,7 @@ import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient'
 const PAGE_FALLBACKS = {
   'scan-results': 'scan',
   'domain-details': 'asset-discovery',
+  'vulnerability-details': 'vulnerability',
 };
 
 function App() {
@@ -63,9 +65,14 @@ function App() {
     try {
       const url = new URL(window.location.href);
       const domainParam = url.searchParams.get('domain');
+      const vulnParam = url.searchParams.get('vuln');
       if (domainParam) {
         setSelectedDomainId(domainParam);
         setActivePage('domain-details');
+        return;
+      }
+      if (vulnParam) {
+        setActivePage('vulnerability-details');
         return;
       }
     } catch {
@@ -79,6 +86,7 @@ function App() {
     try {
       const url = new URL(window.location.href);
       const current = url.searchParams.get('domain');
+      const currentVuln = url.searchParams.get('vuln');
       const next = selectedDomainId ? String(selectedDomainId) : '';
 
       // Show ?domain only on domain-details page; remove it everywhere else.
@@ -89,6 +97,13 @@ function App() {
         }
       } else if (current) {
         url.searchParams.delete('domain');
+      }
+
+      if (activePage !== 'vulnerability-details' && currentVuln) {
+        url.searchParams.delete('vuln');
+      }
+
+      if (current || currentVuln) {
         window.history.replaceState({}, '', url.toString());
       }
     } catch {
@@ -159,6 +174,8 @@ function App() {
         return <ScanResults scanId={selectedScanId} onBack={handleBackToScan} />;
       case 'vulnerability':
         return <Vulnerability />;
+      case 'vulnerability-details':
+        return <VulnerabilityDetails />;
       case 'reporting':
         return <Reporting />;
       case 'settings':
