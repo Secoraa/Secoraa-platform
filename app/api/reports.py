@@ -746,26 +746,49 @@ def _build_api_details_pdf(
     pdf.line(12, pdf.get_y() + 4, 120, pdf.get_y() + 4)
     pdf.set_line_width(0.2)
 
-    pdf.set_xy(12, 160)
+    # Cover metadata block: use fixed vertical rhythm like other report templates.
+    base_x = 12
+    y = 160
+
+    pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "", 12)
     pdf.set_text_color(*text_muted)
     pdf.cell(0, 7, _safe_pdf_text("Prepared for"), 0, 1, "L")
+    y += 11
+
+    pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "B", 24)
     pdf.set_text_color(*gold)
     pdf.cell(0, 12, _safe_pdf_text(tenant), 0, 1, "L")
+    y += 16
+
     if domain:
+        pdf.set_xy(base_x, y)
         pdf.set_font("Helvetica", "", 14)
         pdf.set_text_color(*text_light)
         pdf.cell(0, 9, _safe_pdf_text(domain), 0, 1, "L")
-    pdf.ln(4)
+        y += 13
+
+    if description:
+        pdf.set_xy(base_x, y)
+        pdf.set_font("Helvetica", "", 12)
+        pdf.set_text_color(*text_muted)
+        safe_desc = _safe_pdf_text(str(description).strip())
+        if safe_desc:
+            pdf.multi_cell(186, 6, safe_desc)
+            y = pdf.get_y() + 4
+
+    pdf.set_xy(base_x, y)
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(*text_muted)
     pdf.cell(0, 7, _safe_pdf_text(f"Generated on {created_at.strftime('%m-%d-%Y')}"), 0, 1, "L")
 
-    pdf.ln(8)
+    # Keep summary metrics near the footer area on the cover page.
+    metrics_y = 252
+    pdf.set_xy(12, metrics_y)
     pdf.set_draw_color(*border_subtle)
-    pdf.line(12, pdf.get_y(), 198, pdf.get_y())
-    pdf.ln(4)
+    pdf.line(12, metrics_y, 198, metrics_y)
+    pdf.set_xy(12, metrics_y + 4)
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(*text_muted)
     pdf.cell(0, 6, _safe_pdf_text(f"Total Endpoints: {total_endpoints}   |   Findings: {vulnerabilities_total}"), 0, 1, "L")
@@ -2591,7 +2614,7 @@ def create_report(
         ci_context = " ".join(filter(None, [repo, branch_or_pr, f"@ {sha_short}" if sha_short else ""]))
         cover_domain_line = ci_target_url or scan.scan_name or ci_context
 
-        total_endpoints = int(report_data.get("total_endpoints") or 0)
+        scanned_total_endpoints = int(report_data.get("total_endpoints") or 0)
         findings = report_data.get("findings") or []
         if not isinstance(findings, list):
             findings = []
@@ -2748,6 +2771,14 @@ def create_report(
                 g["severity"] = sev
 
         # Assets section: do not list endpoints; only show totals.
+        # Keep the cover count aligned with what the findings table represents:
+        # endpoint(s) that were actually flagged in findings.
+        flagged_endpoints = {
+            str(r.get("endpoint") or "").strip()
+            for r in findings_rows
+            if str(r.get("endpoint") or "").strip()
+        }
+        total_endpoints = len(flagged_endpoints) if flagged_endpoints else scanned_total_endpoints
         assets_list = []
         assets_total = total_endpoints
 
