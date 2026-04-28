@@ -27,20 +27,32 @@ const Reporting = () => {
   const [ipAddress, setIpAddress] = useState('');
   const [cicdScans, setCicdScans] = useState([]);
 
-  const formatScopeLabel = (rawScope) => {
-    const scope = String(rawScope || '').trim();
-    if (!scope) return '-';
-    // Handle accidental concatenation like "sub.example.comexample.com"
-    // by splitting the repeated domain suffix with a space.
-    for (let i = 0; i < scope.length; i += 1) {
-      const suffix = scope.slice(i);
-      if (!suffix.includes('.') || suffix.length < 5) continue;
-      const head = scope.slice(0, scope.length - suffix.length);
-      if (head && head.endsWith(suffix)) {
-        return `${head} ${suffix}`;
-      }
-    }
-    return scope;
+  const formatReportTypeLabel = (row) => {
+    const raw = String(row?.report_type || row?.report_name || '').trim();
+    if (!raw) return '-';
+    const normalized = raw.toUpperCase();
+
+    const assessmentLabel =
+      normalized.includes('CICD') || normalized.includes('CI/CD') || normalized.includes('CI_CD')
+        ? 'CI/CD Scan'
+        : normalized.includes('NETWORK')
+          ? 'Network Scan'
+          : normalized.includes('API') || normalized.includes('TESTING')
+            ? 'API Scan'
+            : normalized.includes('WEBSCAN') || normalized.includes('VULNERABILITY')
+              ? 'Vulnerability Scan'
+              : normalized.includes('DOMAIN') || normalized.includes('ASM')
+                ? 'Domain'
+                : 'Scan';
+
+    const variantLabel =
+      normalized.includes('EXEC') || normalized.includes('EXPOSURE')
+        ? 'Executive Summary'
+        : normalized.includes('DETAIL')
+          ? 'Detailed Report'
+          : 'Report';
+
+    return `${assessmentLabel} - ${variantLabel}`;
   };
 
   const getAssetHost = (value) => {
@@ -322,33 +334,7 @@ const Reporting = () => {
                 reports.map((r) => (
                   <tr key={r.id}>
                     <td className="mono">{r.report_name}</td>
-                    <td>
-                      {(() => {
-                        const rt = String(r.report_type || '').toUpperCase();
-                        const scope = formatScopeLabel(r.domain_name || '-');
-                        // New format: <ASSESSMENT>_<VARIANT>
-                        if (rt.includes('_')) {
-                          const parts = rt.split('_');
-                          const assessment = parts[0] || 'DOMAIN';
-                          const variant = parts.slice(1).join('_') || '';
-                          const assessmentLabel =
-                            assessment === 'DOMAIN' ? 'Domain' :
-                            assessment === 'WEBSCAN' ? 'Vulnerability Scan' :
-                            assessment === 'API' || assessment === 'API_TESTING' ? 'API Scan' :
-                            assessment === 'NETWORK' || assessment === 'NETWORK_SCAN' ? 'Network Scan' :
-                            assessment === 'CICD' || assessment === 'CI' ? 'CI/CD Scan' :
-                            assessment;
-                          const variantLabel =
-                            variant === 'EXEC_SUMMARY' ? 'Executive Summary' :
-                            variant === 'DETAILS_REPORT' || variant === 'DETAILS_SUMMARY' ? 'Details Report' :
-                            variant;
-                          return `${variantLabel} - ${assessmentLabel} (${scope})`;
-                        }
-                        if (rt === 'EXEC_SUMMARY' || rt === 'EXECUTIVE_SUMMARY' || rt === 'EXPOSURE_STORIES') return `Executive Summary - Domain (${scope})`;
-                        if (rt === 'DETAILS_SUMMARY' || rt === 'DETAIL_SUMMARY' || rt === 'ASM') return `Details Report - Domain (${scope})`;
-                        return rt || '-';
-                      })()}
-                    </td>
+                    <td>{formatReportTypeLabel(r)}</td>
                     <td>{r.created_by || '-'}</td>
                     <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
                     <td>
@@ -406,7 +392,7 @@ const Reporting = () => {
                   onChange={(val) => setReportType(val)}
                   options={[
                     { value: 'EXEC_SUMMARY', label: 'Executive Summary' },
-                    { value: 'DETAILS_SUMMARY', label: 'Details Report' },
+                    { value: 'DETAILS_SUMMARY', label: 'Detailed Report' },
                   ]}
                 />
               </div>

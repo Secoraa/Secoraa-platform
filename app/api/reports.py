@@ -739,7 +739,7 @@ def _build_api_details_pdf(
     pdf.set_xy(12, 100)
     pdf.set_font("Helvetica", "B", 28)
     pdf.set_text_color(*gold)
-    pdf.multi_cell(0, 13, _safe_pdf_text("API TESTING\nDETAILS REPORT"))
+    pdf.multi_cell(0, 13, _safe_pdf_text("API TESTING\nDETAILED REPORT"))
 
     pdf.set_draw_color(*gold)
     pdf.set_line_width(1.2)
@@ -1878,7 +1878,7 @@ def _build_asm_pdf(
     pdf.set_xy(12, 92)
     pdf.set_font("Helvetica", "B", 26)
     pdf.set_text_color(*gold)
-    cover_title = str((template or {}).get("cover_title") or "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILS REPORT")
+    cover_title = str((template or {}).get("cover_title") or "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILED REPORT")
     pdf.multi_cell(0, 12, _safe_pdf_text(cover_title))
 
     # Green separator line
@@ -2416,7 +2416,7 @@ def create_report(
             )
 
         template = {
-            "cover_title": "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILS REPORT",
+            "cover_title": "ATTACK SURFACE MANAGEMENT\n(ASM) DETAILED REPORT",
         }
 
     elif assessment == "VULNERABILITY_SCAN":
@@ -2454,7 +2454,7 @@ def create_report(
                 }
             )
         template = {
-            "cover_title": "VULNERABILITY_SCAN\n(SUBDOMAIN) DETAILS REPORT",
+            "cover_title": "VULNERABILITY_SCAN\n(SUBDOMAIN) DETAILED REPORT",
             "assets_intro": "This report summarizes web-facing exposure and vulnerabilities for the selected subdomain.",
             "assets_total_label": "TOTAL SUBDOMAINS",
             "assets_section_title": "Assets",
@@ -2538,7 +2538,7 @@ def create_report(
             )
 
         template = {
-            "cover_title": "NETWORK SCAN\nDETAILS REPORT",
+            "cover_title": "NETWORK SCAN\nDETAILED REPORT",
             "assets_intro": "This report summarizes network-layer exposures and service-level vulnerabilities for the scanned host.",
             "assets_total_label": "TOTAL HOSTS",
             "assets_section_title": "Host",
@@ -2648,7 +2648,7 @@ def create_report(
             )
 
         template = {
-            "cover_title": "CI/CD SECURITY\nDETAILS REPORT",
+            "cover_title": "CI/CD SECURITY\nDETAILED REPORT",
             "assets_section_title": "CI/CD Run",
             "assets_intro": (
                 f"This report summarizes the CI/CD security scan triggered for {ci_context or 'this build'}. "
@@ -2797,7 +2797,7 @@ def create_report(
             )
 
         template = {
-            "cover_title": "API TESTING\nDETAILS REPORT",
+            "cover_title": "API TESTING\nDETAILED REPORT",
             "assets_section_title": "API Inventory",
             "assets_intro": "This report summarizes API testing results for the selected scan. It intentionally avoids listing raw endpoints in the PDF.",
             "assets_total_label": "TOTAL ENDPOINTS",
