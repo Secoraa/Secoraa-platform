@@ -12,7 +12,7 @@ const Reporting = () => {
   const [generating, setGenerating] = useState(false);
   const [domains, setDomains] = useState([]);
   const [reports, setReports] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+  const [showCreatePage, setShowCreatePage] = useState(false);
 
   const [reportName, setReportName] = useState('');
   const [reportType, setReportType] = useState('EXEC_SUMMARY');
@@ -257,7 +257,7 @@ const Reporting = () => {
       const blob = await downloadReportPdf(reportId);
       downloadBlob(blob, `${reportName.trim().replace(/\s+/g, '-')}.pdf`);
 
-      setShowModal(false);
+      setShowCreatePage(false);
       resetModal();
       await loadReports();
     } catch (err) {
@@ -287,234 +287,241 @@ const Reporting = () => {
         />
       )}
 
-      <div className="reporting-header">
-        <h1 className="page-title">REPORTING</h1>
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => {
-            setShowModal(true);
-            resetModal();
-          }}
-        >
-          New Report
-        </button>
+      <div className={`reporting-header ${showCreatePage ? 'create' : ''}`}>
+        {showCreatePage ? (
+          <div className="reporting-header-left">
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => {
+                setShowCreatePage(false);
+                resetModal();
+              }}
+            >
+              {'← Back to Reports'}
+            </button>
+            <h1 className="page-title">NEW REPORT</h1>
+          </div>
+        ) : (
+          <h1 className="page-title">REPORTING</h1>
+        )}
+        {!showCreatePage && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => {
+              setShowCreatePage(true);
+              resetModal();
+            }}
+          >
+            New Report
+          </button>
+        )}
       </div>
 
-      <div className="reporting-card">
-        <div className="reporting-table-wrap">
-          <table className="reporting-table">
-            <thead>
-              <tr>
-                <th>REPORT NAME</th>
-                <th>REPORT TYPE</th>
-                <th>CREATED BY</th>
-                <th>CREATED AT</th>
-                <th>REPORT LINK</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
+      {showCreatePage ? (
+        <div className="reporting-create-page">
+          <div className="report-form-layout">
+            <div className="modal-field report-field report-field--full">
+              <label>Report name</label>
+              <input value={reportName} onChange={(e) => setReportName(e.target.value)} placeholder="e.g. ASM Report - Q1" />
+            </div>
+
+            <div className="modal-field report-field">
+              <label>Assessment</label>
+              <Dropdown
+                value={assessmentType}
+                onChange={(val) => {
+                  setAssessmentType(val);
+                  setSubdomainName('');
+                  setScanId('');
+                }}
+                options={[
+                  { value: 'DOMAIN', label: 'Domain', icon: <ScanTypeIcon type="dd" /> },
+                  { value: 'WEBSCAN', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="subdomain" /> },
+                  { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
+                  { value: 'NETWORK_SCAN', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
+                  { value: 'CICD', label: 'CI/CD Scan', icon: <ScanTypeIcon type="api" /> },
+                ]}
+              />
+            </div>
+
+            <div className="modal-field report-field">
+              <label>Summary type</label>
+              <Dropdown
+                value={reportType}
+                onChange={(val) => setReportType(val)}
+                options={[
+                  { value: 'EXEC_SUMMARY', label: 'Executive Summary' },
+                  { value: 'DETAILS_SUMMARY', label: 'Detailed Report' },
+                ]}
+              />
+            </div>
+
+            <div className="modal-field report-field report-field--full">
+              <label>Description</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" rows={3} />
+            </div>
+
+            {assessmentType !== 'CICD' && (
+              <div className="modal-field report-field report-field--full">
+                <label>Domain name</label>
+                <Dropdown
+                  value={domainName}
+                  onChange={(val) => {
+                    setDomainName(val);
+                    setSubdomainName('');
+                    setIpAddress('');
+                  }}
+                  placeholder="Select domain"
+                  options={domains.map((d) => ({
+                    value: d.domain_name,
+                    label: d.domain_name,
+                  }))}
+                />
+              </div>
+            )}
+
+            {assessmentType === 'WEBSCAN' && (
+              <div className="modal-field report-field report-field--full">
+                <label>Subdomain</label>
+                <Dropdown
+                  value={subdomainName}
+                  onChange={(val) => setSubdomainName(val)}
+                  disabled={!domainName}
+                  placeholder={domainName ? 'Select subdomain' : 'Select domain first'}
+                  options={(subdomains || [])
+                    .filter((s) => String(s.domain_id) === String(domains.find((d) => d.domain_name === domainName)?.id))
+                    .map((s) => ({
+                      value: s.subdomain_name,
+                      label: s.subdomain_name,
+                    }))}
+                />
+              </div>
+            )}
+
+            {assessmentType === 'API_TESTING' && (
+              <div className="modal-field report-field report-field--full">
+                <label>API Asset</label>
+                <Dropdown
+                  value={scanId}
+                  onChange={(val) => setScanId(val)}
+                  placeholder="Select API asset"
+                  options={apiAssetOptions}
+                />
+                {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
+                  <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
+                )}
+              </div>
+            )}
+
+            {assessmentType === 'CICD' && (
+              <div className="modal-field report-field report-field--full">
+                <label>CI/CD Scan</label>
+                <Dropdown
+                  value={scanId}
+                  onChange={(val) => setScanId(val)}
+                  placeholder={cicdScanOptions.length ? 'Select a completed CI/CD scan' : 'No completed CI/CD scans yet'}
+                  options={cicdScanOptions}
+                />
+                {cicdScanOptions.length === 0 && (
+                  <div className="helper-text">Run a scan via your CI/CD pipeline first — results sync here automatically when the SECORAA_API_KEY is configured.</div>
+                )}
+              </div>
+            )}
+
+            {assessmentType === 'NETWORK_SCAN' && (
+              <div className="modal-field report-field report-field--full">
+                <label>IP Address</label>
+                <Dropdown
+                  value={ipAddress}
+                  onChange={(val) => setIpAddress(val)}
+                  disabled={!domainName}
+                  placeholder={
+                    !domainName
+                      ? 'Select domain first'
+                      : ipsForDomain.length
+                        ? 'Select an IP address'
+                        : 'No IPs registered for this domain'
+                  }
+                  options={ipsForDomain.map((ip) => ({
+                    value: ip.ipaddress_name,
+                    label: ip.ipaddress_name,
+                  }))}
+                />
+                {domainName && ipsForDomain.length === 0 && (
+                  <div className="helper-text">Add an IP under Asset Discovery for this domain first.</div>
+                )}
+                {ipAddress && !derivedNetworkScanId && (
+                  <div className="helper-text">No completed network scan for this IP yet — run one before generating a report.</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="report-form-actions">
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => {
+                setShowCreatePage(false);
+                resetModal();
+              }}
+            >
+              Cancel
+            </button>
+            <button className="btn-primary" type="button" onClick={handleGenerate} disabled={!canGenerate || generating}>
+              {generating ? 'Generating…' : 'Generate report'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="reporting-card">
+          <div className="reporting-table-wrap">
+            <table className="reporting-table">
+              <thead>
                 <tr>
-                  <td colSpan="5" className="empty-state">
-                    Loading…
-                  </td>
+                  <th>REPORT NAME</th>
+                  <th>REPORT TYPE</th>
+                  <th>CREATED BY</th>
+                  <th>CREATED AT</th>
+                  <th>REPORT LINK</th>
                 </tr>
-              ) : reports.length === 0 ? (
-                <tr>
-                  <td colSpan="5">
-                    <div className="empty-report">
-                      <img src={nexveilLogo} alt="NexVeil" className="empty-report-logo" />
-                      <div className="empty-report-tagline">Start your API Security Journey with NexVeil</div>
-                      <button className="empty-report-btn" onClick={() => { setShowModal(true); resetModal(); }}>Create Your First Report</button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                reports.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono">{r.report_name}</td>
-                    <td>{formatReportTypeLabel(r)}</td>
-                    <td>{r.created_by || '-'}</td>
-                    <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
-                    <td>
-                      <button className="link-btn" type="button" onClick={() => handleDownloadExisting(r)}>
-                        Download
-                      </button>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="empty-state">
+                      Loading…
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay" onMouseDown={() => setShowModal(false)}>
-          <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title">New Report</div>
-              <button className="icon-btn" type="button" onClick={() => setShowModal(false)}>
-                ✕
-              </button>
-            </div>
-
-            <div className="modal-body">
-              <div className="modal-field">
-                <label>Report name</label>
-                <input value={reportName} onChange={(e) => setReportName(e.target.value)} placeholder="e.g. ASM Report - Q1" />
-              </div>
-
-              <div className="modal-field">
-                <label>Assessment</label>
-                <Dropdown
-                  value={assessmentType}
-                  onChange={(val) => {
-                    setAssessmentType(val);
-                    setSubdomainName('');
-                    setScanId('');
-                  }}
-                  options={[
-                    { value: 'DOMAIN', label: 'Domain', icon: <ScanTypeIcon type="dd" /> },
-                    { value: 'WEBSCAN', label: 'Vulnerability Scan', icon: <ScanTypeIcon type="subdomain" /> },
-                    { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
-                    { value: 'NETWORK_SCAN', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
-                    { value: 'CICD', label: 'CI/CD Scan', icon: <ScanTypeIcon type="api" /> },
-                  ]}
-                />
-              </div>
-
-              <div className="modal-field">
-                <label>Summary type</label>
-                <Dropdown
-                  value={reportType}
-                  onChange={(val) => setReportType(val)}
-                  options={[
-                    { value: 'EXEC_SUMMARY', label: 'Executive Summary' },
-                    { value: 'DETAILS_SUMMARY', label: 'Detailed Report' },
-                  ]}
-                />
-              </div>
-
-              <div className="modal-field">
-                <label>Description</label>
-                <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" rows={3} />
-              </div>
-
-              {assessmentType !== 'CICD' && (
-                <div className="modal-field">
-                  <label>Domain name</label>
-                  <Dropdown
-                    value={domainName}
-                    onChange={(val) => {
-                      setDomainName(val);
-                      // Clear dependent selections when domain changes — same
-                      // pattern as VULNERABILITY_SCAN's subdomain reset.
-                      setSubdomainName('');
-                      setIpAddress('');
-                    }}
-                    placeholder="Select domain"
-                    options={domains.map((d) => ({
-                      value: d.domain_name,
-                      label: d.domain_name,
-                    }))}
-                  />
-                </div>
-              )}
-
-              {assessmentType === 'WEBSCAN' && (
-                <div className="modal-field">
-                  <label>Subdomain</label>
-                  <Dropdown
-                    value={subdomainName}
-                    onChange={(val) => setSubdomainName(val)}
-                    disabled={!domainName}
-                    placeholder={domainName ? 'Select subdomain' : 'Select domain first'}
-                    options={(subdomains || [])
-                      .filter((s) => String(s.domain_id) === String(domains.find((d) => d.domain_name === domainName)?.id))
-                      .map((s) => ({
-                        value: s.subdomain_name,
-                        label: s.subdomain_name,
-                      }))}
-                  />
-                </div>
-              )}
-
-              {assessmentType === 'API_TESTING' && (
-                <div className="modal-field">
-                  <label>API Asset</label>
-                  <Dropdown
-                    value={scanId}
-                    onChange={(val) => setScanId(val)}
-                    placeholder="Select API asset"
-                    options={apiAssetOptions}
-                  />
-                  {domainName && (apiScansForDomain || []).length > 0 && (apiScansForDomain || []).every((s) => !String(s.asset_url || s.asset_name || '').toLowerCase().includes(domainName.toLowerCase())) && (
-                    <div className="helper-text">No API scans matched this domain. Showing all API scans.</div>
-                  )}
-                </div>
-              )}
-
-              {assessmentType === 'CICD' && (
-                <div className="modal-field">
-                  <label>CI/CD Scan</label>
-                  <Dropdown
-                    value={scanId}
-                    onChange={(val) => setScanId(val)}
-                    placeholder={cicdScanOptions.length ? 'Select a completed CI/CD scan' : 'No completed CI/CD scans yet'}
-                    options={cicdScanOptions}
-                  />
-                  {cicdScanOptions.length === 0 && (
-                    <div className="helper-text">Run a scan via your CI/CD pipeline first — results sync here automatically when the SECORAA_API_KEY is configured.</div>
-                  )}
-                </div>
-              )}
-
-              {assessmentType === 'NETWORK_SCAN' && (
-                <div className="modal-field">
-                  <label>IP Address</label>
-                  <Dropdown
-                    value={ipAddress}
-                    onChange={(val) => setIpAddress(val)}
-                    disabled={!domainName}
-                    placeholder={
-                      !domainName
-                        ? 'Select domain first'
-                        : ipsForDomain.length
-                          ? 'Select an IP address'
-                          : 'No IPs registered for this domain'
-                    }
-                    options={ipsForDomain.map((ip) => ({
-                      value: ip.ipaddress_name,
-                      label: ip.ipaddress_name,
-                    }))}
-                  />
-                  {domainName && ipsForDomain.length === 0 && (
-                    <div className="helper-text">Add an IP under Asset Discovery for this domain first.</div>
-                  )}
-                  {ipAddress && !derivedNetworkScanId && (
-                    <div className="helper-text">No completed network scan for this IP yet — run one before generating a report.</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="modal-footer">
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={() => {
-                  setShowModal(false);
-                  resetModal();
-                }}
-              >
-                Cancel
-              </button>
-              <button className="btn-primary" type="button" onClick={handleGenerate} disabled={!canGenerate || generating}>
-                {generating ? 'Generating…' : 'Generate report'}
-              </button>
-            </div>
+                ) : reports.length === 0 ? (
+                  <tr>
+                    <td colSpan="5">
+                      <div className="empty-report">
+                        <img src={nexveilLogo} alt="NexVeil" className="empty-report-logo" />
+                        <div className="empty-report-tagline">Start your API Security Journey with NexVeil</div>
+                        <button className="empty-report-btn" onClick={() => { setShowCreatePage(true); resetModal(); }}>Create Your First Report</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  reports.map((r) => (
+                    <tr key={r.id}>
+                      <td className="mono">{r.report_name}</td>
+                      <td>{formatReportTypeLabel(r)}</td>
+                      <td>{r.created_by || '-'}</td>
+                      <td>{r.created_at ? new Date(r.created_at).toLocaleString() : '-'}</td>
+                      <td>
+                        <button className="link-btn" type="button" onClick={() => handleDownloadExisting(r)}>
+                          Download
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -127,7 +127,7 @@ export default function Settings() {
             </div>
           </div>
         ) : (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Loading profile...</p>
+          <p className="profile-loading">Loading profile...</p>
         )}
       </div>
 
@@ -139,17 +139,16 @@ export default function Settings() {
         </p>
 
         <div className="apikey-form">
-          <div className="field">
+          <div className="field field-key-name">
             <label>Key Name</label>
             <input
               type="text"
               placeholder="e.g. GitHub Actions - Production"
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
-              style={{ width: 280 }}
             />
           </div>
-          <div className="field">
+          <div className="field field-expiry">
             <label>Expires In</label>
             <select value={expiryDays} onChange={(e) => setExpiryDays(e.target.value)}>
               <option value="">Never</option>
@@ -159,12 +158,15 @@ export default function Settings() {
               <option value="365">1 year</option>
             </select>
           </div>
-          <button className="btn-generate" onClick={handleGenerate} disabled={generating}>
-            {generating ? 'Generating...' : 'Generate API Key'}
-          </button>
+          <div className="field field-action">
+            <label className="field-spacer" aria-hidden="true">Action</label>
+            <button className="btn-generate" onClick={handleGenerate} disabled={generating}>
+              {generating ? 'Generating...' : 'Generate API Key'}
+            </button>
+          </div>
         </div>
 
-        {error && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem' }}>{error}</p>}
+        {error && <p className="form-error">{error}</p>}
 
         {/* Show newly created key */}
         {newKey && (
@@ -183,42 +185,44 @@ export default function Settings() {
 
         {/* Key list */}
         {apiKeys.length > 0 ? (
-          <table className="apikey-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Key</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Expires</th>
-                <th>Last Used</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {apiKeys.map((k) => (
-                <tr key={k.id}>
-                  <td>{k.name}</td>
-                  <td><span className="key-prefix">{k.key_prefix}...</span></td>
-                  <td>
-                    <span className={k.is_active ? 'badge-active' : 'badge-revoked'}>
-                      {k.is_active ? 'Active' : 'Revoked'}
-                    </span>
-                  </td>
-                  <td>{new Date(k.created_at).toLocaleDateString()}</td>
-                  <td>{k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
-                  <td>{k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : '-'}</td>
-                  <td>
-                    {k.is_active && (
-                      <button className="btn-revoke" onClick={() => handleRevoke(k.id)}>
-                        Revoke
-                      </button>
-                    )}
-                  </td>
+          <div className="apikey-table-wrap">
+            <table className="apikey-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Key</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Expires</th>
+                  <th>Last Used</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {apiKeys.map((k) => (
+                  <tr key={k.id}>
+                    <td>{k.name}</td>
+                    <td><span className="key-prefix">{k.key_prefix}...</span></td>
+                    <td>
+                      <span className={k.is_active ? 'badge-active' : 'badge-revoked'}>
+                        {k.is_active ? 'Active' : 'Revoked'}
+                      </span>
+                    </td>
+                    <td>{new Date(k.created_at).toLocaleDateString()}</td>
+                    <td>{k.expires_at ? new Date(k.expires_at).toLocaleDateString() : 'Never'}</td>
+                    <td>{k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : '-'}</td>
+                    <td>
+                      {k.is_active && (
+                        <button className="btn-revoke" onClick={() => handleRevoke(k.id)}>
+                          Revoke
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="empty-state">No API keys yet. Generate one to use in your CI/CD pipeline.</div>
         )}
@@ -228,15 +232,7 @@ export default function Settings() {
       <div className="settings-section">
         <h2>Using API Keys in GitHub Actions</h2>
         <p className="section-desc">Add your API key as a GitHub repository secret, then reference it in your workflow.</p>
-        <pre style={{
-          background: 'var(--bg-primary)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 8,
-          padding: '1rem',
-          fontSize: '0.8rem',
-          overflow: 'auto',
-          color: 'var(--text-primary)',
-        }}>
+        <pre className="usage-snippet">
 {`# .github/workflows/security.yml
 - name: Secoraa API Security Scan
   uses: secoraa/api-security-scan@v1

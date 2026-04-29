@@ -5,42 +5,51 @@
 }
 
 .settings-page h1 {
-  font-size: 1.5rem;
-  margin: 0 0 0.25rem;
+  font-size: 1.75rem;
+  margin: 0 0 0.35rem;
+  letter-spacing: 0.01em;
 }
 
 .settings-page .subtitle {
   color: var(--text-secondary);
-  font-size: 0.85rem;
-  margin-bottom: 2rem;
+  font-size: 0.92rem;
+  margin-bottom: 1.75rem;
 }
 
 /* ── Sections ── */
 .settings-section {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.5rem;
+  border-radius: 12px;
+  padding: 1.25rem 1.4rem;
   margin-bottom: 1.5rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
 }
 
 .settings-section h2 {
-  font-size: 1.1rem;
-  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+  margin: 0 0 0.35rem;
 }
 
 .settings-section .section-desc {
   color: var(--text-secondary);
-  font-size: 0.8rem;
-  margin-bottom: 1rem;
+  font-size: 0.86rem;
+  margin-bottom: 1.15rem;
 }
 
 /* ── Profile card ── */
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  max-width: 500px;
+  gap: 1rem 1.5rem;
+  max-width: 680px;
+}
+
+.profile-item {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
 }
 
 .profile-item label {
@@ -54,21 +63,39 @@
 
 .profile-item span {
   font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.profile-loading {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 /* ── API Key form ── */
 .apikey-form {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 0.9rem;
+  align-items: start;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
 }
 
 .apikey-form .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+.apikey-form .field-key-name {
+  grid-column: span 7;
+}
+
+.apikey-form .field-expiry {
+  grid-column: span 3;
+}
+
+.apikey-form .field-action {
+  grid-column: span 2;
 }
 
 .apikey-form .field label {
@@ -78,12 +105,19 @@
 
 .apikey-form .field input,
 .apikey-form .field select {
-  padding: 8px 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 0.85rem;
+}
+
+.field-spacer {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .apikey-form .field input:focus,
@@ -93,7 +127,9 @@
 }
 
 .btn-generate {
-  padding: 8px 18px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 14px;
   background: #6366f1;
   color: #fff;
   border: none;
@@ -112,11 +148,17 @@
   cursor: not-allowed;
 }
 
+.form-error {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin: -0.2rem 0 1rem;
+}
+
 /* ── New key banner ── */
 .new-key-banner {
-  background: #1a1a2e;
-  border: 1px solid #6366f1;
-  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.03));
+  border: 1px solid rgba(99, 102, 241, 0.7);
+  border-radius: 10px;
   padding: 1rem 1.25rem;
   margin-bottom: 1.25rem;
 }
@@ -132,6 +174,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .new-key-banner .key-value {
@@ -162,10 +205,15 @@
 }
 
 /* ── API Key table ── */
+.apikey-table-wrap {
+  overflow-x: auto;
+}
+
 .apikey-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85rem;
+  min-width: 760px;
 }
 
 .apikey-table th {
@@ -232,4 +280,38 @@
   padding: 2rem;
   color: var(--text-secondary);
   font-size: 0.85rem;
+}
+
+.usage-snippet {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 0.8rem;
+  overflow: auto;
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  .settings-page {
+    padding: 1rem;
+  }
+
+  .settings-page h1 {
+    font-size: 1.5rem;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .apikey-form {
+    grid-template-columns: 1fr;
+  }
+
+  .apikey-form .field-key-name,
+  .apikey-form .field-expiry,
+  .apikey-form .field-action {
+    grid-column: span 1;
+  }
 }
