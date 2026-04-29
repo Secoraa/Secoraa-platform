@@ -11,11 +11,73 @@
   margin-bottom: 1rem;
 }
 
+.reporting-header.create {
+  justify-content: flex-start;
+}
+
+.reporting-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .reporting-card {
   background-color: var(--bg-secondary);
   padding: 1.5rem;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+}
+
+.reporting-create-page {
+  width: 100%;
+  margin: 0;
+  min-height: calc(100vh - 180px);
+  padding: 24px 28px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+}
+
+.report-form-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 20px;
+  row-gap: 16px;
+  align-content: start;
+}
+
+.report-field {
+  min-width: 0;
+}
+
+.report-field--full {
+  grid-column: 1 / -1;
+}
+
+.report-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 18px;
+  padding-bottom: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.reporting-create-page .modal-field {
+  gap: 8px;
+}
+
+.reporting-create-page .modal-field label {
+  margin-bottom: 2px;
+}
+
+.reporting-create-page .modal-field input,
+.reporting-create-page .modal-field select,
+.reporting-create-page .modal-field textarea {
+  padding: 0.8rem 0.95rem;
 }
 
 .reporting-table-wrap {
@@ -191,6 +253,24 @@
   max-height: 140px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+}
+
+.reporting-create-page .gold-dropdown__menu {
+  max-height: 180px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 900px) {
+  .reporting-create-page {
+    width: 100%;
+    padding: 16px;
+  }
+
+  .report-form-layout {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
 }
 
 .modal-footer {
