@@ -3,6 +3,7 @@
 # =========================
 .env
 .env.*
+.env312
 .envrc
 .minio-*.password
 
@@ -10,13 +11,25 @@
 # Python
 # =========================
 .venv/
+.venv312/
 venv/
+env/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+*.egg
+.eggs/
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+requirements-current.txt
 
 # =========================
 # Node / Frontend
@@ -26,6 +39,11 @@ dist/
 build/
 .next/
 coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
 # =========================
 # Scan Outputs (CRITICAL)
@@ -43,5 +61,23 @@ scan_results/
 !PENTEST_PLATFORM.md
 
 # =========================
-# IDE / Tools
-# ==========
+# IDE / AI Tools
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+.opencode.json
+.mcp.json
+.spec-workflow/
+.code-review-graph/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db

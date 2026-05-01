@@ -1,4 +1,3 @@
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Secoraa CI/CD API Security Scanner**
@@ -15,9 +14,6 @@ A CI/CD API security scanning feature for the Secoraa platform that enables deve
 - **SARIF**: Output must conform to SARIF 2.1.0 spec for GitHub Security tab compatibility
 - **No platform dependency**: GitHub Action must complete successfully even if Secoraa API is unreachable
 - **API key auth**: All CI/CD interactions authenticated via API key (no OAuth flows for CI)
-<!-- GSD:project-end -->
-
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
 ## Languages
@@ -97,9 +93,6 @@ A CI/CD API security scanning feature for the Secoraa platform that enables deve
 - MinIO or S3-compatible object storage
 - Redis for Celery broker
 - Can be containerized via provided Dockerfile
-<!-- GSD:stack-end -->
-
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 ## Naming Patterns
@@ -175,9 +168,6 @@ A CI/CD API security scanning feature for the Secoraa platform that enables deve
 ## Test Naming
 - Class-based: `class Test{Feature}`, methods `test_*.py` (e.g., `class TestDetectAuthType`, `def test_bearer()`)
 - Descriptive names explain behavior: `test_bearer_bypass_empty_token()`, `test_server_version_disclosure()`
-<!-- GSD:conventions-end -->
-
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 ## Pattern Overview
@@ -297,26 +287,42 @@ A CI/CD API security scanning feature for the Secoraa platform that enables deve
 - Environment variables: Loaded from .env file (dev) or Railway environment (prod)
 - No hardcoded secrets: All credentials (DB, MinIO, JWT key) externalized
 - Sensitive files: `.env` excluded from git via .gitignore
-<!-- GSD:architecture-end -->
 
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
 
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
 
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
+### When to use graph tools FIRST
 
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
 
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
 
+### Key Tools
 
-<!-- GSD:profile-start -->
-## Developer Profile
+| Tool | Use when |
+|------|----------|
+| `detect_changes` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context` | Need source snippets for review — token-efficient |
+| `get_impact_radius` | Understanding blast radius of a change |
+| `get_affected_flows` | Finding which execution paths are impacted |
+| `query_graph` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes` | Finding functions/classes by name or keyword |
+| `get_architecture_overview` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
 
-> Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.
