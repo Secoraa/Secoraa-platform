@@ -2,7 +2,7 @@ from ctypes import Array
 from logging import CRITICAL
 import uuid
 from annotated_types import LowerCase
-from sqlalchemy import ARRAY, Boolean, Column, Float, Integer, Nullable, String, DateTime, ForeignKey, Text, UniqueConstraint, null, text
+from sqlalchemy import ARRAY, Boolean, Column, Float, Integer, JSON, Nullable, String, DateTime, ForeignKey, Text, UniqueConstraint, null, text
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from enum import Enum
@@ -526,4 +526,21 @@ class Finding(Base):
         backref="findings",
     )
 
-    
+
+class Pentest(Base):
+    __tablename__ = "pentests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    pentest_type = Column(String, nullable=True)  # GREY_BOX | BLACK_BOX | WHITE_BOX
+    assets = Column(JSON, nullable=True)  # [{type, id, value}, ...]
+    target_type = Column(String, nullable=True)  # legacy: derived from first asset
+    target_value = Column(String, nullable=True)  # legacy: derived from first asset
+    status = Column(String, nullable=False, default="CREATED")  # CREATED | SCANNING | COMPLETED | FAILED
+    last_scan_id = Column(UUID(as_uuid=True), nullable=True)
+    scan_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    created_by = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+

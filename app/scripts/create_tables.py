@@ -222,11 +222,33 @@ def add_missing_columns():
                 pass
 
 
+def add_pentest_columns():
+    inspector = inspect(engine)
+    if not inspector.has_table("pentests"):
+        return
+    existing_columns = [c["name"] for c in inspector.get_columns("pentests")]
+    with engine.begin() as conn:
+        if "pentest_type" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN pentest_type VARCHAR;"))
+        if "assets" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN assets JSON;"))
+        # Relax legacy NOT NULL constraints so creates can rely solely on assets list
+        try:
+            conn.execute(text("ALTER TABLE pentests ALTER COLUMN target_type DROP NOT NULL;"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE pentests ALTER COLUMN target_value DROP NOT NULL;"))
+        except Exception:
+            pass
+
+
 def run_migrations():
     print("🚀 Running database migrations...")
     try:
         Base.metadata.create_all(bind=engine)
         add_missing_columns()
+        add_pentest_columns()
     except Exception as exc:
         print(f"❌ Migration failed: {exc}")
         raise

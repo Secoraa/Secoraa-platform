@@ -8,10 +8,12 @@ import SettingsIcon from './SettingsIcon';
 import HelpIcon from './HelpIcon';
 import DashboardIcon from './DashboardIcon';
 import AssetDiscoveryIcon from './AssetDiscoveryIcon';
+import PentestIcon from './PentestIcon';
 import './Sidebar.css';
 
 const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onToggle }) => {
   const [asmExpanded, setAsmExpanded] = useState(true);
+  const [pentestExpanded, setPentestExpanded] = useState(true);
   const isActiveItem = (itemId) => (
     activePage === itemId ||
     (itemId === 'vulnerability' && activePage === 'vulnerability-details')
@@ -22,6 +24,12 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
     { id: 'asset-discovery', label: 'Asset Discovery', SvgComponent: AssetDiscoveryIcon },
     { id: 'scan', label: 'Scan', SvgComponent: ScanIcon },
     { id: 'vulnerability', label: 'Vulnerability', SvgComponent: BugIcon },
+  ];
+
+  const pentestItems = [
+    { id: 'pentest-create', label: 'Create Pentest', SvgComponent: AssetDiscoveryIcon },
+    { id: 'pentest-scan', label: 'Pentest Scan', SvgComponent: ScanIcon },
+    { id: 'pentest-vulnerability', label: 'Pentest Vulnerability', SvgComponent: BugIcon },
   ];
 
   const otherItems = [
@@ -95,6 +103,41 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
                 <button
                   key={item.id}
                   className={`nav-item ${isActiveItem(item.id) ? 'active' : ''}`}
+                  onClick={() => setActivePage(item.id)}
+                  title={item.label}
+                >
+                  <span className="nav-icon">
+                    <item.SvgComponent size={20} />
+                  </span>
+                  <span className="nav-label">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+
+        {/* Pentest Section */}
+        <div className="asm-section">
+          <button
+            className="asm-header"
+            onClick={() => setPentestExpanded(!pentestExpanded)}
+            title={pentestExpanded ? 'Collapse Pentest' : 'Expand Pentest'}
+          >
+            <div className="asm-header-left">
+              <span className="asm-icon">
+                <PentestIcon size={20} />
+              </span>
+              <span className="section-label">PENTEST</span>
+            </div>
+            <span className={`asm-arrow ${pentestExpanded ? 'expanded' : ''}`}>▲</span>
+          </button>
+
+          {pentestExpanded && (
+            <nav className="sidebar-nav asm-nav">
+              {pentestItems.map((item) => (
+                <button
+                  key={item.id}
+                  className={`nav-item ${activePage === item.id ? 'active' : ''}`}
                   onClick={() => setActivePage(item.id)}
                   title={item.label}
                 >

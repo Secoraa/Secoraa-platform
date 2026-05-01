@@ -13,6 +13,9 @@ import Dashboard from './pages/Dashboard';
 import DomainDetails from './pages/DomainDetails';
 import HelpCenter from './pages/HelpCenter';
 import Settings from './pages/Settings';
+import CreatePentest from './pages/CreatePentest';
+import PentestScan from './pages/PentestScan';
+import PentestVulnerability from './pages/PentestVulnerability';
 import './styles/theme.css';
 import './App.css';
 import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient';
@@ -182,6 +185,12 @@ function App() {
         return <Settings />;
       case 'help':
         return <HelpCenter />;
+      case 'pentest-create':
+        return <CreatePentest />;
+      case 'pentest-scan':
+        return <PentestScan />;
+      case 'pentest-vulnerability':
+        return <PentestVulnerability />;
       default:
         return <Dashboard />;
     }

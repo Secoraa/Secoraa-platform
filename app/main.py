@@ -25,6 +25,7 @@ from app.api.reports import router as reports_router
 from app.api.help_center import router as help_center_router
 from app.api.settings import router as settings_router
 from app.api.ci import router as ci_router
+from app.api.pentests import router as pentests_router
 
 from app.endpoints.assets import router as asset_router
 from app.endpoints.subdomain import router as subdomain_router
@@ -90,6 +91,7 @@ app.include_router(api_scanner_router)
 app.include_router(help_center_router)
 app.include_router(settings_router)
 app.include_router(ci_router)
+app.include_router(pentests_router)
 
 app.include_router(asset_router)
 app.include_router(minio_events_router)
