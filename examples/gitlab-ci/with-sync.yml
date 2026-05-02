@@ -1,0 +1,42 @@
+# Secoraa API Security Scan — with platform sync (GitLab CI).
+#
+# Posts results back to the Secoraa platform for centralized history and
+# trend tracking, in addition to attaching the SARIF file as a CI artifact.
+#
+# Required CI/CD variables:
+#   STAGING_API_URL          — base URL of the API to scan
+#   API_AUTH_TOKEN           — primary auth token
+#   SECORAA_PLATFORM_URL     — Secoraa backend URL (defaults to hosted)
+#   SECORAA_API_KEY          — Secoraa platform API key
+#   GITLAB_TOKEN             — project access token (for MR comments)
+
+stages:
+  - security
+
+secoraa_api_scan:
+  stage: security
+  image:
+    name: ghcr.io/secoraa/api-security-scanner:v1
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"
+  variables:
+    TARGET_URL: $STAGING_API_URL
+    OPENAPI_SPEC_PATH: auto
+    AUTH_TOKEN: $API_AUTH_TOKEN
+    AUTH_TYPE: bearer
+    SEVERITY_THRESHOLD: HIGH
+    FAIL_ON_FINDINGS: "true"
+    PR_COMMENT: "true"
+    SECORAA_URL: $SECORAA_PLATFORM_URL
+    SECORAA_API_KEY: $SECORAA_API_KEY
+    OUTPUT_FORMAT: sarif
+    OUTPUT_FILE: $CI_PROJECT_DIR/secoraa-results.sarif
+  script:
+    - /app/entrypoint.sh api
+  artifacts:
+    when: always
+    paths:
+      - secoraa-results.sarif
+    expire_in: 1 month

@@ -1,0 +1,32 @@
+# Secoraa API Security Scan — config-file driven (GitLab CI).
+#
+# Reads .secoraa.yml from the repo root. Only minimal secrets are wired in
+# here; everything else (thresholds, ignore rules, etc.) is declared in the
+# repo's own config file so developers can tune behavior without editing
+# this pipeline file.
+
+stages:
+  - security
+
+secoraa_api_scan:
+  stage: security
+  image:
+    name: ghcr.io/secoraa/api-security-scanner:v1
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    TARGET_URL: $SECORAA_TARGET_URL
+    AUTH_TOKEN: $SECORAA_AUTH_TOKEN
+    SECORAA_CONFIG_PATH: $CI_PROJECT_DIR/.secoraa.yml
+    OUTPUT_FILE: $CI_PROJECT_DIR/secoraa-results.sarif
+    # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+    SECORAA_URL: "https://secoraa-backend.onrender.com"
+    SECORAA_API_KEY: $SECORAA_API_KEY
+  script:
+    - /app/entrypoint.sh api
+  artifacts:
+    when: always
+    paths:
+      - secoraa-results.sarif
+    expire_in: 1 week

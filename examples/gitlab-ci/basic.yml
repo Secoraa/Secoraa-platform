@@ -1,0 +1,41 @@
+# Secoraa API Security Scan — basic GitLab CI example.
+#
+# Drop this into .gitlab-ci.yml at your repo root, or `include:` it from a
+# central pipeline. Runs on every merge request targeting the default branch.
+#
+# Required CI/CD variables (Settings → CI/CD → Variables):
+#   SECORAA_TARGET_URL   — base URL of the API to scan (masked)
+#
+# Optional:
+#   GITLAB_TOKEN         — project/group access token with `api` scope
+#                          (only needed for MR comments)
+#   SECORAA_API_KEY      — Secoraa platform API key; set this to make the scan
+#                          show up on the Secoraa CI/CD tab. SECORAA_URL is
+#                          pre-filled to the hosted backend below.
+
+stages:
+  - security
+
+secoraa_api_scan:
+  stage: security
+  image:
+    name: ghcr.io/secoraa/api-security-scanner:v1
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    TARGET_URL: $SECORAA_TARGET_URL
+    OPENAPI_SPEC_PATH: $CI_PROJECT_DIR/openapi.json
+    SEVERITY_THRESHOLD: HIGH
+    OUTPUT_FORMAT: sarif
+    OUTPUT_FILE: $CI_PROJECT_DIR/secoraa-results.sarif
+    # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+    SECORAA_URL: "https://secoraa-backend.onrender.com"
+    SECORAA_API_KEY: $SECORAA_API_KEY
+  script:
+    - /app/entrypoint.sh api
+  artifacts:
+    when: always
+    paths:
+      - secoraa-results.sarif
+    expire_in: 1 week

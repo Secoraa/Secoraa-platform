@@ -1,0 +1,27 @@
+# Secoraa API Security Scan — config-file driven (Bitbucket Pipelines).
+#
+# Reads .secoraa.yml from the repo root. Only minimal secrets are wired in
+# here; everything else (thresholds, ignore rules, etc.) is declared in the
+# repo's own config file so developers can tune behavior without editing
+# this pipeline file.
+
+image: atlassian/default-image:4
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Secoraa API Security Scan
+          image:
+            name: ghcr.io/secoraa/api-security-scanner:v1
+          script:
+            - export TARGET_URL="$SECORAA_TARGET_URL"
+            - export AUTH_TOKEN="$SECORAA_AUTH_TOKEN"
+            - export SECORAA_CONFIG_PATH="$BITBUCKET_CLONE_DIR/.secoraa.yml"
+            - export OUTPUT_FILE="$BITBUCKET_CLONE_DIR/secoraa-results.sarif"
+            # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+            - export SECORAA_URL="https://secoraa-backend.onrender.com"
+            - export SECORAA_API_KEY="$SECORAA_API_KEY"
+            - /app/entrypoint.sh api
+          artifacts:
+            - secoraa-results.sarif

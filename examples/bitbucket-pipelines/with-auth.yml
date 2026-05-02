@@ -1,0 +1,59 @@
+# Secoraa API Security Scan — authenticated endpoints (Bitbucket Pipelines).
+#
+# Required repository variables (mark as Secured):
+#   SECORAA_TARGET_URL       — base URL of the API to scan
+#   SECORAA_AUTH_TOKEN       — primary bearer/api_key/basic token
+#   SECORAA_SECONDARY_TOKEN  — second low-privilege token for BOLA/BFLA
+#
+# Optional:
+#   BITBUCKET_TOKEN          — repository access token (for PR comments)
+#   SECORAA_API_KEY          — Secoraa platform API key; set this to make the
+#                              scan show up on the Secoraa CI/CD tab
+
+image: atlassian/default-image:4
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Secoraa API Security Scan
+          image:
+            name: ghcr.io/secoraa/api-security-scanner:v1
+          script:
+            - export TARGET_URL="$SECORAA_TARGET_URL"
+            - export OPENAPI_SPEC_PATH="$BITBUCKET_CLONE_DIR/docs/openapi.yaml"
+            - export AUTH_TOKEN="$SECORAA_AUTH_TOKEN"
+            - export AUTH_TYPE=bearer
+            - export SECONDARY_TOKEN="$SECORAA_SECONDARY_TOKEN"
+            - export SCAN_MODE=active
+            - export SEVERITY_THRESHOLD=HIGH
+            - export IGNORE_RULES="API8:2023"
+            - export FAIL_ON_FINDINGS=true
+            - export OUTPUT_FORMAT=sarif
+            - export OUTPUT_FILE="$BITBUCKET_CLONE_DIR/secoraa-results.sarif"
+            # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+            - export SECORAA_URL="https://secoraa-backend.onrender.com"
+            - export SECORAA_API_KEY="$SECORAA_API_KEY"
+            - /app/entrypoint.sh api
+          artifacts:
+            - secoraa-results.sarif
+  custom:
+    secoraa-manual:
+      - step:
+          name: Secoraa API Security Scan (manual)
+          image:
+            name: ghcr.io/secoraa/api-security-scanner:v1
+          script:
+            - export TARGET_URL="$SECORAA_TARGET_URL"
+            - export OPENAPI_SPEC_PATH="$BITBUCKET_CLONE_DIR/docs/openapi.yaml"
+            - export AUTH_TOKEN="$SECORAA_AUTH_TOKEN"
+            - export AUTH_TYPE=bearer
+            - export SCAN_MODE=active
+            - export SEVERITY_THRESHOLD=HIGH
+            - export OUTPUT_FILE="$BITBUCKET_CLONE_DIR/secoraa-results.sarif"
+            # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+            - export SECORAA_URL="https://secoraa-backend.onrender.com"
+            - export SECORAA_API_KEY="$SECORAA_API_KEY"
+            - /app/entrypoint.sh api
+          artifacts:
+            - secoraa-results.sarif

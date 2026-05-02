@@ -1,0 +1,45 @@
+# Secoraa API Security Scan — authenticated endpoints (GitLab CI).
+#
+# Required CI/CD variables (mark masked + protected as appropriate):
+#   SECORAA_TARGET_URL       — base URL of the API to scan
+#   SECORAA_AUTH_TOKEN       — primary bearer/api_key/basic token
+#   SECORAA_SECONDARY_TOKEN  — second low-privilege token for BOLA/BFLA
+#
+# Optional:
+#   GITLAB_TOKEN             — project access token with `api` scope (for MR comments)
+#   SECORAA_API_KEY          — Secoraa platform API key; set this to make the scan
+#                              show up on the Secoraa CI/CD tab.
+
+stages:
+  - security
+
+secoraa_api_scan:
+  stage: security
+  image:
+    name: ghcr.io/secoraa/api-security-scanner:v1
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "web"   # allow manual runs
+  variables:
+    TARGET_URL: $SECORAA_TARGET_URL
+    OPENAPI_SPEC_PATH: $CI_PROJECT_DIR/docs/openapi.yaml
+    AUTH_TOKEN: $SECORAA_AUTH_TOKEN
+    AUTH_TYPE: bearer
+    SECONDARY_TOKEN: $SECORAA_SECONDARY_TOKEN
+    SCAN_MODE: active
+    SEVERITY_THRESHOLD: HIGH
+    IGNORE_RULES: "API8:2023"
+    FAIL_ON_FINDINGS: "true"
+    OUTPUT_FORMAT: sarif
+    OUTPUT_FILE: $CI_PROJECT_DIR/secoraa-results.sarif
+    # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+    SECORAA_URL: "https://secoraa-backend.onrender.com"
+    SECORAA_API_KEY: $SECORAA_API_KEY
+  script:
+    - /app/entrypoint.sh api
+  artifacts:
+    when: always
+    paths:
+      - secoraa-results.sarif
+    expire_in: 1 week

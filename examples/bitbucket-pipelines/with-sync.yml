@@ -1,0 +1,36 @@
+# Secoraa API Security Scan — with platform sync (Bitbucket Pipelines).
+#
+# Posts results back to the Secoraa platform for centralized history and
+# trend tracking, in addition to attaching the SARIF file as a build artifact.
+#
+# Required repository variables:
+#   STAGING_API_URL          — base URL of the API to scan
+#   API_AUTH_TOKEN           — primary auth token
+#   SECORAA_PLATFORM_URL     — Secoraa backend URL (defaults to hosted)
+#   SECORAA_API_KEY          — Secoraa platform API key
+#   BITBUCKET_TOKEN          — repository access token (for PR comments)
+
+image: atlassian/default-image:4
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Secoraa API Security Scan
+          image:
+            name: ghcr.io/secoraa/api-security-scanner:v1
+          script:
+            - export TARGET_URL="$STAGING_API_URL"
+            - export OPENAPI_SPEC_PATH=auto
+            - export AUTH_TOKEN="$API_AUTH_TOKEN"
+            - export AUTH_TYPE=bearer
+            - export SEVERITY_THRESHOLD=HIGH
+            - export FAIL_ON_FINDINGS=true
+            - export PR_COMMENT=true
+            - export SECORAA_URL="$SECORAA_PLATFORM_URL"
+            - export SECORAA_API_KEY="$SECORAA_API_KEY"
+            - export OUTPUT_FORMAT=sarif
+            - export OUTPUT_FILE="$BITBUCKET_CLONE_DIR/secoraa-results.sarif"
+            - /app/entrypoint.sh api
+          artifacts:
+            - secoraa-results.sarif

@@ -417,12 +417,19 @@ def _cmd_api(args: argparse.Namespace) -> int:
         _write_output(payload, output_file)
     _print_summary(report, gate)
 
-    # --- PR comment (GitHub Actions only) ------------------------------------
+    # --- PR/MR comment (GitHub Actions, GitLab CI, or Bitbucket Pipelines) ---
     pr_comment = _resolve(getattr(args, "pr_comment", None), "PR_COMMENT", cfg, ["report", "pr_comment"], "true")
     if str(pr_comment or "true").lower() in ("1", "true", "yes"):
         try:
-            from cli.output.pr_comment import post_pr_comment
-            post_pr_comment(report, gate)
+            if os.environ.get("GITLAB_CI"):
+                from cli.output.gitlab_comment import post_mr_comment
+                post_mr_comment(report, gate)
+            elif os.environ.get("BITBUCKET_BUILD_NUMBER"):
+                from cli.output.bitbucket_comment import post_pr_comment as post_bb_comment
+                post_bb_comment(report, gate)
+            else:
+                from cli.output.pr_comment import post_pr_comment
+                post_pr_comment(report, gate)
         except Exception as exc:
             print(f"[secoraa] PR comment error: {exc}", file=sys.stderr)
 

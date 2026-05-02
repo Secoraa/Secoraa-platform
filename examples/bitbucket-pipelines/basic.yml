@@ -1,0 +1,35 @@
+# Secoraa API Security Scan — basic Bitbucket Pipelines example.
+#
+# Drop this into bitbucket-pipelines.yml at your repo root. Runs on every
+# pull request targeting any branch.
+#
+# Required repository variables (Repository settings → Pipelines → Repository variables):
+#   SECORAA_TARGET_URL   — base URL of the API to scan (mark as Secured)
+#
+# Optional:
+#   BITBUCKET_TOKEN      — repository/workspace access token (Secured), needed for PR comments
+#   SECORAA_API_KEY      — Secoraa platform API key; set this to make the scan show
+#                          up on the Secoraa CI/CD tab (SECORAA_URL is pre-filled
+#                          to the hosted backend in the script below)
+
+image: atlassian/default-image:4
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Secoraa API Security Scan
+          image:
+            name: ghcr.io/secoraa/api-security-scanner:v1
+          script:
+            - export TARGET_URL="$SECORAA_TARGET_URL"
+            - export OPENAPI_SPEC_PATH="$BITBUCKET_CLONE_DIR/openapi.json"
+            - export SEVERITY_THRESHOLD=HIGH
+            - export OUTPUT_FORMAT=sarif
+            - export OUTPUT_FILE="$BITBUCKET_CLONE_DIR/secoraa-results.sarif"
+            # Platform sync — scan appears on Secoraa CI/CD tab when SECORAA_API_KEY is set.
+            - export SECORAA_URL="https://secoraa-backend.onrender.com"
+            - export SECORAA_API_KEY="$SECORAA_API_KEY"
+            - /app/entrypoint.sh api
+          artifacts:
+            - secoraa-results.sarif
