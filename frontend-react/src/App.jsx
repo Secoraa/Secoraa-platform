@@ -16,6 +16,8 @@ import Settings from './pages/Settings';
 import CreatePentest from './pages/CreatePentest';
 import PentestScan from './pages/PentestScan';
 import PentestVulnerability from './pages/PentestVulnerability';
+import PentestVulnerabilityDetails from './pages/PentestVulnerabilityDetails';
+import PentestScanEntry from './pages/PentestScanEntry';
 import './styles/theme.css';
 import './App.css';
 import { getStoredToken, setStoredToken, getTokenClaims } from './api/apiClient';
@@ -24,6 +26,7 @@ const PAGE_FALLBACKS = {
   'scan-results': 'scan',
   'domain-details': 'asset-discovery',
   'vulnerability-details': 'vulnerability',
+  'pentest-vulnerability-details': 'pentest-vulnerability',
 };
 
 function App() {
@@ -69,6 +72,8 @@ function App() {
       const url = new URL(window.location.href);
       const domainParam = url.searchParams.get('domain');
       const vulnParam = url.searchParams.get('vuln');
+      const pentestVulnParam = url.searchParams.get('pvuln');
+      const pentestEditParam = url.searchParams.get('pedit');
       if (domainParam) {
         setSelectedDomainId(domainParam);
         setActivePage('domain-details');
@@ -76,6 +81,14 @@ function App() {
       }
       if (vulnParam) {
         setActivePage('vulnerability-details');
+        return;
+      }
+      if (pentestVulnParam) {
+        setActivePage('pentest-vulnerability-details');
+        return;
+      }
+      if (pentestEditParam) {
+        setActivePage('pentest-create');
         return;
       }
     } catch {
@@ -90,6 +103,9 @@ function App() {
       const url = new URL(window.location.href);
       const current = url.searchParams.get('domain');
       const currentVuln = url.searchParams.get('vuln');
+      const currentPentestVuln = url.searchParams.get('pvuln');
+      const currentPentestId = url.searchParams.get('ppid');
+      const currentPentestEditId = url.searchParams.get('pedit');
       const next = selectedDomainId ? String(selectedDomainId) : '';
 
       // Show ?domain only on domain-details page; remove it everywhere else.
@@ -105,8 +121,15 @@ function App() {
       if (activePage !== 'vulnerability-details' && currentVuln) {
         url.searchParams.delete('vuln');
       }
+      if (activePage !== 'pentest-vulnerability-details' && (currentPentestVuln || currentPentestId)) {
+        url.searchParams.delete('pvuln');
+        url.searchParams.delete('ppid');
+      }
+      if (activePage !== 'pentest-create' && currentPentestEditId) {
+        url.searchParams.delete('pedit');
+      }
 
-      if (current || currentVuln) {
+      if (current || currentVuln || currentPentestVuln || currentPentestId || currentPentestEditId) {
         window.history.replaceState({}, '', url.toString());
       }
     } catch {
@@ -191,6 +214,10 @@ function App() {
         return <PentestScan />;
       case 'pentest-vulnerability':
         return <PentestVulnerability />;
+      case 'pentest-vulnerability-details':
+        return <PentestVulnerabilityDetails />;
+      case 'pentest-scan-entry':
+        return <PentestScanEntry />;
       default:
         return <Dashboard />;
     }

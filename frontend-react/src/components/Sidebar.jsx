@@ -28,7 +28,8 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
 
   const pentestItems = [
     { id: 'pentest-create', label: 'Create Pentest', SvgComponent: AssetDiscoveryIcon },
-    { id: 'pentest-scan', label: 'Pentest Scan', SvgComponent: ScanIcon },
+    { id: 'pentest-scan', label: 'Pentest', SvgComponent: ScanIcon },
+    { id: 'pentest-scan-entry', label: 'Pentest Scan', SvgComponent: ReportIcon },
     { id: 'pentest-vulnerability', label: 'Pentest Vulnerability', SvgComponent: BugIcon },
   ];
 
@@ -137,7 +138,7 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
               {pentestItems.map((item) => (
                 <button
                   key={item.id}
-                  className={`nav-item ${activePage === item.id ? 'active' : ''}`}
+                  className={`nav-item ${(activePage === item.id || (item.id === 'pentest-vulnerability' && activePage === 'pentest-vulnerability-details')) ? 'active' : ''}`}
                   onClick={() => setActivePage(item.id)}
                   title={item.label}
                 >

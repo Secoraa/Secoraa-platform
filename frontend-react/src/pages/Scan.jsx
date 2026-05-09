@@ -341,7 +341,9 @@ const Scan = ({ onViewResults, initialTab }) => {
   const loadScans = async () => {
     try {
       const data = await getAllScans();
-      setScans(data.data || []);
+      const allScans = data.data || [];
+      // Keep ASM history focused on ASM scans only.
+      setScans(allScans.filter((s) => String(s.scan_type || '').toLowerCase() !== 'pentest'));
     } catch (err) {
       console.error('Failed to load scans:', err);
     }

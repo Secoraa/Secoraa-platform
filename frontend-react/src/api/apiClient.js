@@ -712,13 +712,9 @@ export const getCiScans = async () => {
 // Pentest
 // ==========================================
 
-export const createPentest = async ({ name, pentestType, assets }) => {
+export const createPentest = async (payload) => {
   try {
-    const response = await apiClient.post('/pentests/', {
-      name,
-      pentest_type: pentestType,
-      assets,
-    });
+    const response = await apiClient.post('/pentests/', payload || {});
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Failed to create pentest'));
@@ -731,6 +727,15 @@ export const listPentests = async () => {
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Failed to list pentests'));
+  }
+};
+
+export const getPentest = async (pentestId) => {
+  try {
+    const response = await apiClient.get(`/pentests/${pentestId}`);
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to load pentest'));
   }
 };
 
@@ -757,6 +762,15 @@ export const deletePentest = async (pentestId) => {
     await apiClient.delete(`/pentests/${pentestId}`);
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Failed to delete pentest'));
+  }
+};
+
+export const updatePentest = async (pentestId, payload) => {
+  try {
+    const response = await apiClient.put(`/pentests/${pentestId}`, payload || {});
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to update pentest'));
   }
 };
 
