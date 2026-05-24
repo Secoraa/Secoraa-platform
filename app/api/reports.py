@@ -2192,9 +2192,9 @@ class CreateReportRequest(BaseModel):
     # Requirement: description should be only 200 letters
     description: Optional[str] = Field(default=None, max_length=200)
     domain_name: Optional[str] = Field(default=None, description="Required for ASM reports")
-    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|WEBSCAN|API_TESTING|NETWORK_SCAN")
+    assessment_type: str = Field(default="DOMAIN", description="DOMAIN|VULNERABILITY_SCAN|WEBSCAN|API_TESTING|NETWORK_SCAN|PENTEST")
     subdomain_name: Optional[str] = Field(default=None, description="Required for VULNERABILITY_SCAN/WEBSCAN reports")
-    scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING and NETWORK_SCAN reports (scan_id of the underlying scan)")
+    scan_id: Optional[str] = Field(default=None, description="Required for API_TESTING, NETWORK_SCAN, CICD, and PENTEST reports (scan_id of the underlying scan)")
 
 
 class ReportRow(BaseModel):
@@ -2351,8 +2351,8 @@ def create_report(
     # Backward compatibility: WEBSCAN maps to VULNERABILITY_SCAN
     if assessment == "WEBSCAN":
         assessment = "VULNERABILITY_SCAN"
-    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING", "NETWORK_SCAN", "CICD"}:
-        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, API_TESTING, NETWORK_SCAN, or CICD.")
+    if assessment not in {"DOMAIN", "VULNERABILITY_SCAN", "API_TESTING", "NETWORK_SCAN", "CICD", "PENTEST"}:
+        raise HTTPException(status_code=400, detail="Invalid assessment_type. Use DOMAIN, VULNERABILITY_SCAN, WEBSCAN, API_TESTING, NETWORK_SCAN, CICD, or PENTEST.")
 
     # Scope validation
     # NETWORK_SCAN targets IPs (no Domain row) and CICD targets external repos
@@ -2360,7 +2360,7 @@ def create_report(
     # tested). Every other assessment type still operates against a Domain.
     domain_obj: Optional[Domain] = None
     tenant_users = get_tenant_usernames(db, claims)
-    if assessment not in {"NETWORK_SCAN", "CICD"}:
+    if assessment not in {"NETWORK_SCAN", "CICD", "PENTEST"}:
         if not req.domain_name:
             raise HTTPException(status_code=400, detail="domain_name is required for reports.")
         domain_obj = (
@@ -2662,6 +2662,60 @@ def create_report(
             "vuln_col_name": "Finding",
             "vuln_col_impacted": "Endpoints Flagged",
             "vuln_col_risk": "Risk",
+        }
+
+    elif assessment == "PENTEST":
+        if not req.scan_id:
+            raise HTTPException(status_code=400, detail="scan_id is required for PENTEST reports.")
+
+        from app.database.models import Scan as _Scan, Finding as _Finding
+        scan = (
+            db.query(_Scan)
+            .filter(_Scan.id == req.scan_id, _Scan.created_by.in_(tenant_users))
+            .first()
+        )
+        if not scan:
+            raise HTTPException(status_code=404, detail="Scan not found.")
+        if str(getattr(scan, "scan_type", "")).lower() != "pentest":
+            raise HTTPException(status_code=400, detail="scan_id must reference a pentest scan.")
+
+        findings = (
+            db.query(_Finding)
+            .filter(_Finding.scan_id == scan.id)
+            .order_by(_Finding.created_at.desc())
+            .all()
+        )
+
+        cover_domain_line = scan.scan_name or "Pentest Scan"
+        assets_set = set()
+        for f in findings:
+            sev = str(getattr(f, "severity", None) or "INFO").upper()
+            sev_counts[sev] = sev_counts.get(sev, 0) + 1
+            total_weight += _severity_weight(sev)
+            desc = str(getattr(f, "description", None) or "")
+            asset_label = "Pentest Target"
+            if desc.startswith("[") and "]" in desc:
+                asset_label = desc[1:desc.index("]")].strip() or asset_label
+            assets_set.add(asset_label)
+            vuln_rows.append(
+                {
+                    "name": getattr(f, "finding_name", None) or "Pentest Finding",
+                    "description": desc,
+                    "severity": sev,
+                    "assets_impacted": 1,
+                    "asset": asset_label,
+                }
+            )
+
+        assets_list = sorted(assets_set)
+        assets_total = len(assets_list)
+        template = {
+            "cover_title": "PENTEST\nDETAILED REPORT",
+            "assets_intro": "This report summarizes findings discovered during the selected pentest execution.",
+            "assets_total_label": "TOTAL ASSETS",
+            "assets_section_title": "Pentest Targets",
+            "assets_table_title": "Target",
+            "vuln_section_title": "Pentest Findings",
         }
 
     else:

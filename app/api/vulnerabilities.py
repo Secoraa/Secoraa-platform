@@ -121,6 +121,7 @@ def list_api_findings(
                     "remediation": f.get("remediation"),
                     "cvss_score": cvss_score,
                     "cvss_vector": cvss_vector,
+                    "pocs": f.get("pocs") if isinstance(f.get("pocs"), list) else [],
                 }
             )
 
@@ -157,6 +158,7 @@ def list_all_findings(
                     "cvss_vector": item.get("cvss_vector"),
                     "recommendation": None,
                     "reference": None,
+                    "pocs": item.get("pocs") if isinstance(item.get("pocs"), list) else [],
                 }
             )
 
@@ -289,6 +291,7 @@ def list_all_findings(
                     "severity": sev or None,
                     "tags": list(v_tags or []),
                     "evidence": None,
+                    "pocs": [],
                 }
             )
     except Exception:
@@ -323,6 +326,7 @@ def list_all_findings(
                     "severity": sev or None,
                     "tags": list(v_tags or []),
                     "evidence": None,
+                    "pocs": [],
                 }
             )
 

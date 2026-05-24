@@ -1,7 +1,7 @@
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Depends
 from uuid import uuid4, UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 import threading
 import os
@@ -16,7 +16,19 @@ import asyncio
 from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional, List
 
-from app.database.models import Scan, ScanResult, Domain, Subdomain, IPAddress, ApiScanReport, Vulnerability, ScheduledScan, AssetGroup, AssetGroupItem
+from app.database.models import (
+    Scan,
+    ScanResult,
+    Domain,
+    Subdomain,
+    IPAddress,
+    ApiScanReport,
+    Vulnerability,
+    ScheduledScan,
+    AssetGroup,
+    AssetGroupItem,
+    Pentest,
+)
 from app.storage.minio_client import download_json, object_exists
 from sqlalchemy import Select, select
 from app.api.auth import get_token_claims, get_tenant_usernames
@@ -186,6 +198,40 @@ _schedule_worker_stop = threading.Event()
 _schedule_worker_thread: Optional[threading.Thread] = None
 
 
+def _enqueue_next_recurring_pentest_schedule(db, completed_sched: ScheduledScan) -> None:
+    """After a scheduled pentest run completes, queue the next daily/weekly occurrence (PTaaS-style cadence)."""
+    if str(completed_sched.scan_type or "") != "pentest":
+        return
+    try:
+        payload = json.loads(completed_sched.payload_json or "{}")
+    except Exception:
+        return
+    recurring = payload.get("recurring")
+    pentest_id = payload.get("pentest_id")
+    if not recurring or recurring not in ("daily", "weekly") or not pentest_id:
+        return
+    delta = timedelta(days=1) if recurring == "daily" else timedelta(days=7)
+    base = completed_sched.scheduled_for or datetime.utcnow()
+    next_dt = base + delta
+    guard_until = datetime.utcnow() + timedelta(seconds=60)
+    while next_dt <= guard_until:
+        next_dt += delta
+    new_row = ScheduledScan(
+        scan_name=completed_sched.scan_name,
+        scan_type="pentest",
+        payload_json=json.dumps(
+            {"pentest_id": str(pentest_id), "recurring": recurring},
+            separators=(",", ":"),
+        ),
+        scheduled_for=next_dt,
+        status="PENDING",
+        created_by=completed_sched.created_by,
+        created_at=datetime.utcnow(),
+    )
+    db.add(new_row)
+    db.commit()
+
+
 def start_schedule_worker():
     """
     Start a lightweight background worker that polls `scheduled_scans` and triggers due scans.
@@ -225,6 +271,13 @@ def start_schedule_worker():
                         if st == "COMPLETED":
                             sched.status = "COMPLETED"
                             db.commit()
+                            try:
+                                _enqueue_next_recurring_pentest_schedule(db, sched)
+                            except Exception:
+                                logger.warning(
+                                    "enqueue_next_recurring_pentest_schedule failed",
+                                    exc_info=True,
+                                )
                         elif st in {"FAILED", "TERMINATED"}:
                             sched.status = "FAILED"
                             db.commit()
@@ -249,10 +302,6 @@ def start_schedule_worker():
                 )
                 for sched in due:
                     try:
-                        # Mark as TRIGGERING to avoid double-trigger
-                        sched.status = "TRIGGERING"
-                        db.commit()
-
                         payload = {}
                         try:
                             payload = json.loads(sched.payload_json or "{}")
@@ -260,6 +309,25 @@ def start_schedule_worker():
                             payload = {}
 
                         created_by = sched.created_by or "scheduler"
+
+                        if sched.scan_type == "pentest":
+                            pentest_id_pre = payload.get("pentest_id")
+                            if not pentest_id_pre:
+                                raise ValueError("pentest_id is required for pentest scheduled scan")
+                            pentest_waiting = (
+                                db.query(Pentest)
+                                .filter(Pentest.id == UUID(str(pentest_id_pre)))
+                                .first()
+                            )
+                            if not pentest_waiting:
+                                raise ValueError("pentest not found")
+                            if str(pentest_waiting.status or "").upper() == "SCANNING":
+                                sched.scheduled_for = datetime.utcnow() + timedelta(minutes=30)
+                                db.commit()
+                                continue
+
+                        sched.status = "TRIGGERING"
+                        db.commit()
 
                         if sched.scan_type == "api":
                             asset_url = payload.get("asset_url") or payload.get("assetUrl")
@@ -271,6 +339,23 @@ def start_schedule_worker():
                             scan_id = _run_api_scan_and_persist(db, sched.scan_name, asset_url, endpoints, created_by)
                             # API scan is run synchronously here, so mark schedule as COMPLETED.
                             sched.status = "COMPLETED"
+                        elif sched.scan_type == "pentest":
+                            from app.api.pentests import _start_pentest_scan_job
+
+                            pentest_id_run = payload.get("pentest_id")
+                            pentest_run = (
+                                db.query(Pentest)
+                                .filter(Pentest.id == UUID(str(pentest_id_run)))
+                                .first()
+                            )
+                            if not pentest_run:
+                                raise ValueError("pentest not found")
+                            _start_pentest_scan_job(db, pentest_run, created_by)
+                            db.refresh(pentest_run)
+                            if not pentest_run.last_scan_id:
+                                raise ValueError("pentest scan did not acquire last_scan_id")
+                            scan_id = str(pentest_run.last_scan_id)
+                            sched.status = "IN_PROGRESS"
                         else:
                             scan, _final_name = _create_scan_record_and_start_thread(
                                 db, sched.scan_name, sched.scan_type, payload, created_by

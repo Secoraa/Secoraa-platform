@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -222,10 +222,17 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
         )
     except HTTPException:
         raise
+    except OperationalError:
+        logger.exception("Database unavailable during login")
+        raise HTTPException(
+            status_code=503,
+            detail="Database is temporarily unavailable. Please try again in a few minutes.",
+        )
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Login failed")
+        raise HTTPException(status_code=500, detail="Login failed. Please try again later.")
 
 
 class SignupRequest(BaseModel):

@@ -35,6 +35,8 @@ const Reporting = () => {
     const assessmentLabel =
       normalized.includes('CICD') || normalized.includes('CI/CD') || normalized.includes('CI_CD')
         ? 'CI/CD Scan'
+        : normalized.includes('PENTEST')
+          ? 'Pentest Scan'
         : normalized.includes('NETWORK')
           ? 'Network Scan'
           : normalized.includes('API') || normalized.includes('TESTING')
@@ -107,6 +109,31 @@ const Reporting = () => {
       });
     return Array.from(uniqueByAsset.values());
   }, [apiScansForDomain]);
+
+  const formatPentestScanLabel = (scan) => {
+    const raw = String(scan?.scan_name || '').trim();
+    const match = raw.match(/^pentest:(.+):\d{8}-\d{6}$/i);
+    if (match?.[1]) return match[1].trim();
+    if (raw.toLowerCase().startsWith('pentest:')) return raw.slice('pentest:'.length).trim();
+    return raw || 'Pentest scan';
+  };
+
+  const pentestScanOptions = useMemo(() => {
+    return (scans || [])
+      .filter(
+        (s) =>
+          String(s.scan_type || '').toLowerCase() === 'pentest' &&
+          String(s.status || '').toUpperCase() === 'COMPLETED'
+      )
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+      .map((s) => {
+        const findings = s.findings_count != null ? ` — ${s.findings_count} findings` : '';
+        return {
+          value: s.scan_id,
+          label: `${formatPentestScanLabel(s)}${findings}`,
+        };
+      });
+  }, [scans]);
 
   // IPs that belong to the currently-selected domain. Mirrors the
   // domain → subdomain dropdown chaining used by VULNERABILITY_SCAN.
@@ -208,10 +235,11 @@ const Reporting = () => {
     if (!reportName.trim()) return false;
     // CICD scans target an external repo's API and don't have a Domain row
     // in our asset model — domain is not required for them.
-    if (assessmentType !== 'CICD' && !domainName) return false;
+    if (!['CICD', 'PENTEST'].includes(assessmentType) && !domainName) return false;
     if (assessmentType === 'WEBSCAN' && !subdomainName) return false;
     if (assessmentType === 'API_TESTING' && !scanId) return false;
     if (assessmentType === 'CICD' && !scanId) return false;
+    if (assessmentType === 'PENTEST' && !scanId) return false;
     if (assessmentType === 'NETWORK_SCAN') {
       if (!ipAddress) return false;
       if (!derivedNetworkScanId) return false;
@@ -342,6 +370,7 @@ const Reporting = () => {
                   { value: 'API_TESTING', label: 'API Scan', icon: <ScanTypeIcon type="api" /> },
                   { value: 'NETWORK_SCAN', label: 'Network Scan', icon: <ScanTypeIcon type="network" /> },
                   { value: 'CICD', label: 'CI/CD Scan', icon: <ScanTypeIcon type="api" /> },
+                  { value: 'PENTEST', label: 'Pentest Scan', icon: <ScanTypeIcon type="subdomain" /> },
                 ]}
               />
             </div>
@@ -426,6 +455,21 @@ const Reporting = () => {
                 />
                 {cicdScanOptions.length === 0 && (
                   <div className="helper-text">Run a scan via your CI/CD pipeline first — results sync here automatically when the SECORAA_API_KEY is configured.</div>
+                )}
+              </div>
+            )}
+
+            {assessmentType === 'PENTEST' && (
+              <div className="modal-field report-field report-field--full">
+                <label>Pentest Scan</label>
+                <Dropdown
+                  value={scanId}
+                  onChange={(val) => setScanId(val)}
+                  placeholder={pentestScanOptions.length ? 'Select a completed pentest scan' : 'No completed pentest scans yet'}
+                  options={pentestScanOptions}
+                />
+                {pentestScanOptions.length === 0 && (
+                  <div className="helper-text">Run and complete a pentest scan first to generate its report.</div>
                 )}
               </div>
             )}
