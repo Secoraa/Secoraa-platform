@@ -54,6 +54,40 @@ def _resolve_render_postgres_host(internal_host: str) -> Optional[str]:
     return None
 
 
+def _running_on_render() -> bool:
+    return bool(os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID"))
+
+
+def _ensure_sslmode(url: str, mode: str = "require") -> str:
+    """Render external Postgres (*.postgres.render.com) requires SSL."""
+    try:
+        sa_url = make_url(url)
+        query = dict(sa_url.query) if sa_url.query else {}
+        if str(query.get("sslmode", "")).lower() in ("require", "verify-ca", "verify-full"):
+            return url
+        query["sslmode"] = mode
+        return str(sa_url.set(query=query))
+    except Exception:
+        if "sslmode=" in url.lower():
+            return url
+        sep = "&" if "?" in url else "?"
+        return f"{url}{sep}sslmode={mode}"
+
+
+def _finalize_render_database_url(url: str) -> str:
+    """Apply Render-specific URL fixes (SSL, internal vs external host)."""
+    host = (urlparse(url).hostname or "").strip()
+
+    # On Render's network, internal host (dpg-*-a) is correct — external URL needs SSL and is slower.
+    if not _running_on_render() and host and _RENDER_INTERNAL_PG_HOST.match(host):
+        url = _upgrade_render_internal_database_url(url)
+        host = (urlparse(url).hostname or "").strip()
+
+    if host and "postgres.render.com" in host:
+        url = _ensure_sslmode(url, "require")
+    return url
+
+
 def _upgrade_render_internal_database_url(url: str) -> str:
     """
     If DATABASE_URL uses Render's short internal host (dpg-*-a) and it does not resolve,
@@ -97,11 +131,11 @@ def _resolve_database_url() -> Optional[str]:
     external = _normalize_postgres_url(os.getenv("DATABASE_EXTERNAL_URL", "") or "")
     if external:
         logger.info("Using DATABASE_EXTERNAL_URL for PostgreSQL")
-        return external
+        return _finalize_render_database_url(external)
 
     primary = _normalize_postgres_url(os.getenv("DATABASE_URL", "") or "")
     if primary:
-        return _upgrade_render_internal_database_url(primary)
+        return _finalize_render_database_url(primary)
 
     return None
 
@@ -142,13 +176,19 @@ else:
         pass
     logger.info("✅ DATABASE_URL detected. Initializing database engine.")
 
+    _connect_args: dict = {}
+    _host = (urlparse(DATABASE_URL).hostname or "")
+    if "postgres.render.com" in _host:
+        _connect_args["sslmode"] = "require"
+
     engine = create_engine(
         DATABASE_URL,
+        connect_args=_connect_args,
         poolclass=QueuePool,
         pool_size=5,
         max_overflow=10,
         pool_pre_ping=True,
-        pool_recycle=3600,
+        pool_recycle=300,
     )
 
     SessionLocal = sessionmaker(
