@@ -15,10 +15,14 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
+      # Internal URL (same-region private network). Re-link secoraa-db if host dpg-* fails DNS.
       - key: DATABASE_URL
         fromDatabase:
           name: secoraa-db
           property: connectionString
+      # Optional: paste External Database URL from Render Postgres → Connect if internal host fails
+      - key: DATABASE_EXTERNAL_URL
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: REDIS_URL

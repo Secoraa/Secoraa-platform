@@ -3,7 +3,27 @@
  */
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'https://secoraa-platform-production.up.railway.app';
+const PRODUCTION_API = 'https://secoraa-platform-production.up.railway.app';
+
+/** Prefer build-time env; on localhost default to local API (avoids hitting prod DB from dev UI). */
+function resolveApiBaseUrl() {
+  const fromEnv =
+    (typeof process !== 'undefined' && process.env && (
+      process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL
+    )) || '';
+  if (fromEnv && String(fromEnv).trim()) {
+    return String(fromEnv).trim().replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8000';
+    }
+  }
+  return PRODUCTION_API;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const TOKEN_STORAGE_KEY = 'secoraa_access_token';
 const TOKEN_STORAGE_PERSIST_KEY = 'secoraa_token_persist';
