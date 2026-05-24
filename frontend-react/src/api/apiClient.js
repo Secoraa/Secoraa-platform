@@ -3,21 +3,27 @@
  */
 import axios from 'axios';
 
-const PRODUCTION_API = 'https://secoraa-platform-production.up.railway.app';
+const RENDER_API = 'https://secoraa-backend.onrender.com';
+const PRODUCTION_API = RENDER_API;
 
-/** Prefer build-time env; on localhost default to local API (avoids hitting prod DB from dev UI). */
+/** Prefer build-time env; infer API from host when the static bundle was built without REACT_APP_API_URL. */
 function resolveApiBaseUrl() {
   const fromEnv =
     (typeof process !== 'undefined' && process.env && (
       process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL
     )) || '';
-  if (fromEnv && String(fromEnv).trim()) {
-    return String(fromEnv).trim().replace(/\/$/, '');
+  const envUrl = String(fromEnv || '').trim();
+  // Ignore stale Railway URLs baked into old builds
+  if (envUrl && !envUrl.includes('railway.app')) {
+    return envUrl.replace(/\/$/, '');
   }
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1') {
       return 'http://localhost:8000';
+    }
+    if (host.endsWith('.onrender.com')) {
+      return RENDER_API;
     }
   }
   return PRODUCTION_API;

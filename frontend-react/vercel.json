@@ -2,7 +2,7 @@
   "version": 2,
   "build": {
     "env": {
-      "REACT_APP_API_URL": "https://secoraa-platform-production.up.railway.app"
+      "REACT_APP_API_URL": "https://secoraa-backend.onrender.com"
     }
   }
 }
