@@ -132,14 +132,19 @@ const Auth = ({ onAuthed }) => {
     try {
       if (mode === 'signup') {
         const resp = await signup(email, password, tenant);
-        setOtpDigits(Array(OTP_LENGTH).fill(''));
-        setResendCountdown(RESEND_COOLDOWN_SECONDS);
-        setOtpInfo(
-          resp?.otp_expires_in_minutes
-            ? `We sent a ${OTP_LENGTH}-digit code to ${email}. It expires in ${resp.otp_expires_in_minutes} minutes.`
-            : `We sent a ${OTP_LENGTH}-digit code to ${email}.`
-        );
-        setMode('verify');
+        // --- OTP verification step (disabled) ---
+        // setOtpDigits(Array(OTP_LENGTH).fill(''));
+        // setResendCountdown(RESEND_COOLDOWN_SECONDS);
+        // setOtpInfo(
+        //   resp?.otp_expires_in_minutes
+        //     ? `We sent a ${OTP_LENGTH}-digit code to ${email}. It expires in ${resp.otp_expires_in_minutes} minutes.`
+        //     : `We sent a ${OTP_LENGTH}-digit code to ${email}.`
+        // );
+        // setMode('verify');
+        const token = resp?.access_token;
+        if (!token) throw new Error('Signup did not return access_token');
+        setStoredToken(token, remember);
+        onAuthed && onAuthed(token);
       } else {
         const tokenResp = await login(email, password);
         const token = tokenResp?.access_token;
@@ -602,7 +607,7 @@ const Auth = ({ onAuthed }) => {
 
                 <button className="auth-primary" type="submit" disabled={loading}>
                   {loading
-                    ? (mode === 'signup' ? 'Sending code…' : 'Authenticating…')
+                    ? (mode === 'signup' ? 'Creating account…' : 'Authenticating…')
                     : (mode === 'signup' ? 'Create Account' : 'Login')}
                 </button>
               </form>

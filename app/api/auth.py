@@ -199,11 +199,12 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
                 ph.verify(user.password_hash, body.password)
             except VerifyMismatchError:
                 raise HTTPException(status_code=401, detail="Invalid username or password")
-            if not getattr(user, "is_email_verified", True):
-                raise HTTPException(
-                    status_code=403,
-                    detail="Email not verified. Check your inbox for the verification code.",
-                )
+            # --- Email verification gate (disabled) ---
+            # if not getattr(user, "is_email_verified", True):
+            #     raise HTTPException(
+            #         status_code=403,
+            #         detail="Email not verified. Check your inbox for the verification code.",
+            #     )
             tenant = getattr(user, "tenant", None) or os.getenv("AUTH_TENANT", "default")
         else:
             # 2) Fallback to env-based auth (optional)
@@ -257,47 +258,57 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
         username = body.username.strip()
         existing = db.query(User).filter(User.username == username).first()
         if existing:
-            if getattr(existing, "is_email_verified", True):
-                raise HTTPException(status_code=409, detail="User already exists")
-            try:
-                ph.verify(existing.password_hash, body.password)
-            except VerifyMismatchError:
-                raise HTTPException(status_code=409, detail="User already exists")
-            code = issue_otp(db, existing, SIGNUP_VERIFICATION_PURPOSE)
-            send_signup_otp(existing.username, code)
-            return {
-                "id": str(existing.id),
-                "username": existing.username,
-                "tenant": existing.tenant,
-                "is_active": existing.is_active,
-                "is_email_verified": False,
-                "otp_expires_in_minutes": OTP_TTL_MINUTES,
-                "created_at": existing.created_at,
-            }
+            raise HTTPException(status_code=409, detail="User already exists")
+            # --- OTP resend for unverified existing user (disabled) ---
+            # if getattr(existing, "is_email_verified", True):
+            #     raise HTTPException(status_code=409, detail="User already exists")
+            # try:
+            #     ph.verify(existing.password_hash, body.password)
+            # except VerifyMismatchError:
+            #     raise HTTPException(status_code=409, detail="User already exists")
+            # code = issue_otp(db, existing, SIGNUP_VERIFICATION_PURPOSE)
+            # send_signup_otp(existing.username, code)
+            # return {
+            #     "id": str(existing.id),
+            #     "username": existing.username,
+            #     "tenant": existing.tenant,
+            #     "is_active": existing.is_active,
+            #     "is_email_verified": False,
+            #     "otp_expires_in_minutes": OTP_TTL_MINUTES,
+            #     "created_at": existing.created_at,
+            # }
 
         user = User(
             username=username,
             password_hash=ph.hash(body.password),
             tenant=tenant,
             is_active=True,
-            is_email_verified=False,
+            is_email_verified=True,  # Email verification disabled
         )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-        code = issue_otp(db, user, SIGNUP_VERIFICATION_PURPOSE)
-        send_signup_otp(user.username, code)
+        # --- OTP signup verification (disabled) ---
+        # code = issue_otp(db, user, SIGNUP_VERIFICATION_PURPOSE)
+        # send_signup_otp(user.username, code)
+        # return {
+        #     "id": str(user.id),
+        #     "username": user.username,
+        #     "tenant": user.tenant,
+        #     "is_active": user.is_active,
+        #     "is_email_verified": False,
+        #     "otp_expires_in_minutes": OTP_TTL_MINUTES,
+        #     "created_at": user.created_at,
+        # }
 
-        return {
-            "id": str(user.id),
-            "username": user.username,
-            "tenant": user.tenant,
-            "is_active": user.is_active,
-            "is_email_verified": False,
-            "otp_expires_in_minutes": OTP_TTL_MINUTES,
-            "created_at": user.created_at,
-        }
+        auth_details = {"username": user.username, "login_method": "signup"}
+        token = _issue_token(username=user.username, tenant=tenant, auth_details=auth_details)
+        return TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            expires_in=_jwt_exp_minutes() * 60,
+        )
     except ProgrammingError as e:
         # e.g. (psycopg2.errors.UndefinedTable) relation "users" does not exist
         try:
