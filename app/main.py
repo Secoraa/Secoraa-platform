@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 
 # Configure logging so scanner logs are visible
 logging.basicConfig(
@@ -205,11 +206,43 @@ async def _redis_heartbeat():
         _redis_was_up = is_up
 
 
+def _recover_stale_scans() -> None:
+    """On startup, move any SCANNING pentests stuck for >2 hours back to FAILED."""
+    from datetime import timedelta
+    from app.database.session import SessionLocal
+    from app.database.models import Pentest, Scan
+
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(hours=2)
+        stale = (
+            db.query(Pentest)
+            .filter(Pentest.status == "SCANNING", Pentest.updated_at < cutoff)
+            .all()
+        )
+        for p in stale:
+            p.status = "FAILED"
+            p.updated_at = datetime.utcnow()
+            if p.last_scan_id:
+                scan = db.query(Scan).filter(Scan.id == p.last_scan_id).first()
+                if scan and scan.status == "IN_PROGRESS":
+                    scan.status = "FAILED"
+        if stale:
+            db.commit()
+            logger.info("Stale scan recovery: marked %d stuck pentest(s) as FAILED", len(stale))
+    except Exception:
+        db.rollback()
+        logger.exception("Stale scan recovery failed")
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def startup():
     try:
         run_migrations()
         start_schedule_worker()
+        _recover_stale_scans()
         print("✅ Database initialized")
     except Exception as e:
         print(f"⚠️ Startup warning: {e}")
