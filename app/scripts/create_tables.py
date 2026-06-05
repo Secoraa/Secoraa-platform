@@ -280,6 +280,11 @@ def add_pentest_columns():
             conn.execute(text("ALTER TABLE pentests ADD COLUMN rate_limit VARCHAR;"))
         if "authorized" not in existing_columns:
             conn.execute(text("ALTER TABLE pentests ADD COLUMN authorized BOOLEAN;"))
+        if "authorized_at" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN authorized_at TIMESTAMP;"))
+        if "authorized_ip" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN authorized_ip VARCHAR;"))
+        # Advisory-lock-based pentest_id requires no schema change — handled in API layer
 
 
 def run_migrations():

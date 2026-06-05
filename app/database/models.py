@@ -570,4 +570,8 @@ class Pentest(Base):
     rate_limit = Column(String, nullable=True)
     authorized = Column(Boolean, nullable=True)
 
+    # Authorization audit trail
+    authorized_at = Column(DateTime, nullable=True)
+    authorized_ip = Column(String, nullable=True)
+
 
