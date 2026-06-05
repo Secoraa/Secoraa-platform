@@ -531,6 +531,7 @@ class Pentest(Base):
     __tablename__ = "pentests"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pentest_id = Column(String, unique=True, nullable=True)  # PT-YYYY-###
     name = Column(String, nullable=False)
     pentest_type = Column(String, nullable=True)  # GREY_BOX | BLACK_BOX | WHITE_BOX
     assets = Column(JSON, nullable=True)  # [{type, id, value}, ...]
@@ -542,5 +543,31 @@ class Pentest(Base):
     created_by = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Wizard step 1 — basic details
+    description = Column(Text, nullable=True)
+    workspace = Column(String, nullable=True)
+    environment = Column(String, nullable=True)
+    priority = Column(String, nullable=True)
+    business_unit = Column(String, nullable=True)
+    tags = Column(ARRAY(String()), nullable=True)
+
+    # Wizard step 2 — target & scope
+    scan_types = Column(ARRAY(String()), nullable=True)
+    target_url = Column(Text, nullable=True)
+    network_range = Column(Text, nullable=True)
+    assessment_perspective = Column(String, nullable=True)
+
+    # Wizard step 3 — authentication
+    auth_type = Column(String, nullable=True)
+    auth_username = Column(String, nullable=True)
+    auth_password = Column(Text, nullable=True)  # stored encrypted
+    auth_api_key = Column(Text, nullable=True)   # stored encrypted
+    auth_notes = Column(Text, nullable=True)
+
+    # Wizard step 4 — scan configuration
+    frameworks = Column(ARRAY(String()), nullable=True)
+    rate_limit = Column(String, nullable=True)
+    authorized = Column(Boolean, nullable=True)
 
 

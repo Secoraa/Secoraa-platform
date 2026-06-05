@@ -241,6 +241,45 @@ def add_pentest_columns():
             conn.execute(text("ALTER TABLE pentests ALTER COLUMN target_value DROP NOT NULL;"))
         except Exception:
             pass
+        # Wizard v2 columns
+        if "pentest_id" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN pentest_id VARCHAR UNIQUE;"))
+        if "description" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN description TEXT;"))
+        if "workspace" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN workspace VARCHAR;"))
+        if "environment" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN environment VARCHAR;"))
+        if "priority" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN priority VARCHAR;"))
+        if "business_unit" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN business_unit VARCHAR;"))
+        if "tags" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN tags VARCHAR[];"))
+        if "scan_types" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN scan_types VARCHAR[];"))
+        if "target_url" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN target_url TEXT;"))
+        if "network_range" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN network_range TEXT;"))
+        if "assessment_perspective" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN assessment_perspective VARCHAR;"))
+        if "auth_type" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN auth_type VARCHAR;"))
+        if "auth_username" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN auth_username VARCHAR;"))
+        if "auth_password" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN auth_password TEXT;"))
+        if "auth_api_key" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN auth_api_key TEXT;"))
+        if "auth_notes" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN auth_notes TEXT;"))
+        if "frameworks" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN frameworks VARCHAR[];"))
+        if "rate_limit" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN rate_limit VARCHAR;"))
+        if "authorized" not in existing_columns:
+            conn.execute(text("ALTER TABLE pentests ADD COLUMN authorized BOOLEAN;"))
 
 
 def run_migrations():
