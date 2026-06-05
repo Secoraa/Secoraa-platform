@@ -800,3 +800,21 @@ export const updatePentest = async (pentestId, payload) => {
   }
 };
 
+export const downloadPentestPdf = async (pentestId) => {
+  try {
+    const response = await scanClient.get(`/pentests/${pentestId}/report.pdf`, { responseType: 'blob' });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to generate PDF report'));
+  }
+};
+
+export const downloadPentestCsv = async (pentestId) => {
+  try {
+    const response = await scanClient.get(`/pentests/${pentestId}/report.csv`, { responseType: 'blob' });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to export CSV'));
+  }
+};
+

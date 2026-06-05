@@ -287,12 +287,52 @@ def add_pentest_columns():
         # Advisory-lock-based pentest_id requires no schema change — handled in API layer
 
 
+def migrate_pentest_credentials():
+    """Re-encrypt legacy enc: blobs to enc:v1: (HKDF) in-place."""
+    if not inspect(engine).has_table("pentests"):
+        return
+    try:
+        from app.utils.crypto import decrypt_field, encrypt_field
+    except ImportError:
+        return
+
+    with engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT id, auth_password, auth_api_key FROM pentests "
+            "WHERE (auth_password LIKE 'enc:%' AND auth_password NOT LIKE 'enc:v1:%') "
+            "   OR (auth_api_key  LIKE 'enc:%' AND auth_api_key  NOT LIKE 'enc:v1:%')"
+        )).fetchall()
+
+    updated = 0
+    for row in rows:
+        pid, pwd, apikey = row
+        updates: dict = {}
+        if pwd and pwd.startswith("enc:") and not pwd.startswith("enc:v1:"):
+            pt = decrypt_field(pwd)
+            if pt and not pt.startswith("enc:"):
+                updates["auth_password"] = encrypt_field(pt)
+        if apikey and apikey.startswith("enc:") and not apikey.startswith("enc:v1:"):
+            pt = decrypt_field(apikey)
+            if pt and not pt.startswith("enc:"):
+                updates["auth_api_key"] = encrypt_field(pt)
+        if updates:
+            set_clause = ", ".join(f"{k}=:{k}" for k in updates)
+            updates["pid"] = pid
+            with engine.begin() as conn:
+                conn.execute(text(f"UPDATE pentests SET {set_clause} WHERE id=:pid"), updates)
+            updated += 1
+
+    if updated:
+        print(f"✅ Re-encrypted {updated} pentest credential record(s) to enc:v1:")
+
+
 def run_migrations():
     print("🚀 Running database migrations...")
     try:
         Base.metadata.create_all(bind=engine)
         add_missing_columns()
         add_pentest_columns()
+        migrate_pentest_credentials()
     except Exception as exc:
         print(f"❌ Migration failed: {exc}")
         raise
