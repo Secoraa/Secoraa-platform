@@ -6,11 +6,13 @@ import base64
 import hmac
 import hashlib
 import json
+import threading
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, List
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
@@ -20,7 +22,7 @@ from argon2.exceptions import VerifyMismatchError
 
 from app.database.models import User
 from app.database.session import get_db
-from app.services.email import send_password_reset_otp, send_signup_otp
+from app.services.email import is_email_configured, send_password_reset_otp, send_signup_otp
 from app.services.otp import (
     OTP_TTL_MINUTES,
     OtpError,
@@ -32,6 +34,93 @@ from app.services.otp import (
 SIGNUP_VERIFICATION_PURPOSE = "signup_verification"
 PASSWORD_RESET_PURPOSE = "password_reset"
 RESET_TOKEN_TTL_MINUTES = 15
+
+# ---------------------------------------------------------------------------
+# Login rate limiting
+# ---------------------------------------------------------------------------
+_RATE_WINDOW = 60      # seconds
+_RATE_MAX_FAILS = 5    # attempts before lockout
+
+# In-memory fallback (used when Redis is unavailable)
+_rl_lock = threading.Lock()
+_rl_store: Dict[str, List[float]] = {}
+
+
+def _rl_key(username: str, ip: str) -> str:
+    return f"login_fail:{username.strip().lower()}:{ip}"
+
+
+def _redis_client():
+    try:
+        import redis as _redis
+        r = _redis.Redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), socket_connect_timeout=1)
+        r.ping()
+        return r
+    except Exception:
+        return None
+
+
+def _check_rate_limit(username: str, ip: str) -> None:
+    key = _rl_key(username, ip)
+    r = _redis_client()
+    if r:
+        try:
+            count = r.get(key)
+            if count and int(count) >= _RATE_MAX_FAILS:
+                ttl = r.ttl(key)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Too many failed login attempts. Try again in {max(ttl, 1)} seconds.",
+                    headers={"Retry-After": str(max(ttl, 1))},
+                )
+            return
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Redis error — fall through to memory store
+
+    now = time.time()
+    with _rl_lock:
+        recent = [t for t in _rl_store.get(key, []) if now - t < _RATE_WINDOW]
+        if len(recent) >= _RATE_MAX_FAILS:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed login attempts. Try again in {_RATE_WINDOW} seconds.",
+                headers={"Retry-After": str(_RATE_WINDOW)},
+            )
+
+
+def _record_failure(username: str, ip: str) -> None:
+    key = _rl_key(username, ip)
+    r = _redis_client()
+    if r:
+        try:
+            pipe = r.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, _RATE_WINDOW)
+            pipe.execute()
+            return
+        except Exception:
+            pass
+
+    now = time.time()
+    with _rl_lock:
+        recent = [t for t in _rl_store.get(key, []) if now - t < _RATE_WINDOW]
+        recent.append(now)
+        _rl_store[key] = recent
+
+
+def _clear_failures(username: str, ip: str) -> None:
+    key = _rl_key(username, ip)
+    r = _redis_client()
+    if r:
+        try:
+            r.delete(key)
+            return
+        except Exception:
+            pass
+    with _rl_lock:
+        _rl_store.pop(key, None)
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -188,9 +277,17 @@ class TokenClaimsResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)) -> TokenResponse:
+    client_ip = (
+        (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
+
+    # Rate limit check before touching the DB
+    _check_rate_limit(body.username, client_ip)
+
     try:
-        # 1) Prefer DB-backed auth (signup/onboarding)
+        # 1) Prefer DB-backed auth
         user = db.query(User).filter(User.username == body.username).first()
         if user:
             if not getattr(user, "is_active", True):
@@ -198,23 +295,30 @@ def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
             try:
                 ph.verify(user.password_hash, body.password)
             except VerifyMismatchError:
+                _record_failure(body.username, client_ip)
                 raise HTTPException(status_code=401, detail="Invalid username or password")
-            # --- Email verification gate (disabled) ---
-            # if not getattr(user, "is_email_verified", True):
-            #     raise HTTPException(
-            #         status_code=403,
-            #         detail="Email not verified. Check your inbox for the verification code.",
-            #     )
+
+            # Email verification gate — only enforced when SMTP is configured
+            if is_email_configured() and not getattr(user, "is_email_verified", True):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Email not verified. Check your inbox for the verification code.",
+                )
+
             tenant = getattr(user, "tenant", None) or os.getenv("AUTH_TENANT", "default")
         else:
-            # 2) Fallback to env-based auth (optional)
-            _verify_env_credentials(body.username, body.password)
+            # 2) Fallback to env-based auth
+            try:
+                _verify_env_credentials(body.username, body.password)
+            except HTTPException:
+                _record_failure(body.username, client_ip)
+                raise
             tenant = os.getenv("AUTH_TENANT", "default")
 
-        auth_details = {
-            "username": body.username,
-            "login_method": "password",
-        }
+        # Successful login — clear failure counter
+        _clear_failures(body.username, client_ip)
+
+        auth_details = {"username": body.username, "login_method": "password"}
         token = _issue_token(username=body.username, tenant=tenant, auth_details=auth_details)
         return TokenResponse(
             access_token=token,
