@@ -14,6 +14,10 @@ def _smtp_configured() -> bool:
     return bool(os.getenv("SMTP_HOST") and os.getenv("SMTP_FROM"))
 
 
+def is_email_configured() -> bool:
+    return _smtp_configured()
+
+
 def send_email(
     to: str,
     subject: str,
