@@ -9,6 +9,10 @@ import HelpIcon from './HelpIcon';
 import DashboardIcon from './DashboardIcon';
 import AssetDiscoveryIcon from './AssetDiscoveryIcon';
 import PentestIcon from './PentestIcon';
+import PentestCreateIcon from './PentestCreateIcon';
+import PentestManageIcon from './PentestManageIcon';
+import PentestRunIcon from './PentestRunIcon';
+import PentestFindingsIcon from './PentestFindingsIcon';
 import './Sidebar.css';
 
 const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onToggle }) => {
@@ -27,10 +31,10 @@ const Sidebar = ({ activePage, setActivePage, tenant, username, collapsed, onTog
   ];
 
   const pentestItems = [
-    { id: 'pentest-create', label: 'Create Pentest', SvgComponent: AssetDiscoveryIcon },
-    { id: 'pentest-scan', label: 'Pentest', SvgComponent: ScanIcon },
-    { id: 'pentest-scan-entry', label: 'Pentest Scan', SvgComponent: ReportIcon },
-    { id: 'pentest-vulnerability', label: 'Pentest Vulnerability', SvgComponent: BugIcon },
+    { id: 'pentest-create', label: 'Create Pentest', SvgComponent: PentestCreateIcon },
+    { id: 'pentest-scan', label: 'Pentest', SvgComponent: PentestManageIcon },
+    { id: 'pentest-scan-entry', label: 'Pentest Scan', SvgComponent: PentestRunIcon },
+    { id: 'pentest-vulnerability', label: 'Pentest Vulnerability', SvgComponent: PentestFindingsIcon },
   ];
 
   const otherItems = [
